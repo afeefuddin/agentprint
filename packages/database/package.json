@@ -1,0 +1,16 @@
+{
+  "name": "@agentprint/database",
+  "version": "0.0.1",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@agentprint/analytics": "workspace:*",
+    "@agentprint/contracts": "workspace:*",
+    "pg": "^8.16.0"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.15.0"
+  }
+}

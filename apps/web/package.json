@@ -1,0 +1,30 @@
+{
+  "name": "@agentprint/web",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@agentprint/analytics": "workspace:*",
+    "@agentprint/contracts": "workspace:*",
+    "@agentprint/database": "workspace:*",
+    "cobe": "2.0.1",
+    "lucide-react": "^0.468.0",
+    "next": "^16.2.9",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "eslint": "^9.0.0",
+    "eslint-config-next": "^16.2.9",
+    "typescript": "^5.9.0"
+  }
+}

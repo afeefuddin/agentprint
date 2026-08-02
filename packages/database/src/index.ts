@@ -1,0 +1,659 @@
+import {
+  createHash,
+  randomBytes,
+  randomUUID,
+  scryptSync
+} from "node:crypto";
+import { Pool, type PoolClient, type QueryResultRow } from "pg";
+import { calculateStreaks, intensityFor, intensityThresholds } from "@agentprint/analytics";
+import type { OnboardingProfile, ProfilePatch, SyncBatch } from "@agentprint/contracts";
+
+const databaseUrl =
+  process.env.DATABASE_URL ??
+  "postgres://agentprint:agentprint@localhost:54329/agentprint";
+
+export const pool = new Pool({ connectionString: databaseUrl, max: 10 });
+
+export function hashSecret(value: string) {
+  return createHash("sha256").update(value).digest("hex");
+}
+
+export function hashPassword(password: string, salt = randomBytes(16).toString("hex")) {
+  const result = scryptSync(password, salt, 64).toString("hex");
+  return `${salt}:${result}`;
+}
+
+export function opaqueToken(bytes = 32) {
+  return randomBytes(bytes).toString("base64url");
+}
+
+async function one<T extends QueryResultRow>(
+  text: string,
+  values: unknown[] = [],
+  client: Pool | PoolClient = pool
+) {
+  const result = await client.query<T>(text, values);
+  return result.rows[0] ?? null;
+}
+
+export async function createAccount(input: {
+  email: string;
+  password: string;
+  handle: string;
+  displayName: string;
+  timezone: string;
+}) {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const user = await one<{ id: string }>(
+      `INSERT INTO users (email, password_hash)
+       VALUES ($1, $2) RETURNING id`,
+      [input.email, hashPassword(input.password)],
+      client
+    );
+    await client.query(
+      `INSERT INTO profiles (user_id, handle, display_name, timezone)
+       VALUES ($1, $2, $3, $4)`,
+      [user!.id, input.handle, input.displayName, input.timezone]
+    );
+    await client.query("COMMIT");
+    return user!;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function findOrCreateOAuthUser(input: {
+  provider: "github" | "google";
+  accountId: string;
+  email: string;
+}) {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const identity = await one<{ user_id: string; onboarding_complete: boolean }>(
+      `SELECT oa.user_id, p.onboarding_complete
+       FROM oauth_accounts oa JOIN profiles p ON p.user_id = oa.user_id
+       WHERE oa.provider = $1 AND oa.provider_account_id = $2`,
+      [input.provider, input.accountId],
+      client
+    );
+    if (identity) {
+      await client.query("COMMIT");
+      return { id: identity.user_id, created: false, onboardingComplete: identity.onboarding_complete };
+    }
+
+    const email = input.email.toLowerCase();
+    const existing = await one<{ id: string; onboarding_complete: boolean }>(
+      `SELECT u.id, p.onboarding_complete
+       FROM users u JOIN profiles p ON p.user_id = u.id
+       WHERE u.email = $1 FOR UPDATE OF u`,
+      [email],
+      client
+    );
+    if (existing) {
+      await client.query(
+        `INSERT INTO oauth_accounts (provider, provider_account_id, user_id)
+         VALUES ($1, $2, $3)`,
+        [input.provider, input.accountId, existing.id]
+      );
+      await client.query("COMMIT");
+      return { id: existing.id, created: false, onboardingComplete: existing.onboarding_complete };
+    }
+
+    const user = await one<{ id: string }>(
+      `INSERT INTO users (email, password_hash)
+       VALUES ($1, $2) RETURNING id`,
+      [email, hashPassword(opaqueToken())],
+      client
+    );
+    const placeholderHandle = `pending-${input.provider}-${hashSecret(`${input.provider}:${input.accountId}`).slice(0, 12)}`;
+    await client.query(
+      `INSERT INTO profiles (user_id, handle, display_name, timezone, onboarding_complete)
+       VALUES ($1, $2, 'New Agentprint user', 'UTC', false)`,
+      [user!.id, placeholderHandle]
+    );
+    await client.query(
+      `INSERT INTO oauth_accounts (provider, provider_account_id, user_id)
+       VALUES ($1, $2, $3)`,
+      [input.provider, input.accountId, user!.id]
+    );
+    await client.query("COMMIT");
+    return { id: user!.id, created: true, onboardingComplete: false };
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function createSession(userId: string) {
+  const token = opaqueToken();
+  await pool.query(
+    `INSERT INTO sessions (user_id, token_hash, expires_at)
+     VALUES ($1, $2, now() + interval '30 days')`,
+    [userId, hashSecret(token)]
+  );
+  return token;
+}
+
+export async function deleteSession(token: string) {
+  await pool.query("DELETE FROM sessions WHERE token_hash = $1", [hashSecret(token)]);
+}
+
+export type Viewer = {
+  id: string;
+  email: string;
+  handle: string;
+  display_name: string;
+  bio: string;
+  timezone: string;
+  is_public: boolean;
+  show_tokens: boolean;
+  show_cost: boolean;
+  show_harnesses: boolean;
+  show_models: boolean;
+  show_streaks: boolean;
+  onboarding_complete: boolean;
+  created_at: Date;
+};
+
+export async function getViewer(token?: string) {
+  if (!token) return null;
+  return one<Viewer>(
+    `SELECT u.id, u.email, u.created_at, p.handle, p.display_name, p.bio,
+            p.timezone, p.is_public, p.show_tokens, p.show_cost,
+            p.show_harnesses, p.show_models, p.show_streaks, p.onboarding_complete
+     FROM sessions s
+     JOIN users u ON u.id = s.user_id
+     JOIN profiles p ON p.user_id = u.id
+     WHERE s.token_hash = $1 AND s.expires_at > now()`,
+    [hashSecret(token)]
+  );
+}
+
+export async function createDeviceCode(clientName: string) {
+  const deviceCode = opaqueToken();
+  const userCode = Array.from({ length: 2 }, () =>
+    randomBytes(3).toString("hex").toUpperCase()
+  ).join("-");
+  await pool.query(
+    `INSERT INTO device_codes
+      (device_code_hash, user_code, client_name, expires_at)
+     VALUES ($1, $2, $3, now() + interval '10 minutes')`,
+    [hashSecret(deviceCode), userCode, clientName]
+  );
+  return { deviceCode, userCode, expiresIn: 600, interval: 2 };
+}
+
+export async function getDeviceCode(userCode: string) {
+  return one<{
+    user_code: string;
+    client_name: string;
+    status: string;
+    expires_at: Date;
+  }>(
+    `SELECT user_code, client_name, status, expires_at
+     FROM device_codes WHERE user_code = $1`,
+    [userCode.toUpperCase()]
+  );
+}
+
+export async function approveDeviceCode(userCode: string, userId: string) {
+  const result = await pool.query(
+    `UPDATE device_codes SET user_id = $1, status = 'approved'
+     WHERE user_code = $2 AND status = 'pending' AND expires_at > now()`,
+    [userId, userCode.toUpperCase()]
+  );
+  return result.rowCount === 1;
+}
+
+export async function exchangeDeviceCode(deviceCode: string) {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const code = await one<{ id: string; user_id: string; status: string }>(
+      `SELECT id, user_id, status FROM device_codes
+       WHERE device_code_hash = $1 AND expires_at > now() FOR UPDATE`,
+      [hashSecret(deviceCode)],
+      client
+    );
+    if (!code) return { status: "expired" as const };
+    if (code.status !== "approved") return { status: code.status as "pending" | "denied" };
+    const registrationToken = opaqueToken();
+    await client.query(
+      "UPDATE device_codes SET status = 'consumed' WHERE id = $1",
+      [code.id]
+    );
+    await client.query(
+      `INSERT INTO sessions (user_id, token_hash, expires_at)
+       VALUES ($1, $2, now() + interval '10 minutes')`,
+      [code.user_id, hashSecret(`device-registration:${registrationToken}`)]
+    );
+    await client.query("COMMIT");
+    return { status: "approved" as const, registrationToken };
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function registerDevice(input: {
+  registrationToken: string;
+  name: string;
+  platform: string;
+  agentVersion: string;
+  signingPublicKey: string;
+  sources: { harnessId: string; version?: string }[];
+}) {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const sessionHash = hashSecret(`device-registration:${input.registrationToken}`);
+    const registration = await one<{ id: string; user_id: string }>(
+      `SELECT id, user_id FROM sessions
+       WHERE token_hash = $1 AND expires_at > now() FOR UPDATE`,
+      [sessionHash],
+      client
+    );
+    if (!registration) return null;
+    const device = await one<{ id: string }>(
+      `INSERT INTO devices (user_id, name, platform, agent_version, last_seen_at)
+       VALUES ($1, $2, $3, $4, now()) RETURNING id`,
+      [registration.user_id, input.name, input.platform, input.agentVersion],
+      client
+    );
+    const credential = opaqueToken();
+    await client.query(
+      `INSERT INTO device_credentials (device_id, credential_hash, signing_public_key)
+       VALUES ($1, $2, $3)`,
+      [device!.id, hashSecret(credential), input.signingPublicKey]
+    );
+    for (const source of input.sources) {
+      await client.query(
+        `INSERT INTO device_sources (device_id, harness_id, version)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (device_id, harness_id)
+         DO UPDATE SET version = excluded.version`,
+        [device!.id, source.harnessId, source.version ?? null]
+      );
+    }
+    await client.query("DELETE FROM sessions WHERE id = $1", [registration.id]);
+    await client.query("COMMIT");
+    return { deviceId: device!.id, credential };
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function authenticateDevice(authorization?: string | null) {
+  if (!authorization?.startsWith("Bearer ")) return null;
+  return one<{ id: string; user_id: string; paused: boolean; signing_public_key: string | null }>(
+    `SELECT d.id, d.user_id, d.paused, c.signing_public_key
+     FROM device_credentials c
+     JOIN devices d ON d.id = c.device_id
+     WHERE c.credential_hash = $1 AND d.revoked_at IS NULL`,
+    [hashSecret(authorization.slice(7))]
+  );
+}
+
+export async function revokeAuthenticatedDevice(deviceId: string) {
+  await pool.query(
+    "UPDATE devices SET revoked_at = now() WHERE id = $1 AND revoked_at IS NULL",
+    [deviceId]
+  );
+}
+
+export async function ingestBatch(
+  device: { id: string; user_id: string },
+  batch: SyncBatch
+) {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const existing = await one<{
+      id: string;
+      accepted_count: number;
+      duplicate_count: number;
+      rejected_count: number;
+    }>(
+      `SELECT id, accepted_count, duplicate_count, rejected_count
+       FROM sync_batches WHERE device_id = $1 AND batch_id = $2`,
+      [device.id, batch.batch_id],
+      client
+    );
+    if (existing) {
+      await client.query("ROLLBACK");
+      return {
+        acknowledgement: existing.id,
+        accepted: existing.accepted_count,
+        duplicate: existing.duplicate_count,
+        rejected: existing.rejected_count,
+        replay: true
+      };
+    }
+
+    let accepted = 0;
+    let duplicate = 0;
+    for (const record of batch.records) {
+      const inserted = await one<{ id: string }>(
+        `INSERT INTO usage_events (
+          user_id, device_id, event_id, schema_version, occurred_at, local_date,
+          harness_id, harness_version, provider_id, model_id, input_tokens,
+          output_tokens, cached_input_tokens, reasoning_tokens, total_tokens,
+          estimated_cost_micros, cost_basis, source_fingerprint
+        ) VALUES (
+          $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18
+        ) ON CONFLICT (user_id, event_id) DO NOTHING RETURNING id`,
+        [
+          device.user_id, device.id, record.event_id, record.schema_version,
+          record.occurred_at, record.local_date, record.harness_id,
+          record.harness_version ?? null, record.provider_id ?? null,
+          record.model_id ?? null, record.input_tokens, record.output_tokens,
+          record.cached_input_tokens ?? null, record.reasoning_tokens ?? null,
+          record.total_tokens, record.estimated_cost_micros ?? null,
+          record.cost_basis ?? null, record.source_fingerprint
+        ],
+        client
+      );
+      if (!inserted) {
+        duplicate += 1;
+        continue;
+      }
+      accepted += 1;
+      await client.query(
+        `INSERT INTO daily_usage (
+          user_id, local_date, harness_id, model_id, input_tokens, output_tokens,
+          total_tokens, estimated_cost_micros, event_count
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,1)
+        ON CONFLICT (user_id, local_date, harness_id, model_id) DO UPDATE SET
+          input_tokens = daily_usage.input_tokens + excluded.input_tokens,
+          output_tokens = daily_usage.output_tokens + excluded.output_tokens,
+          total_tokens = daily_usage.total_tokens + excluded.total_tokens,
+          estimated_cost_micros = daily_usage.estimated_cost_micros + excluded.estimated_cost_micros,
+          event_count = daily_usage.event_count + 1`,
+        [
+          device.user_id, record.local_date, record.harness_id,
+          record.model_id ?? "unknown", record.input_tokens, record.output_tokens,
+          record.total_tokens, record.estimated_cost_micros ?? 0
+        ]
+      );
+    }
+    const receipt = await one<{ id: string }>(
+      `INSERT INTO sync_batches (
+        device_id, batch_id, accepted_count, duplicate_count, rejected_count
+       ) VALUES ($1, $2, $3, $4, 0) RETURNING id`,
+      [device.id, batch.batch_id, accepted, duplicate],
+      client
+    );
+    await client.query(
+      "UPDATE devices SET last_sync_at = now(), last_seen_at = now() WHERE id = $1",
+      [device.id]
+    );
+    await client.query("COMMIT");
+    return {
+      acknowledgement: receipt!.id,
+      accepted,
+      duplicate,
+      rejected: 0,
+      replay: false
+    };
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function getSyncBatch(deviceId: string, receiptId: string) {
+  return one<{
+    id: string;
+    batch_id: string;
+    accepted_count: number;
+    duplicate_count: number;
+    rejected_count: number;
+    created_at: Date;
+  }>(
+    `SELECT id, batch_id, accepted_count, duplicate_count, rejected_count, created_at
+     FROM sync_batches WHERE id = $1 AND device_id = $2`,
+    [receiptId, deviceId]
+  );
+}
+
+export async function listDevices(userId: string) {
+  const result = await pool.query(
+    `SELECT d.id, d.name, d.platform, d.agent_version, d.last_sync_at,
+            d.last_seen_at, d.paused, d.revoked_at, d.created_at,
+            COALESCE(json_agg(json_build_object(
+              'harness_id', ds.harness_id,
+              'status', ds.status,
+              'version', ds.version
+            )) FILTER (WHERE ds.harness_id IS NOT NULL), '[]') AS sources
+     FROM devices d
+     LEFT JOIN device_sources ds ON ds.device_id = d.id
+     WHERE d.user_id = $1
+     GROUP BY d.id ORDER BY d.created_at DESC`,
+    [userId]
+  );
+  return result.rows;
+}
+
+export async function revokeDevice(userId: string, deviceId: string) {
+  const result = await pool.query(
+    `UPDATE devices SET revoked_at = now()
+     WHERE id = $1 AND user_id = $2 AND revoked_at IS NULL`,
+    [deviceId, userId]
+  );
+  return result.rowCount === 1;
+}
+
+export async function updateProfile(userId: string, patch: ProfilePatch) {
+  const entries = Object.entries(patch);
+  if (!entries.length) return;
+  const columns = entries.map(
+    ([key], index) => `${key} = $${index + 2}`
+  );
+  if (patch.is_public) columns.push("published_at = COALESCE(published_at, now())");
+  columns.push("updated_at = now()");
+  await pool.query(
+    `UPDATE profiles SET ${columns.join(", ")} WHERE user_id = $1`,
+    [userId, ...entries.map(([, value]) => value)]
+  );
+}
+
+export async function completeOnboardingProfile(userId: string, profile: OnboardingProfile) {
+  const result = await pool.query(
+    `UPDATE profiles
+     SET handle = $2, display_name = $3, timezone = $4,
+         onboarding_complete = true, updated_at = now()
+     WHERE user_id = $1 AND onboarding_complete = false`,
+    [userId, profile.handle, profile.display_name, profile.timezone]
+  );
+  return result.rowCount === 1;
+}
+
+export async function getProfile(handle: string, viewerId?: string) {
+  const profile = await one<Viewer>(
+    `SELECT u.id, u.email, u.created_at, p.handle, p.display_name, p.bio,
+            p.timezone, p.is_public, p.show_tokens, p.show_cost,
+            p.show_harnesses, p.show_models, p.show_streaks, p.onboarding_complete
+     FROM profiles p JOIN users u ON u.id = p.user_id
+     WHERE p.handle = $1 AND (p.is_public OR p.user_id = $2)`,
+    [handle, viewerId ?? null]
+  );
+  if (!profile) return null;
+
+  const dailyResult = await pool.query<{
+    local_date: string;
+    harness_id: string;
+    model_id: string;
+    total_tokens: string;
+    estimated_cost_micros: string;
+    event_count: number;
+  }>(
+    `SELECT local_date::text, harness_id, model_id,
+            total_tokens::text, estimated_cost_micros::text, event_count
+     FROM daily_usage
+     WHERE user_id = $1 AND local_date >= current_date - interval '1 year'
+     ORDER BY local_date`,
+    [profile.id]
+  );
+  const daily = dailyResult.rows;
+  const byDate = new Map<string, {
+    date: string;
+    tokens: number;
+    costMicros: number;
+    events: number;
+    harnesses: Record<string, number>;
+  }>();
+  const harnesses: Record<string, number> = {};
+  const models: Record<string, number> = {};
+  for (const row of daily) {
+    const tokens = Number(row.total_tokens);
+    const day = byDate.get(row.local_date) ?? {
+      date: row.local_date,
+      tokens: 0,
+      costMicros: 0,
+      events: 0,
+      harnesses: {}
+    };
+    day.tokens += tokens;
+    day.costMicros += Number(row.estimated_cost_micros);
+    day.events += row.event_count;
+    day.harnesses[row.harness_id] = (day.harnesses[row.harness_id] ?? 0) + tokens;
+    byDate.set(row.local_date, day);
+    harnesses[row.harness_id] = (harnesses[row.harness_id] ?? 0) + tokens;
+    models[row.model_id] = (models[row.model_id] ?? 0) + tokens;
+  }
+  const activity = [...byDate.values()];
+  const totalTokens = activity.reduce((sum, day) => sum + day.tokens, 0);
+  const estimatedCostMicros = activity.reduce((sum, day) => sum + day.costMicros, 0);
+  const today = new Intl.DateTimeFormat("en-CA", {
+    timeZone: profile.timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).format(new Date());
+  const streaks = calculateStreaks(
+    activity.map((day) => ({ localDate: day.date, totalTokens: day.tokens })),
+    today
+  );
+  const summary: {
+    totalTokens: number;
+    estimatedCostMicros: number;
+    activeDays: number;
+    currentStreak: number;
+    longestStreak: number;
+    mostUsedHarness: string | null;
+  } = {
+    totalTokens,
+    estimatedCostMicros,
+    activeDays: activity.length,
+    currentStreak: streaks.current,
+    longestStreak: streaks.longest,
+    mostUsedHarness:
+      Object.entries(harnesses).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null
+  };
+  const result = {
+    profile,
+    activity,
+    harnesses,
+    models,
+    thresholds: intensityThresholds(activity.map((day) => day.tokens)),
+    summary
+  };
+  const isOwner = viewerId === profile.id;
+  if (!isOwner) {
+    if (!profile.show_tokens) {
+      result.activity = result.activity.map((day) => ({
+        ...day,
+        tokens: intensityFor(day.tokens, result.thresholds),
+        harnesses: profile.show_harnesses
+          ? Object.fromEntries(Object.entries(day.harnesses).map(([key, value]) => [
+              key,
+              day.tokens > 0 ? value / day.tokens : 0
+            ]))
+          : {}
+      }));
+      result.thresholds = [1, 2, 3, 4];
+      result.summary.totalTokens = 0;
+    }
+    if (!profile.show_cost) {
+      result.activity = result.activity.map((day) => ({ ...day, costMicros: 0 }));
+      result.summary.estimatedCostMicros = 0;
+    }
+    if (!profile.show_harnesses) {
+      result.harnesses = {};
+      result.activity = result.activity.map((day) => ({ ...day, harnesses: {} }));
+      result.summary.mostUsedHarness = null;
+    }
+    if (!profile.show_models) result.models = {};
+    if (!profile.show_streaks) {
+      result.summary.currentStreak = 0;
+      result.summary.longestStreak = 0;
+    }
+  }
+  return result;
+}
+
+export async function usageExport(userId: string) {
+  const user = await one<{ email: string; created_at: Date }>(
+    "SELECT email, created_at FROM users WHERE id = $1",
+    [userId]
+  );
+  const profile = await one<Record<string, unknown>>(
+    "SELECT * FROM profiles WHERE user_id = $1",
+    [userId]
+  );
+  const devices = await listDevices(userId);
+  const usage = await pool.query(
+    `SELECT event_id, schema_version, occurred_at, local_date, harness_id,
+            harness_version, provider_id, model_id, input_tokens::text,
+            output_tokens::text, cached_input_tokens::text,
+            reasoning_tokens::text, total_tokens::text,
+            estimated_cost_micros::text, cost_basis, source_fingerprint
+     FROM usage_events WHERE user_id = $1 ORDER BY occurred_at`,
+    [userId]
+  );
+  return { exportedAt: new Date().toISOString(), account: user, profile, devices, usage: usage.rows };
+}
+
+export async function deleteAccount(userId: string) {
+  await pool.query("DELETE FROM users WHERE id = $1", [userId]);
+}
+
+export function uuid() {
+  return randomUUID();
+}
+
+export async function consumeRateLimit(key: string, maximum: number, windowSeconds: number) {
+  const result = await one<{ request_count: number }>(
+    `INSERT INTO api_rate_limits (key, window_started_at, request_count)
+     VALUES ($1, now(), 1)
+     ON CONFLICT (key) DO UPDATE SET
+       request_count = CASE
+         WHEN api_rate_limits.window_started_at < now() - make_interval(secs => $2)
+           THEN 1
+         ELSE api_rate_limits.request_count + 1
+       END,
+       window_started_at = CASE
+         WHEN api_rate_limits.window_started_at < now() - make_interval(secs => $2)
+           THEN now()
+         ELSE api_rate_limits.window_started_at
+       END
+     RETURNING request_count`,
+    [key, windowSeconds]
+  );
+  return (result?.request_count ?? maximum + 1) <= maximum;
+}

@@ -1,0 +1,13 @@
+import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import { deleteSession } from "@agentprint/database";
+import { SESSION_COOKIE } from "@/lib/auth";
+
+export async function POST(request: Request) {
+  const jar = await cookies();
+  const token = jar.get(SESSION_COOKIE)?.value;
+  if (token) await deleteSession(token);
+  const response = NextResponse.redirect(new URL("/", request.url), 303);
+  response.cookies.delete(SESSION_COOKIE);
+  return response;
+}

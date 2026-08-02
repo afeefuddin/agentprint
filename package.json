@@ -1,0 +1,30 @@
+{
+  "name": "agentprint",
+  "private": true,
+  "packageManager": "bun@1.3.9",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "bun --env-file=../../.env --cwd apps/web dev",
+    "build": "bun --cwd apps/web build",
+    "start": "bun --cwd apps/web start",
+    "lint": "bun --cwd apps/web lint",
+    "typecheck": "bun --cwd apps/web typecheck",
+    "test": "bun test packages && bun run test:go",
+    "test:go": "cd cli && go test ./...",
+    "test:e2e": "playwright test",
+    "cli:build": "cd cli && go build -o agentprint ./cmd/agentprint",
+    "cli:release": "sh scripts/build-local-releases.sh",
+    "db:migrate": "bun packages/database/src/migrate.ts",
+    "db:seed": "bun packages/database/src/seed.ts",
+    "db:reset": "bun packages/database/src/reset.ts",
+    "check": "bun run lint && bun run typecheck && bun run test && bun run build"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0",
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.0"
+  }
+}
