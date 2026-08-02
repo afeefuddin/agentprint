@@ -23,7 +23,7 @@ import (
 	syncclient "github.com/agentprint/agentprint/cli/internal/sync"
 )
 
-const version = "0.1.0"
+const version = "0.1.1"
 
 type app struct {
 	configManager *config.Manager

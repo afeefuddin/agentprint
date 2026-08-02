@@ -107,6 +107,50 @@ describe("ingestion and public profile boundaries", () => {
     const ownerProfile = await getProfile(handle, userId);
     expect(ownerProfile?.summary.totalTokens).toBe(125);
     expect(ownerProfile?.models).toEqual({ "hidden-model": 125 });
+
+    const unknownEventId = `unknown-${randomUUID()}`;
+    const unknownRecord = {
+      ...record,
+      event_id: unknownEventId,
+      model_id: undefined,
+      input_tokens: 40,
+      output_tokens: 10,
+      total_tokens: 50,
+      estimated_cost_micros: undefined,
+      cost_basis: undefined
+    };
+    const unknown = await ingestBatch(
+      { id: device!.deviceId, user_id: userId },
+      { ...batch, batch_id: randomUUID(), records: [unknownRecord] }
+    );
+    expect(unknown.accepted).toBe(1);
+
+    const enriched = await ingestBatch(
+      { id: device!.deviceId, user_id: userId },
+      {
+        ...batch,
+        batch_id: randomUUID(),
+        records: [{ ...unknownRecord, model_id: "gpt-5.6-sol" }]
+      }
+    );
+    expect(enriched.accepted).toBe(0);
+    expect(enriched.duplicate).toBe(1);
+
+    const enrichedEvent = await pool.query(
+      "SELECT model_id FROM usage_events WHERE user_id = $1 AND event_id = $2",
+      [userId, unknownEventId]
+    );
+    expect(enrichedEvent.rows[0].model_id).toBe("gpt-5.6-sol");
+
+    const modelTotals = await pool.query(
+      `SELECT model_id, total_tokens::int AS total, event_count
+       FROM daily_usage WHERE user_id = $1 ORDER BY model_id`,
+      [userId]
+    );
+    expect(modelTotals.rows).toEqual([
+      { model_id: "gpt-5.6-sol", total: 50, event_count: 1 },
+      { model_id: "hidden-model", total: 125, event_count: 1 }
+    ]);
   });
 });
 

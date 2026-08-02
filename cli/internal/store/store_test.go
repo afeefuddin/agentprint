@@ -34,6 +34,22 @@ func TestQueueDeduplicatesAndAcknowledges(t *testing.T) {
 	if len(pending) != 1 {
 		t.Fatalf("expected one pending record")
 	}
+	enriched := record
+	enriched.ModelID = "gpt-5.6-sol"
+	inserted, err = local.Queue(context.Background(), "synthetic", []adapters.UsageRecord{enriched}, "two")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if inserted != 0 {
+		t.Fatalf("expected model enrichment not to insert a duplicate, got %d", inserted)
+	}
+	pending, err = local.Pending(context.Background(), 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pending[0].Record.ModelID != "gpt-5.6-sol" {
+		t.Fatalf("expected queued record model enrichment, got %q", pending[0].Record.ModelID)
+	}
 	if err := local.Acknowledge(context.Background(), "batch", []int64{pending[0].ID}, "{}"); err != nil {
 		t.Fatal(err)
 	}

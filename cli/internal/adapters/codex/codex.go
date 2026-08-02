@@ -15,6 +15,7 @@ import (
 )
 
 const maxMetadataLineBytes = 2 * 1024 * 1024
+const cursorVersion = "model-v1:"
 
 type Adapter struct {
 	Root     string
@@ -27,7 +28,7 @@ func New(home string, location *time.Location) *Adapter {
 
 func (adapter *Adapter) ID() string { return "codex" }
 func (adapter *Adapter) Capabilities() adapters.CapabilitySet {
-	return adapters.CapabilitySet{Tokens: true, Model: false, Cost: false}
+	return adapters.CapabilitySet{Tokens: true, Model: true, Cost: false}
 }
 func (adapter *Adapter) Detect(context.Context) adapters.DetectionResult {
 	info, err := os.Stat(adapter.Root)
@@ -44,9 +45,11 @@ func (adapter *Adapter) Validate(context.Context) adapters.HealthResult {
 
 type envelope struct {
 	Timestamp string `json:"timestamp"`
+	Type      string `json:"type"`
 	Payload   struct {
-		Type string `json:"type"`
-		Info *struct {
+		Type  string `json:"type"`
+		Model string `json:"model"`
+		Info  *struct {
 			Last *struct {
 				Input     int64 `json:"input_tokens"`
 				Cached    int64 `json:"cached_input_tokens"`
@@ -60,7 +63,10 @@ type envelope struct {
 
 func (adapter *Adapter) Collect(ctx context.Context, cursor string) ([]adapters.UsageRecord, string, error) {
 	var records []adapters.UsageRecord
-	maxModified, _ := strconv.ParseInt(cursor, 10, 64)
+	maxModified := int64(0)
+	if strings.HasPrefix(cursor, cursorVersion) {
+		maxModified, _ = strconv.ParseInt(strings.TrimPrefix(cursor, cursorVersion), 10, 64)
+	}
 	nextCursor := maxModified
 	err := filepath.WalkDir(adapter.Root, func(path string, entry os.DirEntry, err error) error {
 		if err != nil || entry.IsDir() || !strings.HasSuffix(path, ".jsonl") {
@@ -89,6 +95,7 @@ func (adapter *Adapter) Collect(ctx context.Context, cursor string) ([]adapters.
 		defer file.Close()
 		reader := bufio.NewReader(file)
 		line := 0
+		model := ""
 		for {
 			body, oversized, readErr := readMetadataLine(reader)
 			if readErr != nil && readErr != io.EOF {
@@ -99,7 +106,11 @@ func (adapter *Adapter) Collect(ctx context.Context, cursor string) ([]adapters.
 			}
 			line++
 			if !oversized {
-				if record, ok := adapter.usageRecord(path, line, body); ok {
+				var item envelope
+				if json.Unmarshal(body, &item) == nil && item.Type == "turn_context" {
+					model = item.Payload.Model
+				}
+				if record, ok := adapter.usageRecord(path, line, body, model); ok {
 					records = append(records, record)
 				}
 			}
@@ -109,10 +120,10 @@ func (adapter *Adapter) Collect(ctx context.Context, cursor string) ([]adapters.
 		}
 		return nil
 	})
-	return records, strconv.FormatInt(nextCursor, 10), err
+	return records, cursorVersion + strconv.FormatInt(nextCursor, 10), err
 }
 
-func (adapter *Adapter) usageRecord(path string, line int, body []byte) (adapters.UsageRecord, bool) {
+func (adapter *Adapter) usageRecord(path string, line int, body []byte, model string) (adapters.UsageRecord, bool) {
 	var item envelope
 	if json.Unmarshal(body, &item) != nil || item.Payload.Type != "token_count" || item.Payload.Info == nil || item.Payload.Info.Last == nil {
 		return adapters.UsageRecord{}, false
@@ -127,7 +138,7 @@ func (adapter *Adapter) usageRecord(path string, line int, body []byte) (adapter
 		EventID: adapters.StableID(path, strconv.Itoa(line), item.Timestamp), SchemaVersion: 1,
 		OccurredAt: timestamp.UTC().Format(time.RFC3339Nano),
 		LocalDate:  adapters.LocalDate(timestamp, adapter.Location),
-		HarnessID:  "codex", ProviderID: "openai",
+		HarnessID:  "codex", ProviderID: "openai", ModelID: model,
 		InputTokens: usage.Input, OutputTokens: usage.Output,
 		CachedInputTokens: &cached, ReasoningTokens: &reasoning,
 		TotalTokens:       usage.Total,

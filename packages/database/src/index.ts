@@ -368,6 +368,68 @@ export async function ingestBatch(
       );
       if (!inserted) {
         duplicate += 1;
+        if (record.model_id) {
+          const enriched = await one<{
+            local_date: string;
+            harness_id: string;
+            input_tokens: string;
+            output_tokens: string;
+            total_tokens: string;
+            estimated_cost_micros: string | null;
+          }>(
+            `UPDATE usage_events
+             SET model_id = $3
+             WHERE user_id = $1 AND event_id = $2 AND model_id IS NULL
+             RETURNING local_date::text, harness_id, input_tokens::text,
+                       output_tokens::text, total_tokens::text,
+                       estimated_cost_micros::text`,
+            [device.user_id, record.event_id, record.model_id],
+            client
+          );
+          if (enriched) {
+            const decremented = await client.query(
+              `UPDATE daily_usage
+               SET input_tokens = input_tokens - $4,
+                   output_tokens = output_tokens - $5,
+                   total_tokens = total_tokens - $6,
+                   estimated_cost_micros = estimated_cost_micros - $7,
+                   event_count = event_count - 1
+               WHERE user_id = $1 AND local_date = $2 AND harness_id = $3
+                 AND model_id = 'unknown'`,
+              [
+                device.user_id, enriched.local_date, enriched.harness_id,
+                enriched.input_tokens, enriched.output_tokens, enriched.total_tokens,
+                enriched.estimated_cost_micros ?? 0
+              ]
+            );
+            if (decremented.rowCount !== 1) {
+              throw new Error("missing unknown model aggregate during event enrichment");
+            }
+            await client.query(
+              `DELETE FROM daily_usage
+               WHERE user_id = $1 AND local_date = $2 AND harness_id = $3
+                 AND model_id = 'unknown' AND event_count = 0`,
+              [device.user_id, enriched.local_date, enriched.harness_id]
+            );
+            await client.query(
+              `INSERT INTO daily_usage (
+                user_id, local_date, harness_id, model_id, input_tokens, output_tokens,
+                total_tokens, estimated_cost_micros, event_count
+              ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,1)
+              ON CONFLICT (user_id, local_date, harness_id, model_id) DO UPDATE SET
+                input_tokens = daily_usage.input_tokens + excluded.input_tokens,
+                output_tokens = daily_usage.output_tokens + excluded.output_tokens,
+                total_tokens = daily_usage.total_tokens + excluded.total_tokens,
+                estimated_cost_micros = daily_usage.estimated_cost_micros + excluded.estimated_cost_micros,
+                event_count = daily_usage.event_count + 1`,
+              [
+                device.user_id, enriched.local_date, enriched.harness_id, record.model_id,
+                enriched.input_tokens, enriched.output_tokens, enriched.total_tokens,
+                enriched.estimated_cost_micros ?? 0
+              ]
+            );
+          }
+        }
         continue;
       }
       accepted += 1;

@@ -104,6 +104,14 @@ func (store *Store) Queue(ctx context.Context, adapterID string, records []adapt
 		}
 		if count, _ := result.RowsAffected(); count == 1 {
 			inserted++
+		} else if record.ModelID != "" {
+			if _, err := transaction.ExecContext(ctx,
+				"UPDATE queue SET record_json = ? WHERE event_id = ?",
+				body, record.EventID,
+			); err != nil {
+				transaction.Rollback()
+				return 0, err
+			}
 		}
 	}
 	_, err = transaction.ExecContext(ctx,
