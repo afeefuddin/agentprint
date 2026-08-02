@@ -160,6 +160,29 @@ export default async function Home() {
           </div>
         </section>
 
+        <section className="open-source-section shell" aria-labelledby="open-source-title">
+          <a
+            className="open-source-card"
+            href="https://github.com/afeefuddin/agentprint"
+            target="_blank"
+            rel="noreferrer"
+          >
+            <div className="open-source-mark" aria-hidden="true">
+              <Image src="/brands/github.svg" alt="" width={42} height={42} />
+            </div>
+            <div className="open-source-copy">
+              <span>Built in the open</span>
+              <h2 id="open-source-title">Agentprint is open source.</h2>
+              <p>Inspect the code, follow development, or make it better with us.</p>
+            </div>
+            <div className="open-source-repo">
+              <Image src="/brands/github.svg" alt="" width={18} height={18} />
+              <span>afeefuddin/agentprint</span>
+              <ArrowRight size={17} />
+            </div>
+          </a>
+        </section>
+
         <section className="claim-section">
           <div className="shell claim-layout">
             <div className="claim-copy">

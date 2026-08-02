@@ -1,10 +1,12 @@
 <p align="center">
-  <img src="apps/web/public/brand/agentprint-lockup.svg" width="320" alt="Agentprint" />
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="apps/web/public/brand/agentprint-lockup-dark.svg">
+    <img src="apps/web/public/brand/agentprint-lockup.svg" width="320" alt="Agentprint">
+  </picture>
 </p>
 
 Agentprint is a private-by-default proof-of-work profile for developers who
-build with AI agents. This repository is a clean implementation of
-[`PRODUCT_PLAN.md`](./PRODUCT_PLAN.md).
+build with AI agents.
 
 The web app includes GitHub and Google sign-in, device-code authentication, a
 responsive public profile and accessible contribution field, per-metric privacy

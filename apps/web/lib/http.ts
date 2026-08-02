@@ -46,6 +46,9 @@ export function notFound(message = "The requested resource was not found.") {
 }
 
 export function requestUrl(request: Request, path: string) {
+  const appUrl = process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL;
+  if (appUrl) return new URL(path, appUrl);
+
   const headers = request.headers;
   const host = headers.get("x-forwarded-host") ?? headers.get("host");
   const protocol = headers.get("x-forwarded-proto") ?? (
