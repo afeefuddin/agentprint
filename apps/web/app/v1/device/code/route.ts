@@ -14,7 +14,7 @@ export async function POST(request: Request) {
   const { data, response } = await parseJson(request, schema);
   if (response) return response;
   const code = await createDeviceCode(data.client_name);
-  const appUrl = process.env.APP_URL ?? "http://localhost:3000";
+  const appUrl = process.env.APP_URL ?? "https://agentprint.tech";
   return NextResponse.json({
     device_code: code.deviceCode,
     user_code: code.userCode,

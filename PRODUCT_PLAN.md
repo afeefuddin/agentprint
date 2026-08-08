@@ -147,7 +147,7 @@ without changing the internal architecture.
 macOS/Linux:
 
 ```sh
-curl -fsSL https://agentprint.dev/install.sh | sh
+curl -fsSL https://agentprint.tech/install.sh | sh
 agentprint login
 agentprint status
 ```
@@ -155,7 +155,7 @@ agentprint status
 Windows:
 
 ```powershell
-irm https://agentprint.dev/install.ps1 | iex
+irm https://agentprint.tech/install.ps1 | iex
 agentprint login
 agentprint status
 ```
@@ -329,6 +329,12 @@ GET  /v1/me/devices
 DELETE /v1/me/devices/:id
 GET  /v1/me/usage
 PATCH /v1/me/profile
+GET  /v1/me/friends
+POST /v1/me/friends
+GET  /v1/me/friends/search?handle=:handle
+PATCH /v1/me/friends/:id
+DELETE /v1/me/friends/:id
+GET  /v1/me/friends/:id/comparison?window=7|30|90
 GET  /v1/profiles/:handle
 GET  /v1/profiles/:handle/activity
 GET  /v1/profiles/:handle/card.svg
@@ -361,6 +367,8 @@ Never collected:
 
 - Private profile by default.
 - Independently hide token totals, cost, harness mix, model mix, and streaks.
+- Friend comparison is off by default and requires both accepted friends to opt in.
+- Comparison exposes only the intersection of metrics both friends have chosen to show.
 - Pause collection without uninstalling.
 - Revoke a device remotely.
 - Export normalized personal data.
@@ -401,6 +409,7 @@ The public page is the primary shareable artifact:
 - Private usage explorer.
 - Profile visibility controls.
 - Pricing/cost provenance.
+- Exact-handle friend requests, accepted friends, and private rolling comparisons.
 - Export and deletion controls.
 
 ### Onboarding

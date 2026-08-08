@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -16,6 +17,79 @@ import (
 	"github.com/agentprint/agentprint/cli/internal/adapters"
 	"github.com/agentprint/agentprint/cli/internal/store"
 )
+
+func TestSyncAllDrainsMoreThanOneBatch(t *testing.T) {
+	_, privateKey, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var batchSizes []int
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		compressed, err := io.ReadAll(request.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		reader, err := gzip.NewReader(bytesReader(compressed))
+		if err != nil {
+			t.Fatal(err)
+		}
+		payload, err := io.ReadAll(reader)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var batch struct {
+			Records []adapters.UsageRecord `json:"records"`
+		}
+		if err := json.Unmarshal(payload, &batch); err != nil {
+			t.Fatal(err)
+		}
+		batchSizes = append(batchSizes, len(batch.Records))
+		response.Header().Set("Content-Type", "application/json")
+		fmt.Fprintf(response, `{"batch_id":"batch","acknowledgement":"receipt","accepted":%d,"duplicate":0,"rejected":0,"replay":false}`, len(batch.Records))
+	}))
+	defer server.Close()
+
+	local, err := store.Open(filepath.Join(t.TempDir(), "queue.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer local.Close()
+	records := make([]adapters.UsageRecord, 4_501)
+	for index := range records {
+		records[index] = adapters.UsageRecord{
+			EventID: fmt.Sprintf("event-%d", index), SchemaVersion: 1,
+			OccurredAt: "2026-07-29T09:30:00Z", LocalDate: "2026-07-29",
+			HarnessID: "synthetic", InputTokens: 10, OutputTokens: 5,
+			TotalTokens: 15, SourceFingerprint: fmt.Sprintf("source-%d", index),
+		}
+	}
+	if _, err := local.Queue(context.Background(), "synthetic", records, "done"); err != nil {
+		t.Fatal(err)
+	}
+
+	client := NewClient(server.URL)
+	receipt, err := client.SyncAll(
+		context.Background(), local, "access-token",
+		base64.StdEncoding.EncodeToString(privateKey), "UTC",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if receipt.Accepted != len(records) {
+		t.Fatalf("accepted = %d, want %d", receipt.Accepted, len(records))
+	}
+	wantBatchSizes := []int{2_000, 2_000, 501}
+	if fmt.Sprint(batchSizes) != fmt.Sprint(wantBatchSizes) {
+		t.Fatalf("batch sizes = %v, want %v", batchSizes, wantBatchSizes)
+	}
+	pending, err := local.PendingCount()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pending != 0 {
+		t.Fatalf("pending = %d, want 0", pending)
+	}
+}
 
 func TestSyncCompressesSignsAndAcknowledges(t *testing.T) {
 	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)

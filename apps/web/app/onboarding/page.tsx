@@ -18,7 +18,7 @@ export default async function OnboardingPage() {
             handle={current.handle}
             hasDevice={devices.some((device) => !device.revoked_at)}
             profileComplete={current.onboarding_complete}
-            appUrl={process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}
+            appUrl={process.env.NEXT_PUBLIC_APP_URL ?? "https://agentprint.tech"}
           />
         </div>
       </main>

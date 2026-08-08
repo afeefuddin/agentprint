@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-download_base="${AGENTPRINT_DOWNLOAD_BASE:-https://agentprint.dev/releases/latest}"
+download_base="${AGENTPRINT_DOWNLOAD_BASE:-https://agentprint.tech/releases/latest}"
 install_dir="${AGENTPRINT_INSTALL_DIR:-$HOME/.local/bin}"
 os_name="$(uname -s | tr '[:upper:]' '[:lower:]')"
 architecture="$(uname -m)"

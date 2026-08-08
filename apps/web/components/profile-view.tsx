@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { Calendar, CheckCircle2, Clock3, ExternalLink, MapPin } from "lucide-react";
 import { formatTokens } from "@agentprint/analytics";
 import type { getProfile } from "@agentprint/database";
@@ -20,23 +21,18 @@ function initials(name: string) {
 
 export function ProfileView({
   data,
-  preview = false
+  preview = false,
+  friendAction
 }: {
   data: ProfileData;
   preview?: boolean;
+  friendAction?: ReactNode;
 }) {
   const { profile, activity, thresholds, summary, harnesses, models } = data;
   const harnessTotal = Object.values(harnesses).reduce((sum, value) => sum + value, 0);
   const modelTotal = Object.values(models).reduce((sum, value) => sum + value, 0);
   return (
     <main id="main" className="profile-main">
-      {preview && (
-        <div className="preview-strip">
-          <span><Clock3 size={14} /> Private preview</span>
-          <span>Only you can see this page until you publish.</span>
-          <Link href="/dashboard#visibility">Review visibility</Link>
-        </div>
-      )}
       <div className="shell profile-shell">
         <section className="profile-identity">
           <div className="avatar" aria-hidden="true">{initials(profile.display_name)}</div>
@@ -52,7 +48,15 @@ export function ProfileView({
               <span><Calendar size={13} /> Joined {new Date(profile.created_at).toLocaleDateString("en", { month: "long", year: "numeric" })}</span>
             </div>
           </div>
-          <ShareButton title={`${profile.display_name} on Agentprint`} />
+          <div className="profile-identity-actions">
+            {preview && (
+              <Link className="profile-preview-chip" href="/dashboard#visibility" aria-label="Private preview. Manage profile visibility.">
+                <Clock3 size={14} /> Private preview
+              </Link>
+            )}
+            {friendAction}
+            <ShareButton title={`${profile.display_name} on Agentprint`} />
+          </div>
         </section>
 
         <ContributionField

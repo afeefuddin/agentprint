@@ -1,22 +1,19 @@
 import Link from "next/link";
 import type { Viewer } from "@agentprint/database";
 import { Brand } from "./brand";
+import { GlobalProfileSearch } from "./global-profile-search";
 
-export function SiteHeader({
-  current,
-  variant = "default"
-}: {
-  current?: Viewer | null;
-  variant?: "default" | "profile";
-}) {
+export function SiteHeader({ current }: { current?: Viewer | null }) {
   return (
-    <header className={`site-header${variant === "profile" ? " site-header-profile" : ""}`}>
+    <header className="site-header">
       <div className="shell header-inner">
         <Brand />
+        <GlobalProfileSearch />
         <nav aria-label="Primary">
           {current?.onboarding_complete ? (
             <>
               <Link className="nav-link" href={`/${current.handle}`}>Profile</Link>
+              <Link className="nav-link" href="/dashboard/friends">Friends</Link>
               <Link className="button button-small" href="/dashboard">Dashboard</Link>
             </>
           ) : !current ? (

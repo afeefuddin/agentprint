@@ -55,6 +55,19 @@ bun run cli:release
 The onboarding installer then downloads them from
 `apps/web/public/releases/latest`.
 
+Existing installations check for a new release at most once per day and offer
+to install it before interactive commands. Users can also update immediately:
+
+```sh
+agentprint update
+```
+
+Use `agentprint update --check` to check without installing or set
+`AGENTPRINT_NO_UPDATE_CHECK=1` to disable automatic checks. Release downloads
+are verified against the SHA-256 checksums in `releases/latest/manifest.json`
+before the current executable is replaced. Login credentials, configuration,
+and queued usage records are preserved.
+
 ## Verification
 
 ```sh

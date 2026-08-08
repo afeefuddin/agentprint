@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   },
   description:
     "A private-by-default, public proof-of-work profile for developers who build with AI agents.",
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000")
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "https://agentprint.tech")
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

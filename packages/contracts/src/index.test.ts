@@ -1,5 +1,15 @@
 import { describe, expect, test } from "bun:test";
-import { onboardingProfileSchema, reservedHandles, syncBatchSchema, usageRecordSchema } from "./index";
+import {
+  friendRequestSchema,
+  friendshipActionSchema,
+  friendshipIdSchema,
+  onboardingProfileSchema,
+  profilePatchSchema,
+  publicProfileSearchSchema,
+  reservedHandles,
+  syncBatchSchema,
+  usageRecordSchema
+} from "./index";
 
 const validRecord = {
   event_id: "event-id-with-enough-entropy",
@@ -57,5 +67,31 @@ describe("profile handles", () => {
     if (!result.success) {
       expect(result.error.issues.some((issue) => issue.message === "That profile address is reserved.")).toBe(true);
     }
+  });
+});
+
+describe("friend contracts", () => {
+  test("normalizes exact handles and accepts supported actions", () => {
+    expect(friendRequestSchema.parse({ handle: "  Maya-Builds " })).toEqual({ handle: "maya-builds" });
+    expect(friendshipActionSchema.safeParse({ action: "accept" }).success).toBe(true);
+    expect(friendshipActionSchema.safeParse({ action: "follow" }).success).toBe(false);
+    expect(friendshipIdSchema.safeParse("not-a-friendship-id").success).toBe(false);
+  });
+
+  test("accepts friend comparison privacy without widening profile patches", () => {
+    expect(profilePatchSchema.safeParse({ friends_can_compare: true }).success).toBe(true);
+    expect(profilePatchSchema.safeParse({ friends_can_compare: true, friend_ids: [] }).success).toBe(false);
+  });
+});
+
+describe("public profile search", () => {
+  test("trims useful handle and display-name queries", () => {
+    expect(publicProfileSearchSchema.parse({ q: "  Maya Ch " })).toEqual({ q: "Maya Ch" });
+  });
+
+  test("rejects empty, one-character, and oversized queries", () => {
+    expect(publicProfileSearchSchema.safeParse({ q: " " }).success).toBe(false);
+    expect(publicProfileSearchSchema.safeParse({ q: "m" }).success).toBe(false);
+    expect(publicProfileSearchSchema.safeParse({ q: "m".repeat(81) }).success).toBe(false);
   });
 });

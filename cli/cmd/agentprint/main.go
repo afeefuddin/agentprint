@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
@@ -9,10 +10,12 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"os/signal"
 	"runtime"
+	"strings"
 	"syscall"
 	"time"
 
@@ -21,9 +24,10 @@ import (
 	"github.com/agentprint/agentprint/cli/internal/service"
 	"github.com/agentprint/agentprint/cli/internal/store"
 	syncclient "github.com/agentprint/agentprint/cli/internal/sync"
+	"github.com/agentprint/agentprint/cli/internal/updater"
 )
 
-const version = "0.1.1"
+const version = "0.2.1"
 
 type app struct {
 	configManager *config.Manager
@@ -57,9 +61,22 @@ func run() error {
 	if err := manager.Ensure(); err != nil {
 		return err
 	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	if command == "update" {
+		return updateCLI(ctx, manager, os.Args[2:])
+	}
 	configuration, err := manager.Load()
 	if err != nil {
 		return err
+	}
+	if shouldOfferUpdate(command) && isInteractive(os.Stdin) && os.Getenv("AGENTPRINT_NO_UPDATE_CHECK") == "" {
+		updated, err := offerUpdate(ctx, manager)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Update failed: %v\nContinuing with Agentprint %s.\n\n", err, version)
+		} else if updated {
+			return nil
+		}
 	}
 	if command == "login" {
 		return login(manager, configuration, os.Args[2:])
@@ -81,8 +98,6 @@ func run() error {
 		collector: &collector.Collector{Adapters: availableAdapters, Store: localStore},
 		client:    syncclient.NewClient(configuration.Server),
 	}
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
 	switch command {
 	case "status":
 		return application.status(ctx, os.Args[2:])
@@ -122,6 +137,100 @@ func run() error {
 	default:
 		return fmt.Errorf("unknown command %q; run agentprint help", command)
 	}
+}
+
+func updateCLI(ctx context.Context, manager *config.Manager, args []string) error {
+	flags := flag.NewFlagSet("update", flag.ContinueOnError)
+	yes := flags.Bool("yes", false, "install the update without prompting")
+	checkOnly := flags.Bool("check", false, "check for an update without installing it")
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+	client := updater.New(manager.UpdateCachePath())
+	manifest, available, err := client.Check(ctx, version, true)
+	if err != nil {
+		return fmt.Errorf("check for updates: %w", err)
+	}
+	if !available {
+		fmt.Printf("Agentprint %s is up to date.\n", version)
+		return nil
+	}
+	fmt.Printf("Agentprint %s is available. You have %s.\n", manifest.Version, version)
+	if *checkOnly {
+		return nil
+	}
+	if !*yes {
+		if !isInteractive(os.Stdin) {
+			return errors.New("update confirmation requires a terminal; rerun with agentprint update --yes")
+		}
+		confirmed, err := confirmUpdate(os.Stdin, os.Stdout)
+		if err != nil {
+			return err
+		}
+		if !confirmed {
+			fmt.Println("Update skipped. You can install it later with agentprint update.")
+			return nil
+		}
+	}
+	return installUpdate(ctx, client, manifest)
+}
+
+func offerUpdate(ctx context.Context, manager *config.Manager) (bool, error) {
+	client := updater.New(manager.UpdateCachePath())
+	checkContext, cancel := context.WithTimeout(ctx, 3*time.Second)
+	manifest, available, err := client.Check(checkContext, version, false)
+	cancel()
+	if err != nil || !available || !client.ShouldPrompt(manifest.Version) {
+		return false, nil
+	}
+	_ = client.MarkPrompted(manifest.Version)
+	fmt.Printf("Agentprint %s is available. You have %s.\n", manifest.Version, version)
+	confirmed, err := confirmUpdate(os.Stdin, os.Stdout)
+	if err != nil || !confirmed {
+		fmt.Println("Continuing without the update. Run agentprint update whenever you are ready.")
+		return false, nil
+	}
+	if err := installUpdate(ctx, client, manifest); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func installUpdate(ctx context.Context, client *updater.Client, manifest updater.Manifest) error {
+	executable, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Downloading Agentprint %s…\n", manifest.Version)
+	if err := client.Install(ctx, manifest, executable); err != nil {
+		return err
+	}
+	fmt.Printf("Updated to Agentprint %s. Run your command again.\n", manifest.Version)
+	return nil
+}
+
+func confirmUpdate(input io.Reader, output io.Writer) (bool, error) {
+	fmt.Fprint(output, "Update now? [Y/n] ")
+	answer, err := bufio.NewReader(input).ReadString('\n')
+	if err != nil && len(answer) == 0 {
+		return false, err
+	}
+	answer = strings.ToLower(strings.TrimSpace(answer))
+	return answer == "" || answer == "y" || answer == "yes", nil
+}
+
+func shouldOfferUpdate(command string) bool {
+	switch command {
+	case "login", "status", "sync", "sources", "privacy", "doctor", "pause", "resume", "logout":
+		return true
+	default:
+		return false
+	}
+}
+
+func isInteractive(file *os.File) bool {
+	info, err := file.Stat()
+	return err == nil && info.Mode()&os.ModeCharDevice != 0
 }
 
 func login(manager *config.Manager, configuration config.Config, args []string) error {
@@ -201,14 +310,14 @@ func login(manager *config.Manager, configuration config.Config, args []string) 
 	if err != nil {
 		return err
 	}
-	receipt, err := client.Sync(
+	receipt, err := client.SyncAll(
 		ctx, tempStore, device.AccessToken,
 		base64.StdEncoding.EncodeToString(privateKey), configuration.Timezone,
 	)
 	if err != nil {
 		return fmt.Errorf("initial sync: %w", err)
 	}
-	fmt.Printf("\nInitial sync complete: %d queued, %d accepted, %d duplicate.\n", queued, receipt.Accepted, receipt.Duplicate)
+	fmt.Printf("\nInitial sync complete: %d collected, %d accepted, %d duplicate, 0 pending.\n", queued, receipt.Accepted, receipt.Duplicate)
 	if !*noService {
 		executable, err := os.Executable()
 		if err == nil {
@@ -252,30 +361,15 @@ func (application *app) sync(ctx context.Context, verbose bool) error {
 		}
 		return nil
 	}
-	var receipt syncclient.Receipt
-	var syncErr error
-	for attempt := 0; attempt < 4; attempt++ {
-		receipt, syncErr = application.client.Sync(
-			ctx, application.store, credential.AccessToken,
-			credential.SigningPrivateKey, application.config.Timezone,
-		)
-		if syncErr == nil {
-			break
-		}
-		if attempt < 3 {
-			delay := time.Duration(1<<attempt) * time.Second
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-time.After(delay):
-			}
-		}
-	}
-	if syncErr != nil {
-		return syncErr
+	receipt, err := application.client.SyncAll(
+		ctx, application.store, credential.AccessToken,
+		credential.SigningPrivateKey, application.config.Timezone,
+	)
+	if err != nil {
+		return err
 	}
 	if verbose {
-		fmt.Printf("Sync complete. %d accepted, %d duplicate, %d rejected.\n", receipt.Accepted, receipt.Duplicate, receipt.Rejected)
+		fmt.Printf("Sync complete. %d accepted, %d duplicate, %d rejected, 0 pending.\n", receipt.Accepted, receipt.Duplicate, receipt.Rejected)
 	}
 	return nil
 }
@@ -487,6 +581,7 @@ Commands:
   doctor      run secret-safe diagnostics
   pause       pause background collection
   resume      resume and sync
+  update      check for and install a CLI update
   logout      revoke this device and remove its credential
   uninstall   remove service and local state (requires --yes)
   version     print build information

@@ -95,7 +95,25 @@ export const profilePatchSchema = z.object({
   show_cost: z.boolean().optional(),
   show_harnesses: z.boolean().optional(),
   show_models: z.boolean().optional(),
-  show_streaks: z.boolean().optional()
+  show_streaks: z.boolean().optional(),
+  friends_can_compare: z.boolean().optional()
+}).strict();
+
+export const friendRequestSchema = z.object({
+  handle: z.string()
+    .trim()
+    .toLowerCase()
+    .regex(/^[a-z0-9](?:[a-z0-9-]{1,28}[a-z0-9])?$/)
+}).strict();
+
+export const friendshipActionSchema = z.object({
+  action: z.enum(["accept", "decline", "block", "unblock"])
+}).strict();
+
+export const friendshipIdSchema = z.uuid();
+
+export const publicProfileSearchSchema = z.object({
+  q: z.string().trim().min(2).max(80)
 }).strict();
 
 export const onboardingProfileSchema = z.object({
@@ -110,3 +128,6 @@ export type UsageRecord = z.infer<typeof usageRecordSchema>;
 export type SyncBatch = z.infer<typeof syncBatchSchema>;
 export type ProfilePatch = z.infer<typeof profilePatchSchema>;
 export type OnboardingProfile = z.infer<typeof onboardingProfileSchema>;
+export type FriendRequest = z.infer<typeof friendRequestSchema>;
+export type FriendshipAction = z.infer<typeof friendshipActionSchema>;
+export type PublicProfileSearch = z.infer<typeof publicProfileSearchSchema>;

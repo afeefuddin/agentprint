@@ -19,6 +19,12 @@ export default async function Home() {
       <SiteHeader current={current} />
       <main id="main">
         <section className="hero shell">
+          <div className="hero-signal hero-signal-left" aria-hidden="true">
+            {Array.from({ length: 42 }, (_, index) => <i key={index} data-level={sampleActivityLevel(index + 31)} />)}
+          </div>
+          <div className="hero-signal hero-signal-right" aria-hidden="true">
+            {Array.from({ length: 42 }, (_, index) => <i key={index} data-level={sampleActivityLevel(index + 89)} />)}
+          </div>
           <div className="hero-copy">
             <h1>Your agent work,<br /><em>made visible.</em></h1>
             <p>One public profile for the work you do with coding agents—measured locally, shared on your terms.</p>
@@ -190,8 +196,11 @@ export default async function Home() {
               <p>One link for the work your agents help you do.</p>
               <Link className="claim-action" href="/register">Create yours <ArrowRight size={17} /></Link>
             </div>
+            <div className="claim-pattern" aria-hidden="true">
+              {Array.from({ length: 48 }, (_, index) => <i key={index} data-level={sampleActivityLevel(index + 151)} />)}
+            </div>
             <div className="claim-profile" aria-hidden="true">
-              <div className="claim-url"><span>agentprint.dev/</span><b>you</b><i>Available</i></div>
+              <div className="claim-url"><span>agentprint.tech/</span><b>you</b><i>Available</i></div>
               <div className="claim-person"><span>AP</span><div><b>Your Agentprint</b><small>@you</small></div><i><span /> Live</i></div>
               <div className="claim-trace">
                 {Array.from({ length: 98 }, (_, index) => <i key={index} data-level={sampleActivityLevel(index)} />)}

@@ -14,9 +14,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/agentprint/agentprint/cli/internal/adapters"
 	"github.com/agentprint/agentprint/cli/internal/store"
+	"github.com/google/uuid"
 )
 
 type Client struct {
@@ -235,6 +235,43 @@ func (client *Client) Sync(ctx context.Context, localStore *store.Store, credent
 		return receipt, err
 	}
 	return receipt, nil
+}
+
+func (client *Client) SyncAll(ctx context.Context, localStore *store.Store, credential, signingPrivateKey, timezone string) (Receipt, error) {
+	var total Receipt
+	for {
+		pending, err := localStore.PendingCount()
+		if err != nil {
+			return total, err
+		}
+		if pending == 0 {
+			return total, nil
+		}
+
+		var receipt Receipt
+		var syncErr error
+		for attempt := 0; attempt < 4; attempt++ {
+			receipt, syncErr = client.Sync(ctx, localStore, credential, signingPrivateKey, timezone)
+			if syncErr == nil {
+				break
+			}
+			if attempt < 3 {
+				delay := time.Duration(1<<attempt) * time.Second
+				select {
+				case <-ctx.Done():
+					return total, ctx.Err()
+				case <-time.After(delay):
+				}
+			}
+		}
+		if syncErr != nil {
+			return total, syncErr
+		}
+		total.Accepted += receipt.Accepted
+		total.Duplicate += receipt.Duplicate
+		total.Rejected += receipt.Rejected
+		total.Replay = total.Replay || receipt.Replay
+	}
 }
 
 func (client *Client) Revoke(ctx context.Context, credential string) error {

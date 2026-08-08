@@ -1,5 +1,5 @@
 $ErrorActionPreference = "Stop"
-$DownloadBase = if ($env:AGENTPRINT_DOWNLOAD_BASE) { $env:AGENTPRINT_DOWNLOAD_BASE } else { "https://agentprint.dev/releases/latest" }
+$DownloadBase = if ($env:AGENTPRINT_DOWNLOAD_BASE) { $env:AGENTPRINT_DOWNLOAD_BASE } else { "https://agentprint.tech/releases/latest" }
 $InstallDir = if ($env:AGENTPRINT_INSTALL_DIR) { $env:AGENTPRINT_INSTALL_DIR } else { Join-Path $env:LOCALAPPDATA "Agentprint\bin" }
 $Architecture = if ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture -eq "Arm64") { "arm64" } else { "amd64" }
 $Archive = "agentprint-windows-$Architecture.zip"

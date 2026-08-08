@@ -159,16 +159,20 @@ export type Viewer = {
   show_harnesses: boolean;
   show_models: boolean;
   show_streaks: boolean;
+  friends_can_compare: boolean;
   onboarding_complete: boolean;
   created_at: Date;
 };
+
+type ProfileViewer = Omit<Viewer, "friends_can_compare">;
 
 export async function getViewer(token?: string) {
   if (!token) return null;
   return one<Viewer>(
     `SELECT u.id, u.email, u.created_at, p.handle, p.display_name, p.bio,
             p.timezone, p.is_public, p.show_tokens, p.show_cost,
-            p.show_harnesses, p.show_models, p.show_streaks, p.onboarding_complete
+            p.show_harnesses, p.show_models, p.show_streaks,
+            p.friends_can_compare, p.onboarding_complete
      FROM sessions s
      JOIN users u ON u.id = s.user_id
      JOIN profiles p ON p.user_id = u.id
@@ -545,8 +549,381 @@ export async function completeOnboardingProfile(userId: string, profile: Onboard
   return result.rowCount === 1;
 }
 
+export type FriendshipEntry = {
+  id: string;
+  status: "pending" | "accepted" | "blocked";
+  direction: "incoming" | "outgoing" | "friend" | "blocked";
+  createdAt: string;
+  other: {
+    handle: string;
+    displayName: string;
+  };
+  youShareComparisons: boolean;
+  friendSharesComparisons: boolean;
+  canCompare: boolean;
+};
+
+export type FriendshipList = {
+  friends: FriendshipEntry[];
+  incoming: FriendshipEntry[];
+  outgoing: FriendshipEntry[];
+  blocked: FriendshipEntry[];
+};
+
+export async function listFriendships(userId: string): Promise<FriendshipList> {
+  const result = await pool.query<{
+    id: string;
+    status: "pending" | "accepted" | "blocked";
+    requester_id: string;
+    created_at: Date;
+    other_handle: string;
+    other_display_name: string;
+    mine_shares: boolean;
+    other_shares: boolean;
+  }>(
+    `SELECT f.id, f.status, f.requester_id, f.created_at,
+            other.handle AS other_handle, other.display_name AS other_display_name,
+            mine.friends_can_compare AS mine_shares,
+            other.friends_can_compare AS other_shares
+     FROM friendships f
+     JOIN profiles mine ON mine.user_id = $1
+     JOIN profiles other ON other.user_id = CASE
+       WHEN f.requester_id = $1 THEN f.addressee_id ELSE f.requester_id END
+     WHERE (f.requester_id = $1 OR f.addressee_id = $1)
+       AND (f.status <> 'blocked' OR f.blocked_by = $1)
+     ORDER BY f.created_at DESC`,
+    [userId]
+  );
+  const lists: FriendshipList = { friends: [], incoming: [], outgoing: [], blocked: [] };
+  for (const row of result.rows) {
+    const direction = friendshipDirection(row.status, row.requester_id, userId);
+    const entry: FriendshipEntry = {
+      id: row.id,
+      status: row.status,
+      direction,
+      createdAt: row.created_at.toISOString(),
+      other: {
+        handle: row.other_handle,
+        displayName: row.other_display_name
+      },
+      youShareComparisons: row.mine_shares,
+      friendSharesComparisons: row.other_shares,
+      canCompare: row.status === "accepted" && row.mine_shares && row.other_shares
+    };
+    if (direction === "friend") lists.friends.push(entry);
+    else if (direction === "incoming") lists.incoming.push(entry);
+    else if (direction === "outgoing") lists.outgoing.push(entry);
+    else lists.blocked.push(entry);
+  }
+  return lists;
+}
+
+export async function findFriendCandidate(userId: string, handle: string) {
+  const candidate = await one<{
+    id: string;
+    handle: string;
+    display_name: string;
+    friendship_id: string | null;
+    friendship_status: "pending" | "accepted" | null;
+    requester_id: string | null;
+  }>(
+    `SELECT p.user_id AS id, p.handle, p.display_name,
+            f.id AS friendship_id, f.status AS friendship_status, f.requester_id
+     FROM profiles p
+     LEFT JOIN friendships f ON
+       LEAST(f.requester_id, f.addressee_id) = LEAST($1::uuid, p.user_id) AND
+       GREATEST(f.requester_id, f.addressee_id) = GREATEST($1::uuid, p.user_id)
+     WHERE p.handle = $2 AND p.user_id <> $1 AND p.onboarding_complete
+       AND (f.id IS NULL OR f.status <> 'blocked')`,
+    [userId, handle]
+  );
+  if (!candidate) return null;
+  return {
+    id: candidate.id,
+    handle: candidate.handle,
+    displayName: candidate.display_name,
+    friendshipId: candidate.friendship_id,
+    relationship: candidate.friendship_status,
+    direction: candidateDirection(candidate.friendship_status, candidate.requester_id, userId)
+  };
+}
+
+function friendshipDirection(
+  status: "pending" | "accepted" | "blocked",
+  requesterId: string,
+  userId: string
+): FriendshipEntry["direction"] {
+  if (status === "accepted") return "friend";
+  if (status === "blocked") return "blocked";
+  return requesterId === userId ? "outgoing" : "incoming";
+}
+
+function candidateDirection(
+  status: "pending" | "accepted" | null,
+  requesterId: string | null,
+  userId: string
+) {
+  if (status === "accepted") return "friend" as const;
+  if (status === "pending") return requesterId === userId ? "outgoing" as const : "incoming" as const;
+  return null;
+}
+
+export async function sendFriendRequest(userId: string, handle: string) {
+  const candidate = await findFriendCandidate(userId, handle);
+  if (!candidate) return { status: "not_found" as const };
+  if (candidate.friendshipId) return { status: "exists" as const, candidate };
+  try {
+    const friendship = await one<{ id: string }>(
+      `INSERT INTO friendships (requester_id, addressee_id)
+       VALUES ($1, $2) RETURNING id`,
+      [userId, candidate.id]
+    );
+    return { status: "created" as const, id: friendship!.id };
+  } catch (error) {
+    if (typeof error === "object" && error && "code" in error && (error as { code: string }).code === "23505") {
+      return { status: "exists" as const, candidate: await findFriendCandidate(userId, handle) };
+    }
+    throw error;
+  }
+}
+
+export async function actOnFriendship(
+  userId: string,
+  friendshipId: string,
+  action: "accept" | "decline" | "block" | "unblock"
+) {
+  if (action === "accept") {
+    const result = await pool.query(
+      `UPDATE friendships SET status = 'accepted', responded_at = now()
+       WHERE id = $1 AND addressee_id = $2 AND status = 'pending'`,
+      [friendshipId, userId]
+    );
+    return result.rowCount === 1;
+  }
+  if (action === "decline") {
+    const result = await pool.query(
+      `DELETE FROM friendships
+       WHERE id = $1 AND addressee_id = $2 AND status = 'pending'`,
+      [friendshipId, userId]
+    );
+    return result.rowCount === 1;
+  }
+  if (action === "unblock") {
+    const result = await pool.query(
+      `DELETE FROM friendships
+       WHERE id = $1 AND blocked_by = $2 AND status = 'blocked'`,
+      [friendshipId, userId]
+    );
+    return result.rowCount === 1;
+  }
+  const result = await pool.query(
+    `UPDATE friendships
+     SET status = 'blocked', blocked_by = $2, responded_at = now()
+     WHERE id = $1 AND (requester_id = $2 OR addressee_id = $2)
+       AND status IN ('pending', 'accepted')`,
+    [friendshipId, userId]
+  );
+  return result.rowCount === 1;
+}
+
+export async function removeFriendship(userId: string, friendshipId: string) {
+  const result = await pool.query(
+    `DELETE FROM friendships
+     WHERE id = $1 AND (
+       status = 'accepted' AND (requester_id = $2 OR addressee_id = $2) OR
+       status = 'pending' AND requester_id = $2
+     )`,
+    [friendshipId, userId]
+  );
+  return result.rowCount === 1;
+}
+
+type ComparisonProfile = {
+  id: string;
+  handle: string;
+  displayName: string;
+  showTokens: boolean;
+  showHarnesses: boolean;
+  showModels: boolean;
+  showStreaks: boolean;
+  sharesComparisons: boolean;
+};
+
+export async function getFriendComparison(userId: string, friendshipId: string, windowDays: 7 | 30 | 90) {
+  const friendship = await one<{
+    comparison_date: string;
+    mine_id: string;
+    mine_handle: string;
+    mine_display_name: string;
+    mine_show_tokens: boolean;
+    mine_show_harnesses: boolean;
+    mine_show_models: boolean;
+    mine_show_streaks: boolean;
+    mine_shares: boolean;
+    other_id: string;
+    other_handle: string;
+    other_display_name: string;
+    other_show_tokens: boolean;
+    other_show_harnesses: boolean;
+    other_show_models: boolean;
+    other_show_streaks: boolean;
+    other_shares: boolean;
+  }>(
+    `SELECT current_date::text AS comparison_date,
+            mine.user_id AS mine_id, mine.handle AS mine_handle,
+            mine.display_name AS mine_display_name,
+            mine.show_tokens AS mine_show_tokens,
+            mine.show_harnesses AS mine_show_harnesses,
+            mine.show_models AS mine_show_models,
+            mine.show_streaks AS mine_show_streaks,
+            mine.friends_can_compare AS mine_shares,
+            other.user_id AS other_id, other.handle AS other_handle,
+            other.display_name AS other_display_name,
+            other.show_tokens AS other_show_tokens,
+            other.show_harnesses AS other_show_harnesses,
+            other.show_models AS other_show_models,
+            other.show_streaks AS other_show_streaks,
+            other.friends_can_compare AS other_shares
+     FROM friendships f
+     JOIN profiles mine ON mine.user_id = $2
+     JOIN profiles other ON other.user_id = CASE
+       WHEN f.requester_id = $2 THEN f.addressee_id ELSE f.requester_id END
+     WHERE f.id = $1 AND f.status = 'accepted'
+       AND (f.requester_id = $2 OR f.addressee_id = $2)`,
+    [friendshipId, userId]
+  );
+  if (!friendship) return null;
+
+  const mine: ComparisonProfile = {
+    id: friendship.mine_id,
+    handle: friendship.mine_handle,
+    displayName: friendship.mine_display_name,
+    showTokens: friendship.mine_show_tokens,
+    showHarnesses: friendship.mine_show_harnesses,
+    showModels: friendship.mine_show_models,
+    showStreaks: friendship.mine_show_streaks,
+    sharesComparisons: friendship.mine_shares
+  };
+  const other: ComparisonProfile = {
+    id: friendship.other_id,
+    handle: friendship.other_handle,
+    displayName: friendship.other_display_name,
+    showTokens: friendship.other_show_tokens,
+    showHarnesses: friendship.other_show_harnesses,
+    showModels: friendship.other_show_models,
+    showStreaks: friendship.other_show_streaks,
+    sharesComparisons: friendship.other_shares
+  };
+  if (!mine.sharesComparisons || !other.sharesComparisons) {
+    return {
+      status: "sharing_disabled" as const,
+      friendshipId,
+      mine: comparisonIdentity(mine),
+      other: comparisonIdentity(other)
+    };
+  }
+
+  const usage = await pool.query<{
+    user_id: string;
+    local_date: string;
+    harness_id: string;
+    model_id: string;
+    total_tokens: string;
+  }>(
+    `SELECT user_id, local_date::text, harness_id, model_id, total_tokens::text
+     FROM daily_usage
+     WHERE user_id = ANY($1::uuid[])
+       AND local_date BETWEEN $2::date - ($3::int - 1) AND $2::date
+     ORDER BY local_date`,
+    [[mine.id, other.id], friendship.comparison_date, windowDays]
+  );
+  const visibility = {
+    tokens: mine.showTokens && other.showTokens,
+    harnesses: mine.showHarnesses && other.showHarnesses,
+    models: mine.showModels && other.showModels,
+    streaks: mine.showStreaks && other.showStreaks
+  };
+  const dates = comparisonDates(friendship.comparison_date, windowDays);
+  return {
+    status: "ready" as const,
+    friendshipId,
+    windowDays,
+    visibility,
+    people: [
+      buildComparisonPerson(mine, usage.rows.filter((row) => row.user_id === mine.id), dates, visibility),
+      buildComparisonPerson(other, usage.rows.filter((row) => row.user_id === other.id), dates, visibility)
+    ] as const
+  };
+}
+
+function comparisonDates(today: string, windowDays: number) {
+  const end = new Date(`${today}T00:00:00Z`);
+  return Array.from({ length: windowDays }, (_, index) => {
+    const date = new Date(end);
+    date.setUTCDate(end.getUTCDate() - (windowDays - index - 1));
+    return date.toISOString().slice(0, 10);
+  });
+}
+
+function comparisonIdentity(profile: ComparisonProfile) {
+  return {
+    handle: profile.handle,
+    displayName: profile.displayName,
+    sharesComparisons: profile.sharesComparisons
+  };
+}
+
+function normalizedMix(values: Record<string, number>): Record<string, number> {
+  const total = Object.values(values).reduce((sum, value) => sum + value, 0);
+  if (total === 0) return {};
+  return Object.fromEntries(
+    Object.entries(values).map(([key, value]) => [key, value / total])
+  );
+}
+
+function buildComparisonPerson(
+  profile: ComparisonProfile,
+  rows: { local_date: string; harness_id: string; model_id: string; total_tokens: string }[],
+  dates: string[],
+  visibility: { tokens: boolean; harnesses: boolean; models: boolean; streaks: boolean }
+) {
+  const byDate = new Map<string, number>();
+  const harnesses: Record<string, number> = {};
+  const models: Record<string, number> = {};
+  for (const row of rows) {
+    const tokens = Number(row.total_tokens);
+    byDate.set(row.local_date, (byDate.get(row.local_date) ?? 0) + tokens);
+    harnesses[row.harness_id] = (harnesses[row.harness_id] ?? 0) + tokens;
+    models[row.model_id] = (models[row.model_id] ?? 0) + tokens;
+  }
+  const totals = dates.map((date) => ({ date, tokens: byDate.get(date) ?? 0 }));
+  const thresholds = intensityThresholds(totals.map((day) => day.tokens));
+  const streaks = calculateStreaks(
+    totals.map((day) => ({ localDate: day.date, totalTokens: day.tokens })),
+    dates.at(-1)!
+  );
+  const totalTokens = totals.reduce((sum, day) => sum + day.tokens, 0);
+  return {
+    handle: profile.handle,
+    displayName: profile.displayName,
+    summary: {
+      totalTokens: visibility.tokens ? totalTokens : null,
+      activeDays: visibility.streaks ? totals.filter((day) => day.tokens > 0).length : null,
+      currentStreak: visibility.streaks ? streaks.current : null,
+      longestStreak: visibility.streaks ? streaks.longest : null
+    },
+    activity: totals.map((day) => ({
+      date: day.date,
+      tokens: visibility.tokens ? day.tokens : null,
+      level: intensityFor(day.tokens, thresholds)
+    })),
+    harnesses: visibility.harnesses ? normalizedMix(harnesses) : {},
+    models: visibility.models ? normalizedMix(models) : {}
+  };
+}
+
 export async function getProfile(handle: string, viewerId?: string) {
-  const profile = await one<Viewer>(
+  const profile = await one<ProfileViewer>(
     `SELECT u.id, u.email, u.created_at, p.handle, p.display_name, p.bio,
             p.timezone, p.is_public, p.show_tokens, p.show_cost,
             p.show_harnesses, p.show_models, p.show_streaks, p.onboarding_complete
@@ -669,6 +1046,46 @@ export async function getProfile(handle: string, viewerId?: string) {
   return result;
 }
 
+export type ProfileIdentity = {
+  handle: string;
+  displayName: string;
+  isPublic: boolean;
+};
+
+export async function getProfileIdentity(handle: string) {
+  return one<ProfileIdentity>(
+    `SELECT handle, display_name AS "displayName", is_public AS "isPublic"
+     FROM profiles
+     WHERE handle = $1 AND onboarding_complete = true`,
+    [handle]
+  );
+}
+
+export async function searchPublicProfiles(query: string, limit = 6) {
+  const escaped = query.replace(/[\\%_]/g, "\\$&");
+  const match = `%${escaped}%`;
+  const prefix = `${escaped}%`;
+  const boundedLimit = Math.min(Math.max(limit, 1), 10);
+  const result = await pool.query<Omit<ProfileIdentity, "isPublic">>(
+    `SELECT handle, display_name AS "displayName"
+     FROM profiles
+     WHERE onboarding_complete = true
+       AND is_public = true
+       AND (handle ILIKE $1 ESCAPE '\\' OR display_name ILIKE $1 ESCAPE '\\')
+     ORDER BY
+       CASE
+         WHEN lower(handle) = lower($2) THEN 0
+         WHEN handle ILIKE $3 ESCAPE '\\' THEN 1
+         WHEN display_name ILIKE $3 ESCAPE '\\' THEN 2
+         ELSE 3
+       END,
+       handle
+     LIMIT $4`,
+    [match, query, prefix, boundedLimit]
+  );
+  return result.rows;
+}
+
 export async function usageExport(userId: string) {
   const user = await one<{ email: string; created_at: Date }>(
     "SELECT email, created_at FROM users WHERE id = $1",
@@ -679,6 +1096,7 @@ export async function usageExport(userId: string) {
     [userId]
   );
   const devices = await listDevices(userId);
+  const friendships = await listFriendships(userId);
   const usage = await pool.query(
     `SELECT event_id, schema_version, occurred_at, local_date, harness_id,
             harness_version, provider_id, model_id, input_tokens::text,
@@ -688,7 +1106,14 @@ export async function usageExport(userId: string) {
      FROM usage_events WHERE user_id = $1 ORDER BY occurred_at`,
     [userId]
   );
-  return { exportedAt: new Date().toISOString(), account: user, profile, devices, usage: usage.rows };
+  return {
+    exportedAt: new Date().toISOString(),
+    account: user,
+    profile,
+    devices,
+    friendships,
+    usage: usage.rows
+  };
 }
 
 export async function deleteAccount(userId: string) {

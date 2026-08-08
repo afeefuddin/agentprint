@@ -46,12 +46,15 @@ func (manager *Manager) Ensure() error {
 
 func (manager *Manager) ConfigPath() string   { return filepath.Join(manager.Root, "config.json") }
 func (manager *Manager) DatabasePath() string { return filepath.Join(manager.Root, "queue.db") }
+func (manager *Manager) UpdateCachePath() string {
+	return filepath.Join(manager.Root, "update-check.json")
+}
 
 func (manager *Manager) Load() (Config, error) {
 	body, err := os.ReadFile(manager.ConfigPath())
 	if errors.Is(err, os.ErrNotExist) {
 		return Config{
-			Server:   "http://localhost:3000",
+			Server:   "https://agentprint.tech",
 			Timezone: currentTimezone(),
 		}, nil
 	}

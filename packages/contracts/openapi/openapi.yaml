@@ -4,7 +4,7 @@ info:
   version: 1.0.0
   description: Privacy-safe ingestion and profile API. Content-bearing fields are rejected.
 servers:
-  - url: https://agentprint.dev
+  - url: https://agentprint.tech
 paths:
   /v1/device/code:
     post:
@@ -90,6 +90,74 @@ paths:
       security: [{ sessionCookie: [] }]
       responses:
         "200": { description: Saved }
+  /v1/me/friends:
+    get:
+      summary: List accepted friends and pending requests
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200": { description: Friends grouped by relationship state }
+    post:
+      summary: Send a friend request by exact handle
+      security: [{ sessionCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FriendRequest" }
+      responses:
+        "201": { description: Friend request created }
+        "404": { description: Exact handle not found }
+        "409": { description: Friendship or request already exists }
+  /v1/me/friends/search:
+    get:
+      summary: Find a friend candidate by exact handle
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - in: query
+          name: handle
+          required: true
+          schema: { type: string, pattern: "^[a-z0-9](?:[a-z0-9-]{1,28}[a-z0-9])?$" }
+      responses:
+        "200": { description: Minimal profile identity and relationship state }
+        "404": { description: Missing, blocked, or self profile }
+  /v1/me/friends/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string, format: uuid }
+    patch:
+      summary: Accept, decline, block, or unblock a friendship
+      security: [{ sessionCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FriendshipAction" }
+      responses:
+        "200": { description: Friendship updated }
+        "404": { description: Friendship not available to this user }
+    delete:
+      summary: Cancel an outgoing request or remove an accepted friend
+      security: [{ sessionCookie: [] }]
+      responses:
+        "204": { description: Friendship removed }
+        "404": { description: Friendship not available to this user }
+  /v1/me/friends/{id}/comparison:
+    get:
+      summary: Compare mutually shared friend metrics
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: query
+          name: window
+          schema: { type: integer, enum: [7, 30, 90], default: 30 }
+      responses:
+        "200": { description: Paired activity with query-boundary metric intersection }
+        "404": { description: Accepted friendship not found }
   /v1/me/export:
     get:
       summary: Export normalized personal data
@@ -102,6 +170,18 @@ paths:
       security: [{ sessionCookie: [] }]
       responses:
         "204": { description: Deleted }
+  /v1/profiles/search:
+    get:
+      summary: Search public profiles by handle or display name
+      parameters:
+        - in: query
+          name: q
+          required: true
+          schema: { type: string, minLength: 2, maxLength: 80 }
+      responses:
+        "200": { description: Minimal identities for matching public profiles }
+        "400": { description: Invalid search query }
+        "429": { description: Rate limited }
   /v1/profiles/{handle}:
     get:
       summary: Read a public profile with query-boundary redaction
@@ -185,3 +265,17 @@ components:
           minItems: 1
           maxItems: 2000
           items: { $ref: "#/components/schemas/UsageRecord" }
+    FriendRequest:
+      type: object
+      additionalProperties: false
+      required: [handle]
+      properties:
+        handle:
+          type: string
+          pattern: "^[a-z0-9](?:[a-z0-9-]{1,28}[a-z0-9])?$"
+    FriendshipAction:
+      type: object
+      additionalProperties: false
+      required: [action]
+      properties:
+        action: { enum: [accept, decline, block, unblock] }

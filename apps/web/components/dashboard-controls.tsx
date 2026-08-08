@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Check, Copy, Download, ExternalLink, Laptop, ShieldCheck, Trash2, X } from "lucide-react";
+import { Check, Copy, Download, ExternalLink, Laptop, ShieldCheck, Trash2, Users, X } from "lucide-react";
 import { useState } from "react";
 
 type Device = {
@@ -21,6 +21,7 @@ type Privacy = {
   show_harnesses: boolean;
   show_models: boolean;
   show_streaks: boolean;
+  friends_can_compare: boolean;
 };
 
 const privacyLabels: Record<keyof Privacy, { label: string; description: string }> = {
@@ -29,7 +30,8 @@ const privacyLabels: Record<keyof Privacy, { label: string; description: string 
   show_cost: { label: "Estimated spend", description: "Show cost estimates with their calculation provenance." },
   show_harnesses: { label: "Harness mix", description: "Show the tools that make up your activity." },
   show_models: { label: "Model mix", description: "Show model identifiers and relative usage." },
-  show_streaks: { label: "Streaks", description: "Show current and longest active-day streaks." }
+  show_streaks: { label: "Streaks", description: "Show current and longest active-day streaks." },
+  friends_can_compare: { label: "Friend comparisons", description: "Let accepted friends compare the metrics you have chosen to show." }
 };
 
 export function DashboardControls({
@@ -88,6 +90,7 @@ export function DashboardControls({
               <div className={key === "is_public" ? "privacy-control primary" : "privacy-control"} key={key}>
                 <div>
                   {key === "is_public" && <ShieldCheck size={17} />}
+                  {key === "friends_can_compare" && <Users size={17} />}
                   <span><b>{item.label}</b><small>{item.description}</small></span>
                 </div>
                 <button

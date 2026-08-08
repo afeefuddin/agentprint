@@ -102,7 +102,7 @@ export function OnboardingFlow({ handle, hasDevice, profileComplete, appUrl }: {
                   <label>
                     <span>Profile address</span>
                     <div className="input-prefix">
-                      <b>agentprint.dev/</b>
+                      <b>agentprint.tech/</b>
                       <input name="handle" autoComplete="username" aria-label="Username" placeholder="maya-builds" required minLength={3} maxLength={30} pattern="[a-z0-9](?:[a-z0-9-]{1,28}[a-z0-9])?" value={profileHandle} onChange={(event) => setProfileHandle(event.target.value.toLowerCase())} />
                     </div>
                     <small>Lowercase letters, numbers, and hyphens.</small>
@@ -120,7 +120,7 @@ export function OnboardingFlow({ handle, hasDevice, profileComplete, appUrl }: {
                 <div className="identity-preview-bar"><span>AP / 001</span><b><i /> Private draft</b></div>
                 <div className="identity-preview-person">
                   <div className="identity-preview-avatar" aria-hidden="true">{initials}</div>
-                  <div><span>Agent record of</span><h2>{previewName}</h2><p>agentprint.dev/{previewHandle}</p></div>
+                  <div><span>Agent record of</span><h2>{previewName}</h2><p>agentprint.tech/{previewHandle}</p></div>
                 </div>
                 <div className="identity-preview-trace" aria-hidden="true">
                   <div><span>Contribution field</span><b>Awaiting first sync</b></div>
