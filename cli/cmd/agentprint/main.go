@@ -27,7 +27,7 @@ import (
 	"github.com/agentprint/agentprint/cli/internal/updater"
 )
 
-const version = "0.2.1"
+const version = "0.2.2"
 
 type app struct {
 	configManager *config.Manager
@@ -79,7 +79,7 @@ func run() error {
 		}
 	}
 	if command == "login" {
-		return login(manager, configuration, os.Args[2:])
+		return login(ctx, manager, configuration, os.Args[2:])
 	}
 	if command == "uninstall" {
 		return uninstall(manager, configuration, os.Args[2:])
@@ -233,7 +233,7 @@ func isInteractive(file *os.File) bool {
 	return err == nil && info.Mode()&os.ModeCharDevice != 0
 }
 
-func login(manager *config.Manager, configuration config.Config, args []string) error {
+func login(ctx context.Context, manager *config.Manager, configuration config.Config, args []string) error {
 	flags := flag.NewFlagSet("login", flag.ContinueOnError)
 	server := flags.String("server", configuration.Server, "Agentprint server URL")
 	noBrowser := flags.Bool("no-browser", false, "do not open a browser automatically")
@@ -243,11 +243,11 @@ func login(manager *config.Manager, configuration config.Config, args []string) 
 	}
 	configuration.Server = *server
 	client := syncclient.NewClient(*server)
-	ctx, cancel := context.WithTimeout(context.Background(), 11*time.Minute)
-	defer cancel()
+	authorizationContext, cancelAuthorization := context.WithTimeout(ctx, 11*time.Minute)
+	defer cancelAuthorization()
 	fmt.Println("Agentprint connects numeric agent-usage metadata.")
 	fmt.Println("It never uploads prompts, responses, source code, repository names, paths, or credentials.")
-	code, err := client.StartDeviceFlow(ctx)
+	code, err := client.StartDeviceFlow(authorizationContext)
 	if err != nil {
 		return fmt.Errorf("start device authorization: %w", err)
 	}
@@ -256,10 +256,11 @@ func login(manager *config.Manager, configuration config.Config, args []string) 
 		_ = openBrowser(code.VerificationURIComplete)
 	}
 	fmt.Print("\nWaiting for approval")
-	registrationToken, err := client.PollDeviceFlow(ctx, code)
+	registrationToken, err := client.PollDeviceFlow(authorizationContext, code)
 	if err != nil {
 		return fmt.Errorf("authorize device: %w", err)
 	}
+	cancelAuthorization()
 	fmt.Println(" approved.")
 
 	hostname, _ := os.Hostname()

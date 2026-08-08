@@ -2,9 +2,24 @@ package main
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"strings"
 	"testing"
+
+	"github.com/agentprint/agentprint/cli/internal/config"
 )
+
+func TestLoginHonorsCanceledContext(t *testing.T) {
+	manager := &config.Manager{Root: t.TempDir()}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err := login(ctx, manager, config.Config{Server: "https://agentprint.tech"}, []string{"-no-browser", "-no-service"})
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("login error = %v, want context canceled", err)
+	}
+}
 
 func TestConfirmUpdate(t *testing.T) {
 	for _, answer := range []string{"\n", "y\n", "YES\n"} {
