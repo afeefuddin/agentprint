@@ -11,7 +11,7 @@ build with AI agents.
 The web app includes GitHub and Google sign-in, device-code authentication, a
 responsive public profile and accessible contribution field, per-metric privacy
 controls, device revocation, JSON export, deletion, and embeddable SVG cards.
-The native Go collector discovers Codex, Claude Code, and OpenCode, normalizes
+The native Go collector discovers Codex, Claude Code, OpenCode, and Kimi Code, normalizes
 numeric usage metadata into a local SQLite queue, and syncs idempotent batches.
 
 ## Local setup

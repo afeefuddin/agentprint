@@ -12,6 +12,7 @@ const harnessLabels: Record<string, string> = {
   codex: "Codex",
   "claude-code": "Claude Code",
   opencode: "OpenCode",
+  "kimi-code": "Kimi Code",
   synthetic: "Synthetic"
 };
 

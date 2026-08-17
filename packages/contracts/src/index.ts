@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const harnessIds = ["codex", "claude-code", "opencode", "synthetic"] as const;
+export const harnessIds = ["codex", "claude-code", "opencode", "kimi-code", "synthetic"] as const;
 export const costBases = ["reported", "price-table", "unavailable"] as const;
 export const reservedHandles = [
   "about",

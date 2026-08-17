@@ -51,6 +51,7 @@ export default async function Home() {
               <div className="harness-item"><Image className="harness-logo" src="/brands/opencode.svg" alt="" width={29} height={29} /><b>OpenCode</b></div>
               <div className="harness-item"><Image className="harness-logo" src="/brands/claude.svg" alt="" width={29} height={29} /><b>Claude Code</b></div>
               <div className="harness-item"><Image className="harness-logo" src="/brands/codex.svg" alt="" width={29} height={29} /><b>Codex</b></div>
+              <div className="harness-item"><Image className="harness-logo" src="/brands/kimi.svg" alt="" width={29} height={29} /><b>Kimi Code</b></div>
             </div>
             <span className="works-note">More adapters are on the way <ArrowRight size={13} /></span>
           </div>
@@ -72,11 +73,13 @@ export default async function Home() {
                   <div className="collector-status"><span><i /> Codex</span><b>connected</b></div>
                   <div className="collector-status"><span><i /> Claude Code</span><b>connected</b></div>
                   <div className="collector-status"><span><i /> OpenCode</span><b>connected</b></div>
+                  <div className="collector-status"><span><i /> Kimi Code</span><b>connected</b></div>
                 </div>
                 <div className="collector-sources">
                   <span><b><Image src="/brands/codex.svg" alt="" width={14} height={14} /></b>Codex</span>
                   <span><b><Image src="/brands/claude.svg" alt="" width={14} height={14} /></b>Claude</span>
                   <span><b><Image src="/brands/opencode.svg" alt="" width={14} height={14} /></b>OpenCode</span>
+                  <span><b><Image src="/brands/kimi.svg" alt="" width={14} height={14} /></b>Kimi</span>
                 </div>
               </div>
             </article>

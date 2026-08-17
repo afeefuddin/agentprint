@@ -126,7 +126,7 @@ export function OnboardingFlow({ handle, hasDevice, profileComplete, appUrl }: {
                   <div><span>Contribution field</span><b>Awaiting first sync</b></div>
                   <div className="identity-preview-cells">{Array.from({ length: 56 }, (_, index) => <i key={index} data-active={index % 9 === 0 || index % 13 === 0 || undefined} />)}</div>
                 </div>
-                <div className="identity-card-footer"><span>Codex</span><span>Claude Code</span><span>OpenCode</span></div>
+                <div className="identity-card-footer"><span>Codex</span><span>Claude Code</span><span>OpenCode</span><span>Kimi Code</span></div>
               </div>
               <p className="preview-caption"><span>Live preview</span> Your first sync will replace this sample field.</p>
             </aside>

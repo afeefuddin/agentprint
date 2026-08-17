@@ -10,7 +10,7 @@ const schema = z.object({
   agent_version: z.string().min(1).max(40),
   signing_public_key: z.string().regex(/^[A-Za-z0-9+/]{43}=$/),
   sources: z.array(z.object({
-    harness_id: z.enum(["codex", "claude-code", "opencode", "synthetic"]),
+    harness_id: z.enum(["codex", "claude-code", "opencode", "kimi-code", "synthetic"]),
     version: z.string().max(80).optional()
   })).max(20)
 });

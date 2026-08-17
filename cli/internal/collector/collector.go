@@ -10,6 +10,7 @@ import (
 	"github.com/agentprint/agentprint/cli/internal/adapters/claude"
 	"github.com/agentprint/agentprint/cli/internal/adapters/codex"
 	"github.com/agentprint/agentprint/cli/internal/adapters/fake"
+	"github.com/agentprint/agentprint/cli/internal/adapters/kimi"
 	"github.com/agentprint/agentprint/cli/internal/adapters/opencode"
 	"github.com/agentprint/agentprint/cli/internal/store"
 )
@@ -43,6 +44,7 @@ func DefaultAdapters(timezone string) ([]adapters.Adapter, error) {
 		codex.New(home, location),
 		claude.New(home, location),
 		opencode.New(home, location),
+		kimi.New(home, location),
 	}
 	if fixture := os.Getenv("AGENTPRINT_FIXTURE"); fixture != "" {
 		result = append(result, &fake.Adapter{Path: fixture})
