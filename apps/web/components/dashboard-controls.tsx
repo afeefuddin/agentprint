@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Check, Copy, Download, ExternalLink, Laptop, ShieldCheck, Trash2, Users, X } from "lucide-react";
+import { AlertTriangle, Check, Copy, Download, ExternalLink, Laptop, ShieldCheck, Trash2, Users } from "lucide-react";
 import { useState } from "react";
 
 type Device = {
@@ -132,17 +132,25 @@ export function DashboardControls({
         </div>
       </section>
 
-      <section className="dashboard-section compact">
-        <div className="dashboard-heading">
-          <div><span className="eyebrow">Your data</span><h2>Export & account</h2><p>Download normalized metadata or permanently remove your account.</p></div>
+      <section className="data-zone" aria-labelledby="data-zone-title">
+        <h2 id="data-zone-title">Your data</h2>
+        <div className="data-panel">
+          <div>
+            <b>Export personal data</b>
+            <small>JSON · normalized records and settings</small>
+          </div>
+          <a className="button button-secondary button-small" href="/v1/me/export" download><Download size={14} /> Download</a>
         </div>
-        <div className="data-actions">
-          <a href="/v1/me/export" download><Download size={16} /><span><b>Export personal data</b><small>JSON · normalized records and settings</small></span></a>
-          <button onClick={async () => {
+        <div className="data-panel danger">
+          <div>
+            <b><AlertTriangle size={15} /> Delete account</b>
+            <small>Permanent and immediate. Removes every server-side record.</small>
+          </div>
+          <button className="button button-danger button-small" onClick={async () => {
             if (!window.confirm("Permanently delete your account and all server-side data? This cannot be undone.")) return;
             const response = await fetch("/v1/me/account", { method: "DELETE" });
             if (response.ok) window.location.assign("/");
-          }}><X size={16} /><span><b>Delete account</b><small>Permanent and immediate</small></span></button>
+          }}><Trash2 size={14} /> Delete</button>
         </div>
       </section>
     </>

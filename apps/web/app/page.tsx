@@ -16,7 +16,7 @@ export default async function Home() {
   const current = await viewer();
   return (
     <>
-      <SiteHeader current={current} />
+      <SiteHeader current={current} variant="marketing" />
       <main id="main">
         <section className="hero shell">
           <div className="hero-signal hero-signal-left" aria-hidden="true">

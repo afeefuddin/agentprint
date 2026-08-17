@@ -11,7 +11,7 @@ export default async function OnboardingPage() {
   const devices = await listDevices(current.id);
   return (
     <>
-      <SiteHeader current={current} />
+      <SiteHeader current={current} variant="minimal" />
       <main id="main" className={`onboarding-main${current.onboarding_complete ? "" : " profile-claim-main"}`}>
         <div className="shell">
           <OnboardingFlow

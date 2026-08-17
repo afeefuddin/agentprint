@@ -32,7 +32,7 @@ export default async function FriendComparisonPage({
     <>
       <SiteHeader current={current} />
       <main id="main" className="comparison-main">
-        <div className="shell comparison-shell">
+        <div className="shell">
           <Link className="comparison-back" href="/dashboard/friends"><ArrowLeft size={15} /> Back to friends</Link>
           {comparison.status === "sharing_disabled" ? (
             <section className="comparison-disabled">

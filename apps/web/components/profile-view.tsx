@@ -87,7 +87,7 @@ export function ProfileView({
           {profile.show_harnesses && (
             <section className="breakdown" aria-labelledby="harness-title">
               <div className="section-heading">
-                <div><span className="eyebrow">Source mix</span><h2 id="harness-title">Connected harnesses</h2></div>
+                <div><h2 id="harness-title">Connected harnesses</h2></div>
                 <span>{Object.keys(harnesses).length} detected</span>
               </div>
               <div className="mix-list">
@@ -111,11 +111,11 @@ export function ProfileView({
           {profile.show_models && (
             <section className="breakdown models" aria-labelledby="models-title">
               <div className="section-heading">
-                <div><span className="eyebrow">Model routing</span><h2 id="models-title">Most used models</h2></div>
+                <div><h2 id="models-title">Most used models</h2></div>
               </div>
               <div className="model-list">
                 {Object.entries(models).length === 0 && (
-                  <p className="breakdown-empty">Model routing will appear after the first sync.</p>
+                  <p className="breakdown-empty">Model usage will appear after the first sync.</p>
                 )}
                 {Object.entries(models).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([name, tokens]) => (
                   <div key={name}>

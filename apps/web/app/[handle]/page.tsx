@@ -42,7 +42,7 @@ export default async function PublicProfilePage({
   ) : null;
   return (
     <>
-      <SiteHeader current={current} />
+      <SiteHeader current={current} variant="marketing" search />
       {data ? (
         <ProfileView data={data} preview={!data.profile.is_public} friendAction={friendAction} />
       ) : (

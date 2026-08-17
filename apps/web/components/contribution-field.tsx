@@ -1,7 +1,7 @@
 "use client";
 
 import { intensityFor, formatTokens } from "@agentprint/analytics";
-import { CalendarDays, Layers3, Sigma } from "lucide-react";
+import { Layers3 } from "lucide-react";
 import { KeyboardEvent, useMemo, useRef, useState } from "react";
 
 export type ActivityDay = {
@@ -31,6 +31,12 @@ function isoDate(date: Date) {
   return date.toISOString().slice(0, 10);
 }
 
+function todayIso() {
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
+  return isoDate(today);
+}
+
 function buildYear() {
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
@@ -53,10 +59,13 @@ export function ContributionField({
   showHarnesses = true
 }: Props) {
   const [harness, setHarness] = useState("all");
-  const [mode, setMode] = useState<"daily" | "cumulative">("daily");
   const cellRefs = useRef(new Map<string, HTMLButtonElement>());
   const [year] = useState(() => buildYear());
-  const [selected, setSelected] = useState<string>(() => year[year.length - 1]);
+  const lastIndex = useMemo(() => {
+    const index = year.indexOf(todayIso());
+    return index === -1 ? year.length - 1 : index;
+  }, [year]);
+  const [selected, setSelected] = useState<string>(() => year[lastIndex]);
   const monthLabels = useMemo(() => {
     const starts = year.flatMap((date, index) => {
       const value = new Date(`${date}T12:00:00Z`);
@@ -77,16 +86,6 @@ export function ContributionField({
     () => [...new Set(activity.flatMap((day) => Object.keys(day.harnesses)))],
     [activity]
   );
-  const visibleValues = activity.map((day) =>
-    harness === "all" ? day.tokens : day.harnesses[harness] ?? 0
-  );
-  const maxCumulative = visibleValues.reduce((sum, value) => sum + value, 0);
-  const cumulativeValues = year.reduce<number[]>((values, date, index) => {
-    const day = activityMap.get(date);
-    const raw = day ? (harness === "all" ? day.tokens : day.harnesses[harness] ?? 0) : 0;
-    values.push((values[index - 1] ?? 0) + raw);
-    return values;
-  }, []);
 
   function move(event: KeyboardEvent<HTMLButtonElement>, index: number) {
     const directions: Record<string, number> = {
@@ -98,7 +97,7 @@ export function ContributionField({
     const offset = directions[event.key];
     if (!offset) return;
     event.preventDefault();
-    const next = year[Math.max(0, Math.min(year.length - 1, index + offset))];
+    const next = year[Math.max(0, Math.min(lastIndex, index + offset))];
     cellRefs.current.get(next)?.focus();
     setSelected(next);
   }
@@ -123,14 +122,6 @@ export function ContributionField({
               </select>
             </label>
           )}
-          <div className="segmented" aria-label="Activity calculation">
-            <button className={mode === "daily" ? "active" : ""} onClick={() => setMode("daily")} aria-pressed={mode === "daily"}>
-              <CalendarDays size={13} /> Daily
-            </button>
-            <button className={mode === "cumulative" ? "active" : ""} onClick={() => setMode("cumulative")} aria-pressed={mode === "cumulative"}>
-              <Sigma size={13} /> Cumulative
-            </button>
-          </div>
         </div>
       </div>
       <div className="field-scroll" role="region" aria-label="Scrollable contribution calendar" tabIndex={0}>
@@ -150,12 +141,12 @@ export function ContributionField({
           </div>
           <div className="contribution-grid" role="grid" aria-label="Daily token activity">
             {year.map((date, index) => {
+              if (index > lastIndex) {
+                return <span key={date} className="activity-cell is-future" role="presentation" aria-hidden="true" />;
+              }
               const day = activityMap.get(date);
               const rawValue = day ? (harness === "all" ? day.tokens : day.harnesses[harness] ?? 0) : 0;
-              const value = mode === "daily" ? rawValue : cumulativeValues[index];
-              const level = mode === "daily"
-                ? intensityFor(value, thresholds)
-                : value === 0 ? 0 : Math.max(1, Math.ceil((value / Math.max(1, maxCumulative)) * 4));
+              const level = intensityFor(rawValue, thresholds);
               const label = showTokens
                 ? `${new Date(`${date}T12:00:00Z`).toLocaleDateString("en", { dateStyle: "long" })}: ${formatTokens(rawValue)} tokens${day ? ` across ${day.events} records` : ""}`
                 : `${new Date(`${date}T12:00:00Z`).toLocaleDateString("en", { dateStyle: "long" })}: ${day ? "activity recorded" : "no synced activity"}`;
@@ -172,7 +163,7 @@ export function ContributionField({
                   role="gridcell"
                   aria-label={label}
                   title={label}
-                  tabIndex={selected === date || (!selected && index === year.length - 1) ? 0 : -1}
+                  tabIndex={selected === date || (!selected && index === lastIndex) ? 0 : -1}
                   onFocus={() => setSelected(date)}
                   onMouseEnter={() => setSelected(date)}
                   onKeyDown={(event) => move(event, index)}
