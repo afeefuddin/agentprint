@@ -39,7 +39,7 @@ export async function GET(request: Request) {
     const token = await createSession(user.id);
     const next = jar.get(GOOGLE_NEXT_COOKIE)?.value;
     const safeNext = next?.startsWith("/") && !next.startsWith("//") ? next : undefined;
-    const response = finish(request, user.onboardingComplete ? safeNext ?? "/dashboard" : "/onboarding");
+    const response = finish(request, user.onboardingComplete ? safeNext ?? `/${user.handle}` : "/onboarding");
     response.cookies.set(sessionCookie(token));
     return response;
   } catch (error) {

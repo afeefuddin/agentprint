@@ -14,7 +14,7 @@ export default async function RegisterPage({
 }) {
   const { error } = await searchParams;
   const current = await viewer();
-  if (current) redirect(current.onboarding_complete ? "/dashboard" : "/onboarding");
+  if (current) redirect(current.onboarding_complete ? `/${current.handle}` : "/onboarding");
   return (
     <main id="main" className="auth-layout">
       <section className="auth-panel">

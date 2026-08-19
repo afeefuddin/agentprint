@@ -66,7 +66,7 @@ export default async function PrivacyPage() {
       <main id="main" className="privacy-page shell">
         <span className="eyebrow">Privacy specification · schema v1</span>
         <h1>The collection boundary<br /><em>is intentionally narrow.</em></h1>
-        <p className="lede">The local agent reads harness-owned usage records and creates a numeric metadata record. The server contract has no place for text content, code, or paths.</p>
+        <p className="lede">The local agent reads harness-owned usage records and creates a numeric metadata record. The server contract has no place for text content, code, or paths. Sharing a session is the one exception, and it never happens automatically—see <a href="#sharing">session sharing</a> below.</p>
         <div className="boundary-columns">
           <section><h2><Check size={18} /> Collected</h2>{collected.map((item) => <div key={item}><i />{item}</div>)}</section>
           <section className="excluded"><h2><X size={18} /> Never collected</h2>{excluded.map((item) => <div key={item}><i />{item}</div>)}</section>
@@ -92,6 +92,14 @@ export default async function PrivacyPage() {
               </dl>
             </div>
           ))}
+        </section>
+        <section className="privacy-prose" id="sharing">
+          <h2>Session sharing is a separate pipeline.</h2>
+          <p>Everything above describes background collection, which is automatic and structurally cannot carry content. Session sharing is the opposite: it publishes a full transcript—your prompts, the agent&rsquo;s replies, its tool calls and their output. It only ever runs when you ask for one specific session, one at a time, by running <code>agentprint share</code>.</p>
+          <p>Before anything is uploaded, the collector rewrites the transcript on your machine. Values matching known credential shapes—provider keys, tokens, private keys, passwords inside connection strings—are replaced with a visible marker. Your home directory becomes <code>~</code> and your project path becomes <code>&lt;project&gt;</code>. Images and binary attachments are dropped entirely. Oversized tool output is truncated. At the <em>strict</em> level, tool arguments, tool output, and the agent&rsquo;s reasoning are left out altogether.</p>
+          <p>You then read the result before deciding. <code>agentprint share --dry-run</code> renders the exact payload as a local page and uploads nothing at all; the interactive publish shows you the same page before asking for confirmation. The server independently re-scans every upload and refuses any transcript still carrying something that looks like a live credential.</p>
+          <p>A shared session starts <em>unlisted</em>: reachable by its link, never indexed, never shown on your profile. Making it public or friends-only is a separate, deliberate choice. Deleting one removes the transcript from our database and the link stops resolving. Shared sessions are included in your data export and are deleted with your account.</p>
+          <p>One thing redaction cannot do for you: a transcript is still your work in your own words. It can name colleagues and clients, and describe code you may not own. Read the preview before you publish.</p>
         </section>
         <section className="privacy-prose">
           <h2>Local first, public by choice.</h2>

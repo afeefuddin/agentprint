@@ -4,6 +4,7 @@ import {
   createSession,
   findOrCreateOAuthUser,
   pool,
+  publishShare,
   updateProfile
 } from "../../packages/database/src/index";
 
@@ -155,7 +156,7 @@ test("new account starts private and can be published", async ({ page }) => {
   await page.getByLabel("Username").fill(handle);
   await page.getByRole("button", { name: "Claim profile and continue" }).click();
   await expect(page.getByRole("heading", { name: "One command. Then forget it." })).toBeVisible();
-  await page.goto("/dashboard");
+  await page.goto("/settings");
   const publicSwitch = page.getByRole("switch", { name: "Public profile" });
   await expect(publicSwitch).not.toBeChecked();
   await publicSwitch.click();
@@ -208,7 +209,7 @@ test("friends can connect, opt in, and compare paired traces", async ({ page, br
     );
     const firstToken = await createSession(first.id);
     await page.context().addCookies([{ name: "pm_session", value: firstToken, url: "http://localhost:3000" }]);
-    await page.goto("/dashboard/friends");
+    await page.goto("/friends");
     await expect(page.getByRole("heading", { name: "Compare traces, not people." })).toBeVisible();
     await Promise.all([
       page.waitForResponse((response) => response.url().endsWith("/v1/me/profile") && response.request().method() === "PATCH"),
@@ -228,7 +229,7 @@ test("friends can connect, opt in, and compare paired traces", async ({ page, br
     try {
       await secondContext.addCookies([{ name: "pm_session", value: secondToken, url: "http://localhost:3000" }]);
       const secondPage = await secondContext.newPage();
-      await secondPage.goto("/dashboard/friends");
+      await secondPage.goto("/friends");
       await expect(secondPage.getByRole("heading", { name: "Compare traces, not people." })).toBeVisible();
       await Promise.all([
         secondPage.waitForResponse((response) => response.url().endsWith("/v1/me/profile") && response.request().method() === "PATCH"),
@@ -278,4 +279,73 @@ test("friends can connect, opt in, and compare paired traces", async ({ page, br
   } finally {
     await pool.query("DELETE FROM users WHERE id = ANY($1::uuid[])", [[first.id, second.id]]);
   }
+});
+
+test("a public shared session is readable, collapsible, and linked from the profile", async ({ page }) => {
+  await page.goto("/maya-builds");
+  const entry = page.getByRole("link", { name: /Track down the flaky checkout test/ });
+  await expect(entry).toBeVisible();
+  // Follow the profile's own link rather than clicking it: the site scrolls
+  // smoothly, and a mid-scroll hit test is a property of the harness, not the
+  // page. The link target is what this test actually cares about.
+  const href = await entry.getAttribute("href");
+  expect(href).toMatch(/^\/s\/[A-Za-z0-9]{16,32}$/);
+  await page.goto(href!);
+
+  await expect(page.getByRole("heading", { name: "Track down the flaky checkout test" })).toBeVisible();
+  await expect(page.getByText("Shared by")).toBeVisible();
+  // The redaction summary is the page's core claim; it must always be present.
+  await expect(page.getByText(/credential values removed/)).toBeVisible();
+
+  // Tool steps start collapsed so a several-hundred-step session stays readable.
+  const step = page.getByRole("button", { name: /^Read/ }).first();
+  await expect(step).toHaveAttribute("aria-expanded", "false");
+  await step.click();
+  await expect(step).toHaveAttribute("aria-expanded", "true");
+  await expect(page.getByText("seedCart")).toBeVisible();
+
+  // Harnesses attribute tool output to the user role; it must not read as a prompt.
+  await expect(page.getByText("Tool result").first()).toBeVisible();
+});
+
+test("an unlisted session is reachable by link but never listed or indexed", async ({ page, request }) => {
+  // A dedicated share, so this test never mutates the seeded public one that
+  // other tests read in parallel.
+  const owner = await pool.query("SELECT user_id FROM profiles WHERE handle = 'maya-builds'");
+  const userId = owner.rows[0].user_id;
+  const published = await publishShare(
+    { userId },
+    {
+      schema_version: 1,
+      harness_id: "codex",
+      session_fingerprint: `e2e-unlisted-${Date.now()}-000000`,
+      title: "An unlisted session about caching",
+      visibility: "unlisted",
+      redaction_level: "balanced",
+      redaction: { secrets_removed: 0, paths_rewritten: 0, blocks_truncated: 0, turns_excluded: 0 },
+      started_at: "2026-08-14T16:02:00Z",
+      ended_at: "2026-08-14T16:12:00Z",
+      model_ids: [],
+      totals: { input_tokens: 10, output_tokens: 5, total_tokens: 15 },
+      turns: [{ index: 0, role: "user", blocks: [{ kind: "text", text: "how does the cache expire" }] }]
+    }
+  );
+  try {
+    await page.goto("/maya-builds");
+    await expect(page.getByRole("link", { name: /An unlisted session about caching/ })).toHaveCount(0);
+
+    await page.goto(`/s/${published.slug}`);
+    await expect(page.getByRole("heading", { name: "An unlisted session about caching" })).toBeVisible();
+    await expect(page.locator('meta[name="robots"][content*="noindex"]')).toHaveCount(1);
+
+    const api = await request.get(`/v1/shares/${published.slug}`);
+    expect(api.headers()["x-robots-tag"]).toContain("noindex");
+  } finally {
+    await pool.query("DELETE FROM shared_sessions WHERE id = $1", [published.id]);
+  }
+});
+
+test("an unknown shared session slug is not found", async ({ page }) => {
+  const response = await page.goto("/s/aaaaaaaaaaaaaaaaaaaaaa");
+  expect(response?.status()).toBe(404);
 });

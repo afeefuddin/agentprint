@@ -37,7 +37,7 @@ export function ProfileFriendAction({
 
   if (state.relationship === "accepted") {
     return (
-      <Link className="button button-small button-secondary profile-friend-action" href="/dashboard/friends">
+      <Link className="button button-small button-secondary profile-friend-action" href="/friends">
         <Check size={14} /> Friends
       </Link>
     );
@@ -45,7 +45,7 @@ export function ProfileFriendAction({
 
   if (state.relationship === "pending" && state.direction === "incoming") {
     return (
-      <Link className="button button-small profile-friend-action" href="/dashboard/friends">
+      <Link className="button button-small profile-friend-action" href="/friends">
         <Inbox size={14} /> Respond to request
       </Link>
     );

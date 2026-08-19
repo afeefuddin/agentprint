@@ -105,6 +105,14 @@ func run() error {
 		return application.sync(ctx, true)
 	case "sources":
 		return application.sources(ctx, os.Args[2:])
+	case "sessions":
+		return application.sessions(ctx, os.Args[2:])
+	case "share":
+		return application.share(ctx, os.Args[2:])
+	case "shares":
+		return application.shares(ctx, os.Args[2:])
+	case "unshare":
+		return application.unshare(ctx, os.Args[2:])
 	case "privacy":
 		printPrivacy()
 		return nil
@@ -221,7 +229,8 @@ func confirmUpdate(input io.Reader, output io.Writer) (bool, error) {
 
 func shouldOfferUpdate(command string) bool {
 	switch command {
-	case "login", "status", "sync", "sources", "privacy", "doctor", "pause", "resume", "logout":
+	case "login", "status", "sync", "sources", "privacy", "doctor", "pause", "resume", "logout",
+		"sessions", "share", "shares", "unshare":
 		return true
 	default:
 		return false
@@ -330,7 +339,7 @@ func login(ctx context.Context, manager *config.Manager, configuration config.Co
 			}
 		}
 	}
-	fmt.Printf("Your private profile is ready at %s/dashboard\n", configuration.Server)
+	fmt.Printf("Your private profile is ready at %s\n", configuration.Server)
 	return nil
 }
 
@@ -548,23 +557,49 @@ func boolMark(value bool) string {
 func printPrivacy() {
 	fmt.Println(`Agentprint collection boundary (schema v1)
 
-COLLECTED
-  • Timestamp and local calendar date
-  • Harness and optional version
-  • Provider and model identifiers, when present
-  • Numeric token categories
-  • Numeric cost and provenance, when reported
-  • Anonymous source identity
+Agentprint has two pipelines. Background collection is automatic and carries
+no content. Session sharing carries content and only ever runs when you ask
+for one specific session, one at a time.
 
-NEVER COLLECTED
-  • Prompts or responses
-  • Source code or file contents
-  • Repository names or file paths
-  • Shell history
-  • API keys or credentials
-  • Project or client names
+BACKGROUND COLLECTION — automatic
 
-Adapters read harness-owned metadata files with read-only access.`)
+  COLLECTED
+    • Timestamp and local calendar date
+    • Harness and optional version
+    • Provider and model identifiers, when present
+    • Numeric token categories
+    • Numeric cost and provenance, when reported
+    • Anonymous source identity
+
+  NEVER COLLECTED
+    • Prompts or responses
+    • Source code or file contents
+    • Repository names or file paths
+    • Shell history
+    • API keys or credentials
+    • Project or client names
+
+  The sync contract rejects unknown fields, so content cannot enter a batch
+  even by accident. Adapters read harness-owned metadata files read-only.
+
+SESSION SHARING — only when you run agentprint share
+
+  UPLOADED, for the one session you choose
+    • Your prompts and the agent's replies
+    • Tool calls, their arguments, and their output
+    • The agent's reasoning, unless you use --redact strict
+
+  REMOVED BEFORE UPLOAD, on this machine
+    • Values matching known credential shapes, and long high-entropy tokens
+    • Your home directory and project path, rewritten to ~ and <project>
+    • Images and binary attachments
+    • Anything past the size limit for a single block
+
+  Every share is previewed locally before it is uploaded, is unlisted unless
+  you choose otherwise, and can be deleted with agentprint unshare.
+
+  A transcript is still your work in your words. It can name colleagues,
+  clients, and code you do not own. Read the preview before you publish.`)
 }
 
 func printHelp() {
@@ -578,6 +613,10 @@ Commands:
   status      health, queue, and detected harnesses
   sync        collect and sync immediately
   sources     show detected adapters and capabilities
+  sessions    list local harness sessions you could share
+  share       preview and publish one session (--dry-run uploads nothing)
+  shares      list the sessions you have published
+  unshare     delete a published session
   privacy     print the exact collection boundary
   doctor      run secret-safe diagnostics
   pause       pause background collection

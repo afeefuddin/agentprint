@@ -170,6 +170,90 @@ paths:
       security: [{ sessionCookie: [] }]
       responses:
         "204": { description: Deleted }
+  /v1/me/shares:
+    get:
+      summary: List the sessions this account has published
+      description: >-
+        Accepts either a browser session cookie or a device bearer token, so the
+        dashboard and the CLI manage the same shares.
+      security: [{ deviceBearer: [] }]
+      responses:
+        "200": { description: Shared sessions owned by this account }
+        "401": { description: Authentication required }
+    post:
+      summary: Publish one redacted session transcript
+      description: >-
+        The only endpoint that accepts harness content. It is never called by
+        background sync; the collector calls it once per session the user
+        explicitly chooses to share, after local redaction and preview. The
+        request is gzipped and Ed25519-signed exactly like a usage batch.
+        Publishing is idempotent per session_fingerprint: re-sharing the same
+        session replaces the transcript in place and keeps the existing link.
+      security: [{ deviceBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SessionShare" }
+      responses:
+        "201": { description: Published, with slug and URL }
+        "200": { description: Replaced an existing share for the same session }
+        "400": { description: The payload did not match the contract }
+        "413": { description: The payload exceeded the maximum accepted size }
+        "422": { description: The transcript still contains apparent credentials }
+        "429": { description: Too many publishes for this account }
+  /v1/me/shares/{id}:
+    patch:
+      summary: Change a shared session's title, visibility, or expiry
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SharePatch" }
+      responses:
+        "200": { description: The updated share }
+        "404": { description: Not found for this account }
+    delete:
+      summary: Delete a shared session and its transcript
+      description: >-
+        A hard delete. Withdrawing consent has to actually remove the content,
+        so the turns are removed and the link stops resolving.
+      security: [{ deviceBearer: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "204": { description: Deleted }
+        "404": { description: Not found for this account }
+  /v1/shares/{slug}:
+    get:
+      summary: Read a shared session
+      description: >-
+        Public for `public` and `unlisted` shares. A `friends` share resolves
+        only for the owner and their accepted friends; anyone else receives 404,
+        the same as an unknown or expired slug.
+      parameters:
+        - in: path
+          name: slug
+          required: true
+          schema: { type: string }
+        - in: query
+          name: offset
+          schema: { type: integer, minimum: 0 }
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 500 }
+      responses:
+        "200": { description: The share, its author, and a page of turns }
+        "404": { description: Unknown, expired, revoked, or not visible to you }
   /v1/profiles/search:
     get:
       summary: Search public profiles by handle or display name
@@ -265,6 +349,117 @@ components:
           minItems: 1
           maxItems: 2000
           items: { $ref: "#/components/schemas/UsageRecord" }
+    TranscriptBlock:
+      description: >-
+        A closed vocabulary. Content the viewer cannot render is content nobody
+        reviewed before it was published, so an unrecognised kind is rejected.
+      oneOf:
+        - type: object
+          additionalProperties: false
+          required: [kind, text]
+          properties:
+            kind: { enum: [text] }
+            text: { type: string, maxLength: 120000 }
+            truncated: { type: boolean }
+        - type: object
+          additionalProperties: false
+          required: [kind, text]
+          properties:
+            kind: { enum: [thinking] }
+            text: { type: string, maxLength: 120000 }
+            truncated: { type: boolean }
+        - type: object
+          additionalProperties: false
+          required: [kind, name, input]
+          properties:
+            kind: { enum: [tool_use] }
+            id: { type: string, maxLength: 200 }
+            name: { type: string, maxLength: 120 }
+            input: { type: string, maxLength: 120000 }
+            truncated: { type: boolean }
+        - type: object
+          additionalProperties: false
+          required: [kind, ok, output]
+          properties:
+            kind: { enum: [tool_result] }
+            tool_use_id: { type: string, maxLength: 200 }
+            ok: { type: boolean }
+            output: { type: string, maxLength: 120000 }
+            truncated: { type: boolean }
+        - type: object
+          additionalProperties: false
+          required: [kind, reason]
+          properties:
+            kind: { enum: [omitted] }
+            reason: { enum: [image, attachment, excluded, oversize, redaction_level] }
+    TranscriptTurn:
+      type: object
+      additionalProperties: false
+      required: [index, role, blocks]
+      properties:
+        index: { type: integer, minimum: 0 }
+        role: { enum: [user, assistant, system] }
+        at: { type: string, format: date-time }
+        model_id: { type: string, maxLength: 120 }
+        blocks:
+          type: array
+          maxItems: 400
+          items: { $ref: "#/components/schemas/TranscriptBlock" }
+    SessionShare:
+      type: object
+      additionalProperties: false
+      required:
+        [schema_version, harness_id, session_fingerprint, title, visibility,
+         redaction_level, redaction, started_at, ended_at, model_ids, totals, turns]
+      properties:
+        schema_version: { enum: [1] }
+        harness_id: { enum: [codex, claude-code, opencode, kimi-code, synthetic] }
+        harness_version: { type: string, maxLength: 80 }
+        session_fingerprint: { type: string, minLength: 16, maxLength: 128 }
+        title: { type: string, minLength: 1, maxLength: 140 }
+        summary: { type: string, maxLength: 400 }
+        visibility: { enum: [unlisted, public, friends] }
+        redaction_level: { enum: [strict, balanced, full] }
+        redaction:
+          type: object
+          additionalProperties: false
+          required: [secrets_removed, paths_rewritten, blocks_truncated, turns_excluded]
+          properties:
+            secrets_removed: { type: integer, minimum: 0 }
+            paths_rewritten: { type: integer, minimum: 0 }
+            blocks_truncated: { type: integer, minimum: 0 }
+            turns_excluded: { type: integer, minimum: 0 }
+        started_at: { type: string, format: date-time }
+        ended_at: { type: string, format: date-time }
+        expires_at: { type: string, format: date-time, nullable: true }
+        model_ids:
+          type: array
+          maxItems: 24
+          items: { type: string, maxLength: 120 }
+        totals:
+          type: object
+          additionalProperties: false
+          required: [input_tokens, output_tokens, total_tokens]
+          properties:
+            input_tokens: { type: integer, minimum: 0 }
+            output_tokens: { type: integer, minimum: 0 }
+            cached_input_tokens: { type: integer, minimum: 0 }
+            reasoning_tokens: { type: integer, minimum: 0 }
+            total_tokens: { type: integer, minimum: 0 }
+            estimated_cost_micros: { type: integer, minimum: 0 }
+            cost_basis: { enum: [reported, price-table, unavailable] }
+        turns:
+          type: array
+          minItems: 1
+          maxItems: 4000
+          items: { $ref: "#/components/schemas/TranscriptTurn" }
+    SharePatch:
+      type: object
+      additionalProperties: false
+      properties:
+        title: { type: string, minLength: 1, maxLength: 140 }
+        visibility: { enum: [unlisted, public, friends] }
+        expires_at: { type: string, format: date-time, nullable: true }
     FriendRequest:
       type: object
       additionalProperties: false

@@ -7,8 +7,11 @@ import {
   profilePatchSchema,
   publicProfileSearchSchema,
   reservedHandles,
+  sessionShareSchema,
   syncBatchSchema,
-  usageRecordSchema
+  usageRecordSchema,
+  auditShareForCredentials,
+  findCredentials
 } from "./index";
 
 const validRecord = {
@@ -93,5 +96,120 @@ describe("public profile search", () => {
     expect(publicProfileSearchSchema.safeParse({ q: " " }).success).toBe(false);
     expect(publicProfileSearchSchema.safeParse({ q: "m" }).success).toBe(false);
     expect(publicProfileSearchSchema.safeParse({ q: "m".repeat(81) }).success).toBe(false);
+  });
+});
+
+describe("session share contract", () => {
+  const share = {
+    schema_version: 1 as const,
+    harness_id: "claude-code" as const,
+    session_fingerprint: "a".repeat(64),
+    title: "Fix the failing build",
+    visibility: "unlisted" as const,
+    redaction_level: "balanced" as const,
+    redaction: {
+      secrets_removed: 2,
+      paths_rewritten: 5,
+      blocks_truncated: 0,
+      turns_excluded: 1
+    },
+    started_at: "2026-08-01T10:00:00Z",
+    ended_at: "2026-08-01T10:20:00Z",
+    model_ids: ["claude-opus-5"],
+    totals: { input_tokens: 120, output_tokens: 40, total_tokens: 170 },
+    turns: [
+      { index: 0, role: "user" as const, blocks: [{ kind: "text" as const, text: "why is it red" }] },
+      {
+        index: 1,
+        role: "assistant" as const,
+        blocks: [
+          { kind: "thinking" as const, text: "read the log" },
+          { kind: "tool_use" as const, name: "Bash", input: "{\"command\":\"npm test\"}" },
+          { kind: "tool_result" as const, ok: false, output: "1 failing", truncated: true },
+          { kind: "omitted" as const, reason: "image" as const }
+        ]
+      }
+    ]
+  };
+
+  test("accepts a complete redacted transcript", () => {
+    expect(sessionShareSchema.safeParse(share).success).toBe(true);
+  });
+
+  // The block vocabulary is closed on purpose: content the viewer cannot
+  // render is content nobody reviewed before it was published.
+  test("rejects unknown block kinds and extra block fields", () => {
+    expect(sessionShareSchema.safeParse({
+      ...share,
+      turns: [{ index: 0, role: "user", blocks: [{ kind: "attachment", data: "…" }] }]
+    }).success).toBe(false);
+    expect(sessionShareSchema.safeParse({
+      ...share,
+      turns: [{ index: 0, role: "user", blocks: [{ kind: "text", text: "hi", path: "/Users/dana" }] }]
+    }).success).toBe(false);
+  });
+
+  test("rejects unknown top-level fields", () => {
+    expect(sessionShareSchema.safeParse({ ...share, cwd: "/Users/dana/work" }).success).toBe(false);
+  });
+
+  test("requires contiguous turn indexes", () => {
+    expect(sessionShareSchema.safeParse({
+      ...share,
+      turns: [{ index: 4, role: "user", blocks: [{ kind: "text", text: "hi" }] }]
+    }).success).toBe(false);
+  });
+
+  test("rejects a session that ends before it starts", () => {
+    expect(sessionShareSchema.safeParse({
+      ...share,
+      started_at: "2026-08-01T10:20:00Z",
+      ended_at: "2026-08-01T10:00:00Z"
+    }).success).toBe(false);
+  });
+
+  test("requires cost basis whenever a cost is reported", () => {
+    expect(sessionShareSchema.safeParse({
+      ...share,
+      totals: { ...share.totals, estimated_cost_micros: 1200 }
+    }).success).toBe(false);
+  });
+
+  test("only accepts the three redaction levels and three visibilities", () => {
+    expect(sessionShareSchema.safeParse({ ...share, redaction_level: "none" }).success).toBe(false);
+    expect(sessionShareSchema.safeParse({ ...share, visibility: "everyone" }).success).toBe(false);
+  });
+});
+
+describe("server-side credential audit", () => {
+  test("finds credentials the collector should already have removed", () => {
+    const withSecret = {
+      schema_version: 1 as const,
+      harness_id: "codex" as const,
+      session_fingerprint: "b".repeat(64),
+      title: "Deploy",
+      visibility: "unlisted" as const,
+      redaction_level: "full" as const,
+      redaction: { secrets_removed: 0, paths_rewritten: 0, blocks_truncated: 0, turns_excluded: 0 },
+      started_at: "2026-08-01T10:00:00Z",
+      ended_at: "2026-08-01T10:01:00Z",
+      model_ids: [],
+      totals: { input_tokens: 1, output_tokens: 1, total_tokens: 2 },
+      turns: [{
+        index: 0,
+        role: "assistant" as const,
+        blocks: [{
+          kind: "tool_result" as const,
+          ok: true,
+          output: "DATABASE_URL=postgresql://owner:hunter2hunter2@db.example.com/app\nAKIAIOSFODNN7EXAMPLE"
+        }]
+      }]
+    };
+    const parsed = sessionShareSchema.parse(withSecret);
+    expect(auditShareForCredentials(parsed)).toEqual(["aws-access-key", "url-password"]);
+  });
+
+  test("stays quiet on an ordinary transcript", () => {
+    expect(findCredentials("edited <project>/src/main.ts and ran npm test")).toEqual([]);
   });
 });

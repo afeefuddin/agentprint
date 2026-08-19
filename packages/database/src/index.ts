@@ -6,7 +6,16 @@ import {
 } from "node:crypto";
 import { Pool, type PoolClient, type QueryResultRow } from "pg";
 import { calculateStreaks, intensityFor, intensityThresholds } from "@agentprint/analytics";
-import type { OnboardingProfile, ProfilePatch, SyncBatch } from "@agentprint/contracts";
+import type {
+  OnboardingProfile,
+  ProfilePatch,
+  RedactionLevel,
+  SessionShare,
+  SharePatch,
+  ShareVisibility,
+  SyncBatch,
+  TranscriptBlock
+} from "@agentprint/contracts";
 
 const databaseUrl =
   process.env.DATABASE_URL ??
@@ -75,8 +84,8 @@ export async function findOrCreateOAuthUser(input: {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    const identity = await one<{ user_id: string; onboarding_complete: boolean }>(
-      `SELECT oa.user_id, p.onboarding_complete
+    const identity = await one<{ user_id: string; handle: string; onboarding_complete: boolean }>(
+      `SELECT oa.user_id, p.handle, p.onboarding_complete
        FROM oauth_accounts oa JOIN profiles p ON p.user_id = oa.user_id
        WHERE oa.provider = $1 AND oa.provider_account_id = $2`,
       [input.provider, input.accountId],
@@ -84,12 +93,17 @@ export async function findOrCreateOAuthUser(input: {
     );
     if (identity) {
       await client.query("COMMIT");
-      return { id: identity.user_id, created: false, onboardingComplete: identity.onboarding_complete };
+      return {
+        id: identity.user_id,
+        created: false,
+        handle: identity.handle,
+        onboardingComplete: identity.onboarding_complete
+      };
     }
 
     const email = input.email.toLowerCase();
-    const existing = await one<{ id: string; onboarding_complete: boolean }>(
-      `SELECT u.id, p.onboarding_complete
+    const existing = await one<{ id: string; handle: string; onboarding_complete: boolean }>(
+      `SELECT u.id, p.handle, p.onboarding_complete
        FROM users u JOIN profiles p ON p.user_id = u.id
        WHERE u.email = $1 FOR UPDATE OF u`,
       [email],
@@ -102,7 +116,12 @@ export async function findOrCreateOAuthUser(input: {
         [input.provider, input.accountId, existing.id]
       );
       await client.query("COMMIT");
-      return { id: existing.id, created: false, onboardingComplete: existing.onboarding_complete };
+      return {
+        id: existing.id,
+        created: false,
+        handle: existing.handle,
+        onboardingComplete: existing.onboarding_complete
+      };
     }
 
     const user = await one<{ id: string }>(
@@ -123,7 +142,7 @@ export async function findOrCreateOAuthUser(input: {
       [input.provider, input.accountId, user!.id]
     );
     await client.query("COMMIT");
-    return { id: user!.id, created: true, onboardingComplete: false };
+    return { id: user!.id, created: true, handle: placeholderHandle, onboardingComplete: false };
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;
@@ -504,8 +523,9 @@ export async function listDevices(userId: string) {
             COALESCE(json_agg(json_build_object(
               'harness_id', ds.harness_id,
               'status', ds.status,
-              'version', ds.version
-            )) FILTER (WHERE ds.harness_id IS NOT NULL), '[]') AS sources
+              'version', ds.version,
+              'last_collected_at', ds.last_collected_at
+            ) ORDER BY ds.harness_id) FILTER (WHERE ds.harness_id IS NOT NULL), '[]') AS sources
      FROM devices d
      LEFT JOIN device_sources ds ON ds.device_id = d.id
      WHERE d.user_id = $1
@@ -1010,7 +1030,11 @@ export async function getProfile(handle: string, viewerId?: string) {
     harnesses,
     models,
     thresholds: intensityThresholds(activity.map((day) => day.tokens)),
-    summary
+    summary,
+    // Only shares the owner explicitly marked public reach a profile. Unlisted
+    // and friends-only shares stay off it entirely, including for the owner's
+    // own view, so the section always shows what a visitor would see.
+    sharedSessions: await listPublicShares(profile.id)
   };
   const isOwner = viewerId === profile.id;
   if (!isOwner) {
@@ -1106,18 +1130,286 @@ export async function usageExport(userId: string) {
      FROM usage_events WHERE user_id = $1 ORDER BY occurred_at`,
     [userId]
   );
+  const shares = await shareExport(userId);
   return {
     exportedAt: new Date().toISOString(),
     account: user,
     profile,
     devices,
     friendships,
-    usage: usage.rows
+    usage: usage.rows,
+    sharedSessions: shares
   };
 }
 
 export async function deleteAccount(userId: string) {
   await pool.query("DELETE FROM users WHERE id = $1", [userId]);
+}
+
+/* Session sharing. */
+
+export type ShareSummary = {
+  id: string;
+  slug: string;
+  harness_id: string;
+  harness_version: string | null;
+  title: string;
+  summary: string;
+  visibility: ShareVisibility;
+  redaction_level: RedactionLevel;
+  redaction_stats: Record<string, number>;
+  turn_count: number;
+  total_tokens: string;
+  estimated_cost_micros: string | null;
+  model_ids: string[];
+  started_at: Date;
+  ended_at: Date;
+  published_at: Date;
+  updated_at: Date;
+  expires_at: Date | null;
+  view_count: string;
+};
+
+const shareFields = [
+  "id", "slug", "harness_id", "harness_version", "title", "summary", "visibility",
+  "redaction_level", "redaction_stats", "turn_count", "total_tokens::text",
+  "estimated_cost_micros::text", "model_ids", "started_at", "ended_at",
+  "published_at", "updated_at", "expires_at", "view_count::text"
+];
+const shareColumns = shareFields.join(", ");
+const prefixedShareColumns = shareFields.map((field) => `s.${field}`).join(", ");
+
+function shareSlug() {
+  const alphabet = "abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const bytes = randomBytes(22);
+  let slug = "";
+  for (const byte of bytes) slug += alphabet[byte % alphabet.length];
+  return slug;
+}
+
+/*
+ * Publishing is idempotent per (user, session_fingerprint): re-sharing the same
+ * harness session after more work replaces the transcript in place and keeps
+ * the existing URL, so a link someone already sent stays correct.
+ */
+export async function publishShare(
+  input: { userId: string; deviceId?: string | null },
+  share: SessionShare
+) {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const existing = await one<{ id: string; slug: string }>(
+      "SELECT id, slug FROM shared_sessions WHERE user_id = $1 AND session_fingerprint = $2 FOR UPDATE",
+      [input.userId, share.session_fingerprint],
+      client
+    );
+    const values = [
+      input.userId,
+      input.deviceId ?? null,
+      share.harness_id,
+      share.harness_version ?? null,
+      share.title,
+      share.summary ?? "",
+      share.visibility,
+      share.redaction_level,
+      JSON.stringify(share.redaction),
+      share.turns.length,
+      share.totals.input_tokens,
+      share.totals.output_tokens,
+      share.totals.total_tokens,
+      share.totals.estimated_cost_micros ?? null,
+      share.totals.cost_basis ?? null,
+      share.model_ids,
+      share.started_at,
+      share.ended_at,
+      share.expires_at ?? null
+    ];
+    let row: { id: string; slug: string } | null;
+    if (existing) {
+      row = await one<{ id: string; slug: string }>(
+        `UPDATE shared_sessions SET
+           device_id = $2, harness_id = $3, harness_version = $4, title = $5,
+           summary = $6, visibility = $7, redaction_level = $8,
+           redaction_stats = $9::jsonb, turn_count = $10, input_tokens = $11,
+           output_tokens = $12, total_tokens = $13, estimated_cost_micros = $14,
+           cost_basis = $15, model_ids = $16, started_at = $17, ended_at = $18,
+           expires_at = $19, updated_at = now()
+         WHERE user_id = $1 AND session_fingerprint = $20
+         RETURNING id, slug`,
+        [...values, share.session_fingerprint],
+        client
+      );
+      await client.query("DELETE FROM shared_session_turns WHERE share_id = $1", [existing.id]);
+    } else {
+      row = await one<{ id: string; slug: string }>(
+        `INSERT INTO shared_sessions (
+           user_id, device_id, harness_id, harness_version, title, summary,
+           visibility, redaction_level, redaction_stats, turn_count,
+           input_tokens, output_tokens, total_tokens, estimated_cost_micros,
+           cost_basis, model_ids, started_at, ended_at, expires_at,
+           session_fingerprint, slug
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11, $12,
+                   $13, $14, $15, $16, $17, $18, $19, $20, $21)
+         RETURNING id, slug`,
+        [...values, share.session_fingerprint, shareSlug()],
+        client
+      );
+    }
+    if (!row) throw new Error("share was not persisted");
+    for (const turn of share.turns) {
+      await client.query(
+        `INSERT INTO shared_session_turns (share_id, index, role, occurred_at, model_id, blocks)
+         VALUES ($1, $2, $3, $4, $5, $6::jsonb)`,
+        [row.id, turn.index, turn.role, turn.at ?? null, turn.model_id ?? null, JSON.stringify(turn.blocks)]
+      );
+    }
+    await client.query("COMMIT");
+    return { id: row.id, slug: row.slug, replaced: Boolean(existing) };
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function listShares(userId: string) {
+  const result = await pool.query<ShareSummary>(
+    `SELECT ${shareColumns} FROM shared_sessions
+     WHERE user_id = $1 ORDER BY published_at DESC`,
+    [userId]
+  );
+  return result.rows;
+}
+
+export async function listPublicShares(userId: string, limit = 6) {
+  const result = await pool.query<ShareSummary>(
+    `SELECT ${shareColumns} FROM shared_sessions
+     WHERE user_id = $1 AND visibility = 'public'
+       AND (expires_at IS NULL OR expires_at > now())
+     ORDER BY published_at DESC LIMIT $2`,
+    [userId, limit]
+  );
+  return result.rows;
+}
+
+export async function updateShare(userId: string, shareId: string, patch: SharePatch) {
+  const assignments: string[] = [];
+  const values: unknown[] = [userId, shareId];
+  for (const [column, value] of Object.entries(patch)) {
+    values.push(value);
+    assignments.push(`${column} = $${values.length}`);
+  }
+  if (assignments.length === 0) return null;
+  return one<ShareSummary>(
+    `UPDATE shared_sessions SET ${assignments.join(", ")}, updated_at = now()
+     WHERE user_id = $1 AND id = $2
+     RETURNING ${shareColumns}`,
+    values
+  );
+}
+
+/*
+ * Revoking is a hard delete, not a flag. A shared session is content the owner
+ * asked us to publish; withdrawing consent has to actually remove it.
+ */
+export async function revokeShare(userId: string, shareId: string) {
+  const result = await pool.query(
+    "DELETE FROM shared_sessions WHERE user_id = $1 AND id = $2",
+    [userId, shareId]
+  );
+  return (result.rowCount ?? 0) > 0;
+}
+
+export type SharedSessionView = ShareSummary & {
+  author: { handle: string; display_name: string; is_public: boolean };
+  turns: Array<{
+    index: number;
+    role: string;
+    occurred_at: Date | null;
+    model_id: string | null;
+    blocks: TranscriptBlock[];
+  }>;
+  total_turns: number;
+};
+
+export async function getSharedSession(
+  slug: string,
+  viewerId: string | undefined,
+  page: { offset: number; limit: number } = { offset: 0, limit: 200 }
+) {
+  const share = await one<ShareSummary & {
+    user_id: string;
+    visibility: ShareVisibility;
+    handle: string;
+    display_name: string;
+    is_public: boolean;
+  }>(
+    `SELECT s.user_id, ${prefixedShareColumns},
+            p.handle, p.display_name, p.is_public
+     FROM shared_sessions s
+     JOIN profiles p ON p.user_id = s.user_id
+     WHERE s.slug = $1 AND (s.expires_at IS NULL OR s.expires_at > now())`,
+    [slug]
+  );
+  if (!share) return null;
+
+  const isOwner = viewerId === share.user_id;
+  if (!isOwner && share.visibility === "friends") {
+    const friendship = viewerId
+      ? await one<{ id: string }>(
+          `SELECT id FROM friendships
+           WHERE status = 'accepted'
+             AND ((requester_id = $1 AND addressee_id = $2)
+               OR (requester_id = $2 AND addressee_id = $1))`,
+          [share.user_id, viewerId]
+        )
+      : null;
+    if (!friendship) return null;
+  }
+
+  const turns = await pool.query<{
+    index: number;
+    role: string;
+    occurred_at: Date | null;
+    model_id: string | null;
+    blocks: TranscriptBlock[];
+  }>(
+    `SELECT index, role, occurred_at, model_id, blocks
+     FROM shared_session_turns
+     WHERE share_id = $1 AND index >= $2
+     ORDER BY index LIMIT $3`,
+    [share.id, page.offset, page.limit]
+  );
+  return { ...share, turns: turns.rows, total_turns: share.turn_count, isOwner };
+}
+
+export async function recordShareView(slug: string) {
+  await pool.query(
+    "UPDATE shared_sessions SET view_count = view_count + 1 WHERE slug = $1",
+    [slug]
+  );
+}
+
+export async function shareExport(userId: string) {
+  const result = await pool.query(
+    `SELECT s.slug, s.harness_id, s.title, s.visibility, s.redaction_level,
+            s.published_at, s.expires_at,
+            coalesce(jsonb_agg(
+              jsonb_build_object(
+                'index', t.index, 'role', t.role, 'at', t.occurred_at,
+                'model_id', t.model_id, 'blocks', t.blocks
+              ) ORDER BY t.index
+            ) FILTER (WHERE t.share_id IS NOT NULL), '[]'::jsonb) AS turns
+     FROM shared_sessions s
+     LEFT JOIN shared_session_turns t ON t.share_id = s.id
+     WHERE s.user_id = $1
+     GROUP BY s.id
+     ORDER BY s.published_at`,
+    [userId]
+  );
+  return result.rows;
 }
 
 export function uuid() {

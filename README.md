@@ -55,6 +55,36 @@ bun run cli:release
 The onboarding installer then downloads them from
 `apps/web/public/releases/latest`.
 
+## Session sharing
+
+Background collection never uploads transcript content. Sharing is a separate
+pipeline: it publishes one session at a time, only when asked.
+
+```sh
+agentprint sessions                 # list local sessions across harnesses
+agentprint share --dry-run          # render the exact payload locally, upload nothing
+agentprint share <id> --redact strict --visibility public
+agentprint shares                   # list what you have published
+agentprint unshare <id>             # delete a transcript and break its link
+```
+
+Before upload the collector rewrites the transcript on the machine that owns
+it: credential shapes become visible `[redacted:...]` markers, the home
+directory becomes `~`, the project path becomes `<project>`, images are
+dropped, and long tool output is truncated. `--redact strict` additionally
+omits tool arguments, tool output, and agent reasoning. The dry run writes a
+local HTML preview so the payload can be read before any network call, and the
+interactive publish shows the same preview before asking for confirmation.
+
+The server re-scans every upload and refuses one that still contains an
+apparent live credential. Shares default to unlisted—reachable by link, never
+indexed, never listed on a profile—and only appear on a profile once the owner
+marks them public. Deleting a share removes the transcript.
+
+Session readers exist for Claude Code, Codex, and Kimi Code. OpenCode is not
+yet supported: recent versions moved message storage into `opencode.db`, so it
+needs its own reader.
+
 Existing installations check for a new release at most once per day and offer
 to install it before interactive commands. Users can also update immediately:
 
@@ -89,3 +119,9 @@ The canonical contract is in
 It rejects unknown fields, so prompt, response, content, repository, and path
 fields cannot enter an ingestion batch. Public profile choices are enforced
 when the profile payload is built, not only hidden in the browser.
+
+Session sharing is the one path that carries content, and it is deliberately
+separate: its own endpoint (`POST /v1/me/shares`), its own strict contract
+(`SessionShare`), its own tables, and an explicit per-session consent step. The
+block vocabulary is closed, every field is size-bounded, and the server rejects
+anything it does not recognise. `agentprint privacy` prints both boundaries.

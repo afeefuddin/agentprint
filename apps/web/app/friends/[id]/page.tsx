@@ -3,9 +3,9 @@ import Link from "next/link";
 import { ArrowLeft, ArrowRight, LockKeyhole, Users } from "lucide-react";
 import { formatTokens } from "@agentprint/analytics";
 import { getFriendComparison } from "@agentprint/database";
-import { SiteHeader } from "@/components/site-header";
 import { ComparisonTrace } from "@/components/comparison-trace";
 import { requireViewer } from "@/lib/auth";
+import { SiteHeader } from "@/components/site-header";
 import { notFound } from "next/navigation";
 
 export const metadata: Metadata = { title: "Friend comparison" };
@@ -33,14 +33,14 @@ export default async function FriendComparisonPage({
       <SiteHeader current={current} />
       <main id="main" className="comparison-main">
         <div className="shell">
-          <Link className="comparison-back" href="/dashboard/friends"><ArrowLeft size={15} /> Back to friends</Link>
+          <Link className="comparison-back" href="/friends"><ArrowLeft size={15} /> Back to friends</Link>
           {comparison.status === "sharing_disabled" ? (
             <section className="comparison-disabled">
               <span><LockKeyhole size={23} /></span>
               <p className="eyebrow">Private comparison</p>
               <h1>Both traces must be shared.</h1>
               <p>{comparison.mine.sharesComparisons ? `@${comparison.other.handle} has not enabled friend comparisons yet.` : "Enable friend comparisons before aligning your trace with a friend."}</p>
-              <Link className="button" href="/dashboard/friends">Review sharing controls</Link>
+              <Link className="button" href="/friends">Review sharing controls</Link>
             </section>
           ) : (
             <ComparisonReady comparison={comparison} />

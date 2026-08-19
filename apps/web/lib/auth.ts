@@ -1,13 +1,14 @@
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getViewer } from "@agentprint/database";
 
 export const SESSION_COOKIE = "pm_session";
 
-export async function viewer() {
+export const viewer = cache(async () => {
   const jar = await cookies();
   return getViewer(jar.get(SESSION_COOKIE)?.value);
-}
+});
 
 export async function requireViewer(options?: { allowIncomplete?: boolean }) {
   const current = await viewer();

@@ -166,7 +166,7 @@ export function OnboardingFlow({ handle, hasDevice, profileComplete, appUrl }: {
             <p>Your connected device is healthy. Review the private profile, choose which metrics are visible, and publish when it feels right.</p>
             <div className="onboarding-actions">
               <Link className="button" href={`/${handle}`}>Preview private profile <ArrowRight size={16} /></Link>
-              <Link className="button button-secondary" href="/dashboard#visibility">Choose visibility</Link>
+              <Link className="button button-secondary" href="/settings#visibility">Choose visibility</Link>
             </div>
           </div>
         )}

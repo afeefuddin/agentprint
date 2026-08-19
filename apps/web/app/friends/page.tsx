@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { listFriendships } from "@agentprint/database";
 import { FriendsWorkspace } from "@/components/friends-workspace";
-import { SiteHeader } from "@/components/site-header";
 import { requireViewer } from "@/lib/auth";
+import { SiteHeader } from "@/components/site-header";
 
 export const metadata: Metadata = { title: "Friends" };
 

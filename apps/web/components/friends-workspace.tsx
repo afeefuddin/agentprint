@@ -439,7 +439,7 @@ function actionMessage(entry: ConnectionTarget, action: "accept" | "decline" | "
 }
 
 function ComparisonAction({ entry, ready, comparisonSharing, sharingBusy, onEnableSharing }: { entry: FriendshipEntry; ready: boolean; comparisonSharing: boolean; sharingBusy: boolean; onEnableSharing: () => void }) {
-  if (ready) return <Link className="button button-secondary button-small" href={`/dashboard/friends/${entry.id}`}>Compare traces <ArrowRight size={13} /></Link>;
+  if (ready) return <Link className="button button-secondary button-small" href={`/friends/${entry.id}`}>Compare traces <ArrowRight size={13} /></Link>;
   if (!comparisonSharing) return <button className="quiet-action sharing-action" onClick={onEnableSharing} disabled={sharingBusy}>Enable sharing</button>;
   return null;
 }

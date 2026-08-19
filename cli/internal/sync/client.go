@@ -277,3 +277,107 @@ func (client *Client) SyncAll(ctx context.Context, localStore *store.Store, cred
 func (client *Client) Revoke(ctx context.Context, credential string) error {
 	return client.request(ctx, http.MethodDelete, "/v1/device", nil, credential, nil)
 }
+
+/* Session sharing. */
+
+type ShareReceipt struct {
+	ID         string `json:"id"`
+	Slug       string `json:"slug"`
+	URL        string `json:"url"`
+	Visibility string `json:"visibility"`
+	Replaced   bool   `json:"replaced"`
+}
+
+type ShareEntry struct {
+	ID         string `json:"id"`
+	Slug       string `json:"slug"`
+	HarnessID  string `json:"harness_id"`
+	Title      string `json:"title"`
+	Visibility string `json:"visibility"`
+	TurnCount  int    `json:"turn_count"`
+	ViewCount  string `json:"view_count"`
+	Published  string `json:"published_at"`
+}
+
+// PublishShare uploads one redacted transcript. It reuses the signed, gzipped
+// envelope that usage sync uses, so sharing introduces no new authentication
+// surface: same device credential, same Ed25519 signature, same replay window.
+func (client *Client) PublishShare(ctx context.Context, credential, signingPrivateKey string, share any) (ShareReceipt, error) {
+	payload, err := json.Marshal(share)
+	if err != nil {
+		return ShareReceipt{}, err
+	}
+	var compressed bytes.Buffer
+	writer := gzip.NewWriter(&compressed)
+	if _, err := writer.Write(payload); err != nil {
+		return ShareReceipt{}, err
+	}
+	if err := writer.Close(); err != nil {
+		return ShareReceipt{}, err
+	}
+	privateKey, err := base64.StdEncoding.DecodeString(signingPrivateKey)
+	if err != nil || len(privateKey) != ed25519.PrivateKeySize {
+		return ShareReceipt{}, errors.New("invalid signing private key in OS keychain")
+	}
+	timestamp := fmt.Sprint(time.Now().Unix())
+	signature := ed25519.Sign(
+		ed25519.PrivateKey(privateKey),
+		append([]byte(timestamp+"."), compressed.Bytes()...),
+	)
+	request, err := http.NewRequestWithContext(
+		ctx, http.MethodPost, client.BaseURL+"/v1/me/shares", bytes.NewReader(compressed.Bytes()),
+	)
+	if err != nil {
+		return ShareReceipt{}, err
+	}
+	request.Header.Set("Authorization", "Bearer "+credential)
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Content-Encoding", "gzip")
+	request.Header.Set("X-Agentprint-Timestamp", timestamp)
+	request.Header.Set("X-Agentprint-Signature", base64.StdEncoding.EncodeToString(signature))
+
+	// Publishing a long transcript takes longer than a metadata batch.
+	uploadClient := &http.Client{Timeout: 90 * time.Second}
+	response, err := uploadClient.Do(request)
+	if err != nil {
+		return ShareReceipt{}, err
+	}
+	defer response.Body.Close()
+	body, err := io.ReadAll(io.LimitReader(response.Body, 1024*1024))
+	if err != nil {
+		return ShareReceipt{}, err
+	}
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		var failure struct {
+			Error    string   `json:"error"`
+			Message  string   `json:"message"`
+			Detected []string `json:"detected"`
+		}
+		_ = json.Unmarshal(body, &failure)
+		if len(failure.Detected) > 0 {
+			return ShareReceipt{}, fmt.Errorf("%s: %s (%s)",
+				failure.Error, failure.Message, strings.Join(failure.Detected, ", "))
+		}
+		if failure.Error == "" {
+			failure.Error = response.Status
+		}
+		return ShareReceipt{}, fmt.Errorf("%s: %s", failure.Error, failure.Message)
+	}
+	var receipt ShareReceipt
+	if err := json.Unmarshal(body, &receipt); err != nil {
+		return ShareReceipt{}, err
+	}
+	return receipt, nil
+}
+
+func (client *Client) ListShares(ctx context.Context, credential string) ([]ShareEntry, error) {
+	var result struct {
+		Shares []ShareEntry `json:"shares"`
+	}
+	err := client.request(ctx, http.MethodGet, "/v1/me/shares", nil, credential, &result)
+	return result.Shares, err
+}
+
+func (client *Client) RevokeShare(ctx context.Context, credential, id string) error {
+	return client.request(ctx, http.MethodDelete, "/v1/me/shares/"+id, nil, credential, nil)
+}

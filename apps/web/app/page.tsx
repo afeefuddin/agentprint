@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowRight, Check, Code2, Globe2, Link2, RefreshCw, ShieldCheck } from "lucide-react";
+import { ArrowRight, Check, Code2, Globe2, Link2, MessagesSquare, RefreshCw, ShieldCheck } from "lucide-react";
 import { viewer } from "@/lib/auth";
 import { SiteHeader } from "@/components/site-header";
 import { LandingPreview } from "@/components/landing-preview";
@@ -31,14 +31,14 @@ export default async function Home() {
           </div>
           <div className="hero-conversion">
             <div className="hero-actions">
-              <Link className="button hero-cta" href={current ? "/dashboard" : "/register"}>
-                {current ? "Open your dashboard" : "Create your activity field"} <ArrowRight size={16} />
+              <Link className="button hero-cta" href={current?.onboarding_complete ? `/${current.handle}` : current ? "/onboarding" : "/register"}>
+                {current ? "Open your profile" : "Create your activity field"} <ArrowRight size={16} />
               </Link>
             </div>
             <div className="hero-proof">
               <span><Check size={14} /> Free in beta</span>
               <span><Check size={14} /> 60-second setup</span>
-              <span><Check size={14} /> Metadata only</span>
+              <span><Check size={14} /> Metadata by default</span>
             </div>
           </div>
           <LandingPreview />
@@ -113,20 +113,27 @@ export default async function Home() {
               </div>
             </article>
 
-            <article className="feature-card feature-card-wide feature-share">
+            <article className="feature-card feature-card-wide feature-session">
               <div className="feature-copy">
-                <h2>Share the signal. Keep the work private.</h2>
-                <p>Publish a profile or embed a live card with only the metrics you choose.</p>
+                <h2>Publish a whole session. On purpose.</h2>
+                <p>Background sync never uploads transcripts. Share one session deliberately—rendered locally first, credentials stripped.</p>
               </div>
-              <div className="share-visual" aria-hidden="true">
-                <div className="share-profile-card">
-                  <div className="share-person"><span>MC</span><div><b>Maya Chen</b><small>@maya-builds</small></div><i><ShieldCheck size={12} /> synced</i></div>
-                  <div className="share-trace">
-                    {Array.from({ length: 70 }, (_, index) => <i key={index} data-level={(index * 13 + 7) % 5} />)}
+              <div className="session-visual" aria-hidden="true">
+                <div className="session-window">
+                  <div className="visual-window-bar"><span /><span /><span /><b>agentprint share --dry-run</b><MessagesSquare size={12} /></div>
+                  {/* Audit sits directly under the bar so the bottom bleed never clips it. */}
+                  <div className="session-audit">
+                    <span><ShieldCheck size={12} /> 2 secrets removed</span>
+                    <span>7 paths rewritten</span>
+                    <b>Nothing uploaded yet</b>
                   </div>
-                  <div className="share-metrics"><span><small>Lifetime tokens</small><b>1.28B</b></span><span><small>Active days</small><b>212</b></span><span><small>Current streak</small><b>38d</b></span></div>
+                  <div className="session-turn"><span>You</span><p>Make the sync client retry on 429.</p></div>
+                  <div className="session-turn" data-agent><span>Claude Code</span><p>Added exponential backoff with a jittered delay, capped at five attempts.</p></div>
+                  <div className="session-turn"><span>You</span><p>Read the token from <i>[redacted]</i> rather than the flag.</p></div>
+                  <div className="session-turn" data-agent><span>Claude Code</span><p>Moved it behind a loader in <i>[project]</i>/internal/sync.</p></div>
+                  <div className="session-turn"><span>You</span><p>Ship it.</p></div>
                 </div>
-                <div className="share-chip"><Code2 size={13} /> Live SVG card</div>
+                <div className="session-chip"><Link2 size={13} /> Unlisted link</div>
               </div>
             </article>
           </div>

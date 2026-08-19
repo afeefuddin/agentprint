@@ -3,7 +3,7 @@
 import { Check, Copy } from "lucide-react";
 import { useState } from "react";
 
-export function ShareButton({ title }: { title: string }) {
+export function ShareButton({ title, label = "Share profile" }: { title: string; label?: string }) {
   const [copied, setCopied] = useState(false);
   async function share() {
     const url = window.location.href;
@@ -18,7 +18,7 @@ export function ShareButton({ title }: { title: string }) {
   return (
     <button className="button button-secondary share-button" type="button" onClick={share}>
       {copied ? <Check size={14} /> : <Copy size={14} />}
-      {copied ? "Copied" : "Share profile"}
+      {copied ? "Copied" : label}
     </button>
   );
 }

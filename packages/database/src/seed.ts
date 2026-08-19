@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { createAccount, hashSecret, ingestBatch, pool } from "./index";
+import { createAccount, hashSecret, ingestBatch, pool, publishShare } from "./index";
 
 const existing = await pool.query(
   "SELECT u.id FROM users u WHERE u.email = 'demo@agentprint.dev'"
@@ -95,6 +95,99 @@ if (count.rows[0].count === 0) {
     }
   );
 }
+
+// One published session, so the shared-session viewer and the profile listing
+// have something real to render locally. Its transcript is written the way the
+// collector would emit it: already redacted, with the markers left visible.
+await publishShare(
+  { userId },
+  {
+    schema_version: 1,
+    harness_id: "claude-code",
+    harness_version: "2.1.0",
+    session_fingerprint: createHash("sha256").update("demo:shared-session").digest("hex"),
+    title: "Track down the flaky checkout test",
+    visibility: "public",
+    redaction_level: "balanced",
+    redaction: { secrets_removed: 1, paths_rewritten: 6, blocks_truncated: 1, turns_excluded: 0 },
+    started_at: "2026-08-14T16:02:00Z",
+    ended_at: "2026-08-14T16:41:00Z",
+    model_ids: ["claude-opus-4.1"],
+    totals: {
+      input_tokens: 184_320,
+      output_tokens: 12_940,
+      cached_input_tokens: 96_400,
+      total_tokens: 293_660,
+      estimated_cost_micros: 2_760_000,
+      cost_basis: "price-table"
+    },
+    turns: [
+      {
+        index: 0,
+        role: "user",
+        at: "2026-08-14T16:02:00Z",
+        blocks: [{
+          kind: "text",
+          text: "The checkout test passes locally but fails on CI about one run in four. Can you find out why?"
+        }]
+      },
+      {
+        index: 1,
+        role: "assistant",
+        at: "2026-08-14T16:02:24Z",
+        model_id: "claude-opus-4.1",
+        blocks: [
+          { kind: "thinking", text: "One run in four suggests ordering or timing rather than logic. I should look at how the test seeds its fixtures before assuming a race." },
+          { kind: "text", text: "An intermittent quarter-of-the-time failure usually means shared state, not a broken assertion. Let me read the test and its setup." },
+          { kind: "tool_use", id: "t1", name: "Read", input: JSON.stringify({ file_path: "<project>/tests/checkout.spec.ts" }, null, 2) }
+        ]
+      },
+      {
+        index: 2,
+        role: "user",
+        at: "2026-08-14T16:02:31Z",
+        blocks: [{
+          kind: "tool_result",
+          tool_use_id: "t1",
+          ok: true,
+          output: "beforeEach(async () => {\n  await seedCart({ items: 3 });\n});\n\ntest(\"applies the discount once\", async () => {\n  const total = await checkout();\n  expect(total).toBe(2700);\n});"
+        }]
+      },
+      {
+        index: 3,
+        role: "assistant",
+        at: "2026-08-14T16:03:02Z",
+        model_id: "claude-opus-4.1",
+        blocks: [
+          { kind: "text", text: "`seedCart` writes to a shared table without clearing it first, so a cart left behind by an earlier test changes the total. That matches the intermittency: it only fails when the suite happens to run in an order that leaves rows behind." },
+          { kind: "tool_use", id: "t2", name: "Bash", input: JSON.stringify({ command: "npm test -- --runInBand tests/checkout.spec.ts" }, null, 2) }
+        ]
+      },
+      {
+        index: 4,
+        role: "user",
+        at: "2026-08-14T16:04:10Z",
+        blocks: [{
+          kind: "tool_result",
+          tool_use_id: "t2",
+          ok: true,
+          output: "PASS tests/checkout.spec.ts (12 runs, 0 failures)\n\nEnvironment:\n  DATABASE_URL=postgres://ci:[redacted:url-password]@localhost:5432/app_test",
+          truncated: true
+        }]
+      },
+      {
+        index: 5,
+        role: "assistant",
+        at: "2026-08-14T16:41:00Z",
+        model_id: "claude-opus-4.1",
+        blocks: [{
+          kind: "text",
+          text: "Confirmed: twelve serial runs pass. The fix is to truncate the cart tables in `beforeEach` rather than only inserting. I have made that change and the parallel suite is green."
+        }]
+      }
+    ]
+  }
+);
 
 await pool.end();
 console.log("Seeded demo@agentprint.dev / agentprint-demo");

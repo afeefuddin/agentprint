@@ -15,7 +15,7 @@ export default async function LoginPage({
   const { next, error } = await searchParams;
   const nextPath = next?.startsWith("/") && !next.startsWith("//") ? next : undefined;
   const current = await viewer();
-  if (current) redirect(current.onboarding_complete ? nextPath ?? "/dashboard" : "/onboarding");
+  if (current) redirect(current.onboarding_complete ? nextPath ?? `/${current.handle}` : "/onboarding");
   return (
     <main id="main" className="auth-layout">
       <section className="auth-panel">
