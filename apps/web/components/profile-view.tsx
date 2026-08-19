@@ -64,16 +64,31 @@ export function ProfileView({
 
         <section className="metric-rail" aria-label="Profile summary">
           {profile.show_tokens && (
-            <div><span>Lifetime tokens</span><strong>{formatTokens(summary.totalTokens)}</strong><small>input + output</small></div>
+            <div className="metric-card metric-card--tokens">
+              <div className="metric-copy"><span>Lifetime tokens</span><strong>{formatTokens(summary.totalTokens)}</strong><small>input + output</small></div>
+              <Image className="metric-art" src="/metrics/generated/lifetime-tokens.png" alt="" width={512} height={512} aria-hidden="true" />
+            </div>
           )}
           {profile.show_cost && (
-            <div><span>Estimated spend</span><strong>${(summary.estimatedCostMicros / 1_000_000).toLocaleString("en", { maximumFractionDigits: 0 })}</strong><small className="estimated">price-table estimate</small></div>
+            <div className="metric-card metric-card--spend">
+              <div className="metric-copy"><span>Estimated spend</span><strong>${(summary.estimatedCostMicros / 1_000_000).toLocaleString("en", { maximumFractionDigits: 0 })}</strong><small className="estimated">price-table estimate</small></div>
+              <Image className="metric-art" src="/metrics/generated/estimated-spend.png" alt="" width={512} height={512} aria-hidden="true" />
+            </div>
           )}
-          <div><span>Active days</span><strong>{summary.activeDays}</strong><small>trailing 12 months</small></div>
+          <div className="metric-card metric-card--active">
+            <div className="metric-copy"><span>Active days</span><strong>{summary.activeDays}</strong><small>trailing 12 months</small></div>
+            <Image className="metric-art" src="/metrics/generated/active-days.png" alt="" width={512} height={512} aria-hidden="true" />
+          </div>
           {profile.show_streaks && (
             <>
-              <div><span>Current streak</span><strong>{summary.currentStreak}<i> days</i></strong><small>local calendar</small></div>
-              <div><span>Longest streak</span><strong>{summary.longestStreak}<i> days</i></strong><small>all time</small></div>
+              <div className="metric-card metric-card--streak metric-card--current">
+                <div className="metric-copy"><span>Current streak</span><strong>{summary.currentStreak}<i> days</i></strong><small>local calendar</small></div>
+                <Image className="metric-art" src="/metrics/generated/current-streak.png" alt="" width={512} height={512} aria-hidden="true" />
+              </div>
+              <div className="metric-card metric-card--streak metric-card--longest">
+                <div className="metric-copy"><span>Longest streak</span><strong>{summary.longestStreak}<i> days</i></strong><small>all time</small></div>
+                <Image className="metric-art" src="/metrics/generated/longest-streak.png" alt="" width={512} height={512} aria-hidden="true" />
+              </div>
             </>
           )}
         </section>

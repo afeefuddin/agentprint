@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const columns = Array.from({ length: 53 }, (_, week) =>
   Array.from({ length: 7 }, (_, day) => {
@@ -40,19 +40,53 @@ function heatLevelAt(baseLevel: number, index: number, phase: number) {
 
 export function LandingPreview() {
   const [heatPhase, setHeatPhase] = useState(0);
+  const previewRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const preview = previewRef.current;
+    if (!preview) return;
 
-    const interval = window.setInterval(() => {
-      setHeatPhase((phase) => phase + 1);
-    }, heatInterval);
+    let interval = 0;
+    let isVisible = false;
+    let pageIsVisible = document.visibilityState === "visible";
 
-    return () => window.clearInterval(interval);
+    const stop = () => {
+      if (!interval) return;
+      window.clearInterval(interval);
+      interval = 0;
+    };
+
+    const start = () => {
+      if (interval || !isVisible || !pageIsVisible) return;
+      interval = window.setInterval(() => {
+        setHeatPhase((phase) => phase + 1);
+      }, heatInterval);
+    };
+
+    const observer = new IntersectionObserver(([entry]) => {
+      isVisible = entry.isIntersecting;
+      if (isVisible) start();
+      else stop();
+    });
+    observer.observe(preview);
+
+    const handleVisibilityChange = () => {
+      pageIsVisible = document.visibilityState === "visible";
+      if (pageIsVisible) start();
+      else stop();
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      stop();
+      observer.disconnect();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, []);
 
   return (
-    <div className="preview-stage">
+    <div ref={previewRef} className="preview-stage">
       <div className="landing-instrument" aria-label="Example yearly agent activity field">
         <div className="instrument-grid" aria-hidden="true">
           {cells.map((level, index) => (
