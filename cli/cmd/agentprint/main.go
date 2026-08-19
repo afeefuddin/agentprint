@@ -27,7 +27,7 @@ import (
 	"github.com/agentprint/agentprint/cli/internal/updater"
 )
 
-const version = "0.3.0"
+const version = "0.4.0"
 
 type app struct {
 	configManager *config.Manager
