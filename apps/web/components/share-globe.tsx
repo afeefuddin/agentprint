@@ -32,6 +32,8 @@ export function ShareGlobe() {
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     let phi = 0.2;
     let frame = 0;
+    let isVisible = false;
+    let pageIsVisible = document.visibilityState === "visible";
     let size = Math.max(320, Math.round(canvas.getBoundingClientRect().width));
 
     const globe = createGlobe(canvas, {
@@ -66,15 +68,45 @@ export function ShareGlobe() {
     observer.observe(canvas);
 
     const animate = () => {
-      if (!reducedMotion) phi += 0.0022;
+      frame = 0;
+      if (!isVisible || !pageIsVisible || reducedMotion) return;
+      phi += 0.0022;
       globe.update({ phi });
       frame = window.requestAnimationFrame(animate);
     };
-    frame = window.requestAnimationFrame(animate);
+
+    const stop = () => {
+      if (!frame) return;
+      window.cancelAnimationFrame(frame);
+      frame = 0;
+    };
+
+    const start = () => {
+      if (!isVisible || !pageIsVisible) return;
+      resize();
+      globe.update({ phi });
+      if (!reducedMotion && !frame) frame = window.requestAnimationFrame(animate);
+    };
+
+    const visibilityObserver = new IntersectionObserver(([entry]) => {
+      isVisible = entry.isIntersecting;
+      if (isVisible) start();
+      else stop();
+    }, { rootMargin: "80px 0px" });
+    visibilityObserver.observe(canvas);
+
+    const handleVisibilityChange = () => {
+      pageIsVisible = document.visibilityState === "visible";
+      if (pageIsVisible) start();
+      else stop();
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
-      window.cancelAnimationFrame(frame);
+      stop();
       observer.disconnect();
+      visibilityObserver.disconnect();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       globe.destroy();
     };
   }, []);
