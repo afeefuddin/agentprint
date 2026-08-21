@@ -8,6 +8,10 @@ import { viewer } from "@/lib/auth";
 import { SiteHeader } from "@/components/site-header";
 import { ShareButton } from "@/components/share-button";
 import { TranscriptView } from "@/components/transcript-view";
+import { appMainClass } from "@/lib/ui";
+
+const STAT_LABEL = "block text-xs text-faint";
+const STAT_VALUE = "mt-1 block text-lg font-[weight:560] text-ink-strong";
 
 const harnessLabels: Record<string, string> = {
   codex: "Codex",
@@ -72,23 +76,29 @@ export default async function SharedSessionPage({
   return (
     <>
       <SiteHeader current={current} variant="marketing" search />
-      <main id="main" className="share-main">
-        <div className="shell share-shell">
-          <header className="share-head">
-            <div className="share-head-copy">
-              <div className="share-badges">
-                <span className="share-harness">{harnessLabels[share.harness_id] ?? share.harness_id}</span>
+      <main id="main" className={appMainClass}>
+        <div className="shell max-w-[880px]">
+          <header className="flex items-start justify-between gap-7 max-compact:flex-col max-compact:gap-4">
+            <div>
+              <div className="mb-3 flex items-center gap-[9px]">
+                <span className="rounded-full border border-steel-2 bg-accent-soft px-2.5 py-1 text-xs text-accent-strong">
+                  {harnessLabels[share.harness_id] ?? share.harness_id}
+                </span>
                 {share.visibility === "unlisted" ? (
-                  <span className="share-flag"><EyeOff size={13} /> Unlisted link</span>
+                  <span className="inline-flex items-center gap-[5px] text-xs text-muted"><EyeOff size={13} /> Unlisted link</span>
                 ) : null}
                 {share.visibility === "friends" ? (
-                  <span className="share-flag"><Users size={13} /> Friends only</span>
+                  <span className="inline-flex items-center gap-[5px] text-xs text-muted"><Users size={13} /> Friends only</span>
                 ) : null}
               </div>
-              <h1>{share.title}</h1>
-              <p className="share-byline">
+              <h1 className="m-0 text-[32px] font-[weight:560] leading-[1.2] tracking-[-.03em] text-ink-strong max-compact:text-[26px]">
+                {share.title}
+              </h1>
+              <p className="mt-2.5 text-sm text-muted">
                 Shared by{" "}
-                <Link href={`/${share.handle}`}>{share.display_name}</Link>
+                <Link className="border-b border-line-strong text-ink-strong hover:border-accent hover:text-accent" href={`/${share.handle}`}>
+                  {share.display_name}
+                </Link>
                 {" · "}
                 {new Date(share.published_at).toLocaleDateString("en", {
                   day: "numeric",
@@ -100,23 +110,37 @@ export default async function SharedSessionPage({
             <ShareButton title={share.title} label="Copy link" />
           </header>
 
-          <section className="share-stats" aria-label="Session summary">
-            <div><span>Turns</span><strong>{share.turn_count}</strong></div>
-            <div><span>Tokens</span><strong>{formatTokens(Number(share.total_tokens))}</strong></div>
-            <div><span>Duration</span><strong>{span.value}<i> {span.unit}</i></strong></div>
+          <section
+            className="mt-[30px] flex flex-wrap gap-[34px] rounded-md border border-line bg-panel px-6 py-5 max-compact:gap-[22px]"
+            aria-label="Session summary"
+          >
+            <div>
+              <span className={STAT_LABEL}>Turns</span>
+              <strong className={STAT_VALUE}>{share.turn_count}</strong>
+            </div>
+            <div>
+              <span className={STAT_LABEL}>Tokens</span>
+              <strong className={STAT_VALUE}>{formatTokens(Number(share.total_tokens))}</strong>
+            </div>
+            <div>
+              <span className={STAT_LABEL}>Duration</span>
+              <strong className={STAT_VALUE}>{span.value}<i className="text-sm text-muted"> {span.unit}</i></strong>
+            </div>
             {share.model_ids.length > 0 && (
-              <div className="share-models">
-                <span>Models</span>
-                <strong>{share.model_ids.join(", ")}</strong>
+              <div>
+                <span className={STAT_LABEL}>Models</span>
+                <strong className="mt-1 block text-sm font-medium text-ink-strong">{share.model_ids.join(", ")}</strong>
               </div>
             )}
           </section>
 
-          <aside className="share-redaction">
-            <ShieldCheck size={17} aria-hidden="true" />
+          <aside className="mt-4 grid grid-cols-[auto_1fr_auto] items-start gap-3.5 rounded-sm border border-line border-l-[3px] border-l-accent bg-panel px-[22px] py-[18px] max-compact:grid-cols-[auto_1fr]">
+            <ShieldCheck size={17} className="mt-0.5 text-accent" aria-hidden="true" />
             <div>
-              <b>{redactionCopy[share.redaction_level] ?? share.redaction_level}</b>
-              <p>
+              <b className="block text-sm font-[weight:560] text-ink-strong">
+                {redactionCopy[share.redaction_level] ?? share.redaction_level}
+              </b>
+              <p className="mt-1.5 text-xs text-muted">
                 Redacted on the author&rsquo;s machine before upload:{" "}
                 {share.redaction_stats.secrets_removed ?? 0} credential values removed,{" "}
                 {share.redaction_stats.paths_rewritten ?? 0} local paths rewritten,{" "}
@@ -124,13 +148,18 @@ export default async function SharedSessionPage({
                 {share.redaction_stats.turns_excluded ?? 0} turns excluded.
               </p>
             </div>
-            <Link href="/privacy">How sharing works <ExternalLink size={13} /></Link>
+            <Link
+              className="inline-flex items-center gap-1.5 whitespace-nowrap text-xs text-accent max-compact:col-start-2"
+              href="/privacy"
+            >
+              How sharing works <ExternalLink size={13} />
+            </Link>
           </aside>
 
           <TranscriptView turns={share.turns} />
 
           {hasMore ? (
-            <p className="share-truncated">
+            <p className="mt-5 text-center text-xs text-faint">
               Showing the first {share.turns.length} of {share.turn_count} turns.
             </p>
           ) : null}

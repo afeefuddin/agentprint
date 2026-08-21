@@ -17,10 +17,10 @@ export default async function ActivatePage({
   }
   const { code } = await searchParams;
   return (
-    <main id="main" className="activate-layout">
-      <Brand />
+    <main id="main" className="flex min-h-screen flex-col items-center bg-canvas p-[34px] max-tablet:p-[22px]">
+      <Brand className="self-start" />
       <ActivateForm initialCode={code} />
-      <p className="activation-footer">One-time codes expire after 10 minutes.</p>
+      <p className="my-4 text-xs text-faint">One-time codes expire after 10 minutes.</p>
     </main>
   );
 }

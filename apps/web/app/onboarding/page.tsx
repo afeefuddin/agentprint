@@ -12,7 +12,10 @@ export default async function OnboardingPage() {
   return (
     <>
       <SiteHeader current={current} variant="minimal" />
-      <main id="main" className={`onboarding-main${current.onboarding_complete ? "" : " profile-claim-main"}`}>
+      <main
+        id="main"
+        className="relative min-h-[calc(100vh-var(--header-h))] bg-[#eceee8] pb-[90px] pt-[34px] before:absolute before:inset-x-0 before:bottom-full before:h-[var(--header-h)] before:bg-[#eceee8] before:content-[''] max-tablet:pb-[60px] max-tablet:pt-6"
+      >
         <div className="shell">
           <OnboardingFlow
             handle={current.handle}

@@ -7,10 +7,21 @@ import { ComparisonTrace } from "@/components/comparison-trace";
 import { requireViewer } from "@/lib/auth";
 import { SiteHeader } from "@/components/site-header";
 import { notFound } from "next/navigation";
+import { appMainClass, avatarChipClass, buttonClass, cx, eyebrowClass } from "@/lib/ui";
 
 export const metadata: Metadata = { title: "Friend comparison" };
 
 const comparisonWindows = [7, 30, 90] as const;
+
+const PANEL = "mt-[18px] overflow-hidden rounded-md border border-line-strong bg-panel";
+const PANEL_TITLE = "m-0 block text-sm font-semibold text-ink-strong";
+const PANEL_SUB = "mt-[3px] block text-xs text-faint";
+const HEADING_ROW = "flex items-center justify-between gap-5 pb-[18px]";
+const METRIC_GRID =
+  "grid grid-cols-[1fr_minmax(150px,.55fr)_1fr] items-center max-tablet:grid-cols-[1fr_92px_1fr]";
+const METRIC_VALUE =
+  "px-[18px] text-[24px] font-[weight:560] text-ink-strong [font-variant-numeric:tabular-nums] max-tablet:px-2 max-tablet:text-base";
+const MUTED_NOTE = "text-xs text-faint";
 
 export default async function FriendComparisonPage({
   params,
@@ -31,16 +42,20 @@ export default async function FriendComparisonPage({
   return (
     <>
       <SiteHeader current={current} />
-      <main id="main" className="comparison-main">
+      <main id="main" className={appMainClass}>
         <div className="shell">
-          <Link className="comparison-back" href="/friends"><ArrowLeft size={15} /> Back to friends</Link>
+          <Link className="inline-flex items-center gap-[7px] text-xs text-muted hover:text-ink-strong" href="/friends"><ArrowLeft size={15} /> Back to friends</Link>
           {comparison.status === "sharing_disabled" ? (
-            <section className="comparison-disabled">
-              <span><LockKeyhole size={23} /></span>
-              <p className="eyebrow">Private comparison</p>
-              <h1>Both traces must be shared.</h1>
-              <p>{comparison.mine.sharesComparisons ? `@${comparison.other.handle} has not enabled friend comparisons yet.` : "Enable friend comparisons before aligning your trace with a friend."}</p>
-              <Link className="button" href="/friends">Review sharing controls</Link>
+            <section className="mx-auto mt-20 max-w-[700px] rounded-md border border-line-strong bg-panel p-[60px] text-center max-tablet:mt-[45px] max-tablet:px-5 max-tablet:py-[42px]">
+              <span className="mx-auto mb-5 grid size-[54px] place-items-center rounded-sm border border-steel-2 bg-accent-soft text-blue">
+                <LockKeyhole size={23} />
+              </span>
+              <p className={eyebrowClass}>Private comparison</p>
+              <h1 className="my-[13px] text-[42px] font-[weight:480] text-ink-strong max-tablet:text-[37px]">Both traces must be shared.</h1>
+              <p className="mx-auto max-w-[490px] text-muted">
+                {comparison.mine.sharesComparisons ? `@${comparison.other.handle} has not enabled friend comparisons yet.` : "Enable friend comparisons before aligning your trace with a friend."}
+              </p>
+              <Link className={buttonClass({ className: "mt-[26px]" })} href="/friends">Review sharing controls</Link>
             </section>
           ) : (
             <ComparisonReady comparison={comparison} />
@@ -55,29 +70,53 @@ function ComparisonReady({ comparison }: { comparison: Extract<Awaited<ReturnTyp
   const [mine, friend] = comparison.people;
   return (
     <>
-      <header className="comparison-header">
+      <header className="mt-[42px] flex items-end justify-between gap-10 max-desktop:flex-col max-desktop:items-start max-tablet:mt-[34px]">
         <div>
-          <span className="eyebrow"><Users size={13} /> Mutual comparison</span>
-          <h1>Two traces.<br /><em>One window.</em></h1>
-          <p>Agent activity aligned by date, without scores or winners. More tokens do not imply better work.</p>
+          <span className={cx(eyebrowClass, "flex items-center gap-1.5")}><Users size={13} /> Mutual comparison</span>
+          <h1 className="mb-2.5 mt-3 text-[clamp(42px,5.5vw,64px)] font-[weight:480] leading-[.96] text-ink-strong max-tablet:text-[42px]">
+            Two traces.<br /><em className="font-display text-blue">One window.</em>
+          </h1>
+          <p className="m-0 max-w-[610px] text-sm leading-[1.65] text-muted">
+            Agent activity aligned by date, without scores or winners. More tokens do not imply better work.
+          </p>
         </div>
-        <nav className="comparison-windows" aria-label="Comparison window">
-          {comparisonWindows.map((days) => <Link key={days} href={`?window=${days}`} aria-current={comparison.windowDays === days ? "page" : undefined}>{days} days</Link>)}
+        <nav
+          className="flex overflow-hidden rounded-sm border border-line-strong bg-panel max-tablet:w-full"
+          aria-label="Comparison window"
+        >
+          {comparisonWindows.map((days) => (
+            <Link
+              key={days}
+              className="min-w-[68px] border-r border-line px-[11px] py-2.5 text-center text-xs text-muted transition-[background-color,color] duration-[130ms] last:border-r-0 hover:bg-canvas-deep hover:text-ink-strong focus-visible:relative focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue aria-[current=page]:bg-ink-strong aria-[current=page]:text-canvas max-tablet:flex-1"
+              href={`?window=${days}`}
+              aria-current={comparison.windowDays === days ? "page" : undefined}
+            >
+              {days} days
+            </Link>
+          ))}
         </nav>
       </header>
 
-      <section className="comparison-peer-rail" aria-label="Friends being compared">
+      <section
+        className="mt-[38px] grid grid-cols-[1fr_minmax(180px,.4fr)_1fr] items-center border-y border-line-strong py-3.5 max-tablet:grid-cols-[1fr_48px_1fr]"
+        aria-label="Friends being compared"
+      >
         <TraceIdentity person={mine} side="left" />
-        <span className="peer-rail-joint"><i /><LockKeyhole size={14} /><i /></span>
+        <span className="grid grid-cols-[1fr_auto_1fr] items-center gap-[9px] text-blue max-tablet:grid-cols-[1fr] max-tablet:justify-items-center">
+          <i className="h-px bg-steel-2 max-tablet:hidden" /><LockKeyhole size={14} /><i className="h-px bg-steel-2 max-tablet:hidden" />
+        </span>
         <TraceIdentity person={friend} side="right" />
       </section>
 
       <ComparisonTrace mine={mine} friend={friend} windowDays={comparison.windowDays} />
 
-      <section className="comparison-scorecard" aria-labelledby="shared-metrics-title">
-        <div className="scorecard-heading">
+      <section className={PANEL} aria-labelledby="shared-metrics-title">
+        <div className={cx(METRIC_GRID, "min-h-[68px] border-b border-line-strong px-4 max-tablet:px-2.5")}>
           <TraceIdentity person={mine} side="left" compact />
-          <span><h2 id="shared-metrics-title">Shared metrics</h2><small>Visible to both friends</small></span>
+          <span className="text-center">
+            <h2 id="shared-metrics-title" className="m-0 block text-xs font-semibold text-ink-strong">Shared metrics</h2>
+            <small className="mt-0.5 block text-2xs text-faint">Visible to both friends</small>
+          </span>
           <TraceIdentity person={friend} side="right" compact />
         </div>
         <PairedMetric label={`${comparison.windowDays}-day tokens`} left={formatOptionalTokens(mine.summary.totalTokens)} right={formatOptionalTokens(friend.summary.totalTokens)} />
@@ -86,32 +125,59 @@ function ComparisonReady({ comparison }: { comparison: Extract<Awaited<ReturnTyp
         <PairedMetric label="Longest streak" left={formatOptionalDays(mine.summary.longestStreak)} right={formatOptionalDays(friend.summary.longestStreak)} />
       </section>
 
-      <section className="routing-panel" aria-labelledby="routing-title">
-        <div className="routing-heading">
-          <span><h2 id="routing-title">Routing fingerprints</h2><small>How each trace moved across harnesses and models.</small></span>
-          <ArrowRight size={16} />
+      <section className={cx(PANEL, "p-5 max-tablet:p-3.5")} aria-labelledby="routing-title">
+        <div className={cx(HEADING_ROW, "border-b border-line")}>
+          <span>
+            <h2 id="routing-title" className={PANEL_TITLE}>Routing fingerprints</h2>
+            <small className={PANEL_SUB}>How each trace moved across harnesses and models.</small>
+          </span>
+          <ArrowRight size={16} className="text-faint" />
         </div>
         <ComparisonMix title="Harness routing" left={mine} right={friend} field="harnesses" visible={comparison.visibility.harnesses} />
         <ComparisonMix title="Model routing" left={mine} right={friend} field="models" visible={comparison.visibility.models} />
       </section>
 
-      <p className="comparison-privacy"><LockKeyhole size={13} /> Only metrics enabled by both friends appear here. Hidden values stay hidden at the query boundary.</p>
+      <p className="mt-5 flex items-center justify-center gap-[7px] text-xs text-faint max-tablet:items-start max-tablet:justify-start">
+        <LockKeyhole size={13} /> Only metrics enabled by both friends appear here. Hidden values stay hidden at the query boundary.
+      </p>
     </>
   );
 }
 
 function TraceIdentity({ person, side, compact = false }: { person: { displayName: string; handle: string }; side: "left" | "right"; compact?: boolean }) {
   return (
-    <div className="trace-identity" data-side={side} data-compact={compact || undefined}>
-      {side === "left" && <span className="friend-avatar" aria-hidden="true">{initials(person.displayName)}</span>}
-      <span><b>{person.displayName}</b><small>@{person.handle}</small></span>
-      {side === "right" && <span className="friend-avatar" aria-hidden="true">{initials(person.displayName)}</span>}
+    <div className={cx("flex min-w-0 items-center gap-[11px]", side === "right" && "justify-end text-right")}>
+      {side === "left" && <Initials name={person.displayName} compact={compact} />}
+      <span className="min-w-0">
+        <b className="block truncate text-xs text-ink-strong">{person.displayName}</b>
+        <small className={cx("mt-0.5 block truncate text-xs text-faint", compact && "max-tablet:hidden")}>@{person.handle}</small>
+      </span>
+      {side === "right" && <Initials name={person.displayName} compact={compact} />}
     </div>
   );
 }
 
+function Initials({ name, compact }: { name: string; compact: boolean }) {
+  return (
+    <span
+      className={avatarChipClass(compact)}
+      aria-hidden="true"
+    >
+      {initials(name)}
+    </span>
+  );
+}
+
 function PairedMetric({ label, left, right }: { label: string; left: string; right: string }) {
-  return <div className="paired-metric"><b>{left}</b><span>{label}</span><b>{right}</b></div>;
+  return (
+    <div className={cx(METRIC_GRID, "min-h-[69px] border-b border-line text-center last:border-b-0")}>
+      <b className={cx(METRIC_VALUE, "text-right")}>{left}</b>
+      <span className="grid select-none place-items-center self-stretch border-x border-line bg-canvas-deep text-xs text-muted">
+        {label}
+      </span>
+      <b className={cx(METRIC_VALUE, "text-left")}>{right}</b>
+    </div>
+  );
 }
 
 function ComparisonMix({
@@ -128,10 +194,10 @@ function ComparisonMix({
   visible: boolean;
 }) {
   return (
-    <div className="routing-row">
-      <h3>{title}</h3>
-      {!visible ? <p className="comparison-hidden">Hidden by one or both friends.</p> : (
-        <div className="paired-mix">
+    <div className="grid grid-cols-[150px_1fr] gap-[26px] border-b border-line py-5 last:border-0 last:pb-0 max-desktop:grid-cols-[1fr] max-desktop:gap-3.5">
+      <h3 className="m-0 text-sm font-[weight:540]">{title}</h3>
+      {!visible ? <p className={MUTED_NOTE}>Hidden by one or both friends.</p> : (
+        <div className="grid grid-cols-2 gap-7 max-tablet:gap-3.5">
           <MixList name={left.displayName} values={left[field]} side="left" />
           <MixList name={right.displayName} values={right[field]} side="right" />
         </div>
@@ -144,12 +210,22 @@ function MixList({ name, values, side }: { name: string; values: Record<string, 
   const total = Object.values(values).reduce((sum, value) => sum + value, 0);
   const rows = Object.entries(values).sort((a, b) => b[1] - a[1]).slice(0, 4);
   return (
-    <div className="comparison-mix-list" data-side={side}>
-      <p>{name}</p>
-      {rows.length === 0 && <span className="mix-empty">No activity in this window.</span>}
+    <div className={cx(side === "left" && "text-right")}>
+      <p className="mb-[11px] mt-0 text-xs text-faint">{name}</p>
+      {rows.length === 0 && <span className={MUTED_NOTE}>No activity in this window.</span>}
       {rows.map(([label, value]) => {
         const percentage = total ? Math.round(value / total * 100) : 0;
-        return <div key={label}><span><b>{label}</b><small>{percentage}%</small></span><i><em style={{ width: `${percentage}%` }} /></i></div>;
+        return (
+          <div key={label} className="mt-2.5">
+            <span className={cx("flex justify-between gap-2.5", side === "left" && "flex-row-reverse")}>
+              <b className="truncate text-xs font-semibold max-tablet:text-2xs">{label}</b>
+              <small className="text-xs text-faint max-tablet:text-2xs">{percentage}%</small>
+            </span>
+            <i className="mt-[5px] block h-[5px] bg-canvas-deep">
+              <em className={cx("block h-full bg-steel-3", side === "left" && "ml-auto")} style={{ width: `${percentage}%` }} />
+            </i>
+          </div>
+        );
       })}
     </div>
   );

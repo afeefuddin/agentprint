@@ -86,12 +86,22 @@ export function LandingPreview() {
   }, []);
 
   return (
-    <div ref={previewRef} className="preview-stage">
-      <div className="landing-instrument" aria-label="Example yearly agent activity field">
-        <div className="instrument-grid" aria-hidden="true">
+    <div
+      ref={previewRef}
+      className="landing-instrument relative mt-[72px] w-[min(100%,1080px)] max-tablet:mt-[46px] max-tablet:w-full"
+    >
+      <div
+        className="relative min-w-0 rounded-md border border-line bg-white p-[26px] shadow-[0_20px_54px_rgb(39_49_38_/_0.07)] max-tablet:p-[13px] max-tablet:shadow-none"
+        aria-label="Example yearly agent activity field"
+      >
+        <div
+          className="instrument-grid m-0 grid w-full grid-flow-col grid-rows-[repeat(7,auto)] grid-cols-[repeat(53,minmax(0,1fr))] gap-1 max-tablet:grid-cols-[repeat(53,minmax(3px,1fr))] max-tablet:gap-px"
+          aria-hidden="true"
+        >
           {cells.map((level, index) => (
             <i
               key={index}
+              className="aspect-square h-auto w-full min-w-0 rounded-[4px] bg-canvas-deep [transition:background-color_520ms_cubic-bezier(.65,0,.35,1),box-shadow_180ms_ease] hover:shadow-[0_0_0_2px_rgb(40_104_246_/_0.2)] data-[level=1]:bg-steel-1 data-[level=2]:bg-steel-2 data-[level=3]:bg-steel-3 data-[level=4]:bg-steel-4 max-tablet:rounded-[2px]"
               data-level={heatLevelAt(level, index, heatPhase)}
             />
           ))}

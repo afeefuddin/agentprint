@@ -8,28 +8,20 @@ import {
   updateProfile
 } from "../../packages/database/src/index";
 
-test("desktop registration remains scrollable when the form exceeds the viewport", async ({ page }, testInfo) => {
-  test.skip(testInfo.project.name !== "desktop", "Desktop layout only");
-  await page.setViewportSize({ width: 1440, height: 420 });
-  await page.goto("/register");
-  const layout = page.locator(".auth-layout");
-  const dimensions = await layout.evaluate((element) => ({
-    clientHeight: element.clientHeight,
-    scrollHeight: element.scrollHeight
-  }));
-  expect(dimensions.scrollHeight).toBeGreaterThan(dimensions.clientHeight);
-  await layout.evaluate((element) => element.scrollTo({ top: element.scrollHeight }));
-  await expect.poll(() => layout.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
-  await expect(page.getByText("By continuing, you agree to the Terms")).toBeVisible();
+test("registration uses the canonical login page", async ({ page }) => {
+  await page.goto("/register?error=github_denied");
+  await expect(page).toHaveURL(/\/login\?error=github_denied$/);
+  await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Continue with GitHub" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Continue with Google" })).toBeVisible();
 });
 
 test("public profile renders the contribution instrument and keyboard grid", async ({ page }) => {
   await page.goto("/maya-builds");
   await expect(page.getByRole("heading", { name: "Maya Chen" })).toBeVisible();
   await expect(page.getByRole("grid", { name: "Daily token activity" })).toBeVisible();
-  const cells = page.getByRole("gridcell");
-  await expect(cells).toHaveCount(371);
-  await cells.last().focus();
+  await expect(page.locator(".activity-cell")).toHaveCount(371);
+  await page.getByRole("gridcell").last().focus();
   await page.keyboard.press("ArrowLeft");
   await expect(page.locator(".activity-cell:focus")).toBeVisible();
 });
@@ -165,8 +157,14 @@ test("new account starts private and can be published", async ({ page }) => {
   expect(response.ok()).toBeTruthy();
 });
 
-test("OAuth choices preserve a pending device activation path", async ({ page }) => {
+test("OAuth choices preserve a pending device activation path", async ({ page }, testInfo) => {
   await page.goto("/login?next=%2Factivate%3Fcode%3DAAAAAA-BBBBBB");
+  await expect(page.getByRole("link", { name: "Create a profile" })).toHaveCount(0);
+  if (testInfo.project.name === "desktop") {
+    await expect(page.getByTestId("login-artwork")).toBeVisible();
+  } else {
+    await expect(page.getByTestId("login-artwork")).toBeHidden();
+  }
   await expect(page.getByRole("link", { name: "Continue with GitHub" })).toHaveAttribute(
     "href",
     "/api/auth/github?source=login&next=%2Factivate%3Fcode%3DAAAAAA-BBBBBB"
@@ -175,6 +173,7 @@ test("OAuth choices preserve a pending device activation path", async ({ page })
     "href",
     "/api/auth/google?source=login&next=%2Factivate%3Fcode%3DAAAAAA-BBBBBB"
   );
+  await expect(page.getByText("Use the same provider you chose when creating your profile.")).toHaveCount(0);
   await expect(page.getByRole("textbox")).toHaveCount(0);
 });
 
