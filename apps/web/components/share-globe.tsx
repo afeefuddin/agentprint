@@ -111,5 +111,5 @@ export function ShareGlobe() {
     };
   }, []);
 
-  return <canvas ref={canvasRef} className="share-globe-canvas" aria-hidden="true" />;
+  return <canvas ref={canvasRef} className="relative z-[1] block size-full" aria-hidden="true" />;
 }

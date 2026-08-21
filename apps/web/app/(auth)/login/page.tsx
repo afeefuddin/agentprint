@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import { redirect } from "next/navigation";
-import { Activity } from "lucide-react";
 import { viewer } from "@/lib/auth";
 import { Brand } from "@/components/brand";
 import { OAuthButtons } from "@/components/oauth-buttons";
@@ -17,19 +17,31 @@ export default async function LoginPage({
   const current = await viewer();
   if (current) redirect(current.onboarding_complete ? nextPath ?? `/${current.handle}` : "/onboarding");
   return (
-    <main id="main" className="auth-layout">
-      <section className="auth-panel">
-        <Brand />
-        <div className="auth-copy">
-          <span className="eyebrow">Welcome back</span>
-          <h1>Return to<br /><em>your trace.</em></h1>
-          <p>Review sync health, inspect your private activity, and control what appears on your public profile.</p>
+    <main id="main" className="min-h-screen bg-canvas desktop:grid desktop:h-dvh desktop:grid-cols-[minmax(420px,.82fr)_minmax(620px,1.18fr)] desktop:overflow-hidden">
+      <section className="relative flex min-h-screen items-center px-[clamp(24px,7vw,108px)] py-24">
+        <header className="absolute left-[clamp(24px,7vw,108px)] top-8">
+          <Brand />
+        </header>
+
+        <div className="mx-auto w-full max-w-[440px]">
+          <h1 className="text-[36px] font-normal leading-tight text-ink-strong">Sign in</h1>
+          <OAuthButtons nextPath={nextPath} oauthError={error} />
         </div>
-        <OAuthButtons mode="login" nextPath={nextPath} oauthError={error} />
       </section>
-      <aside className="auth-art auth-art-login" aria-hidden="true">
-        <div className="login-readout"><Activity size={18} /><span>Last 7 days</span><b>2.84M</b><em>tokens synced</em></div>
-        <div className="auth-wave">{Array.from({ length: 48 }, (_, i) => <i key={i} style={{ height: `${14 + ((i * 29) % 70)}%` }} />)}</div>
+
+      <aside
+        className="relative hidden overflow-hidden rounded-md border border-line-strong bg-canvas-deep desktop:m-3 desktop:ml-0 desktop:block"
+        aria-hidden="true"
+        data-testid="login-artwork"
+      >
+        <Image
+          src="/auth/agentprint-trace-field.webp"
+          alt=""
+          fill
+          priority
+          sizes="58vw"
+          className="object-cover object-center"
+        />
       </aside>
     </main>
   );

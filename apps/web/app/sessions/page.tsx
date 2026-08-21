@@ -3,6 +3,7 @@ import { listShares } from "@agentprint/database";
 import { requireViewer } from "@/lib/auth";
 import { SiteHeader } from "@/components/site-header";
 import { SharesWorkspace } from "@/components/shares-workspace";
+import { appMainClass, eyebrowClass } from "@/lib/ui";
 
 export const metadata: Metadata = { title: "Shared sessions" };
 
@@ -13,13 +14,13 @@ export default async function SessionsPage() {
   return (
     <>
       <SiteHeader current={current} />
-      <main id="main" className="shares-main">
+      <main id="main" className={appMainClass}>
         <div className="shell">
-          <header className="shares-head">
+          <header>
             <div>
-              <span className="eyebrow">Session sharing</span>
-              <h1>Shared sessions</h1>
-              <p>
+              <span className={eyebrowClass}>Session sharing</span>
+              <h1 className="mt-2 text-[32px] font-[weight:560] tracking-[-.03em] text-ink-strong">Shared sessions</h1>
+              <p className="mb-8 mt-2.5 max-w-[560px] text-sm text-muted">
                 Each of these is one session you chose to publish. Background sync never
                 uploads transcript content — only these do, and you can delete any of them.
               </p>

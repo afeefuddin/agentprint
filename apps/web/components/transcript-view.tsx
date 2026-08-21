@@ -3,6 +3,14 @@
 import { useState } from "react";
 import { Brain, ChevronRight, ImageOff, Terminal, TriangleAlert } from "lucide-react";
 import type { TranscriptBlock } from "@agentprint/contracts";
+import { cx } from "@/lib/ui";
+
+const TURN_TONE: Record<string, string> = {
+  user: "border-steel-1 bg-accent-soft",
+  tool: "border-line bg-canvas-deep",
+  assistant: "border-line bg-panel",
+  system: "border-line bg-panel"
+};
 
 export type TranscriptTurnView = {
   index: number;
@@ -38,16 +46,34 @@ function Collapsible({
 }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className={`transcript-step transcript-step-${tone}`} data-open={open}>
-      <button type="button" onClick={() => setOpen(!open)} aria-expanded={open}>
-        <ChevronRight size={14} className="transcript-caret" aria-hidden="true" />
-        {tone === "thinking" ? <Brain size={14} aria-hidden="true" /> : null}
-        {tone === "tool" ? <Terminal size={14} aria-hidden="true" /> : null}
-        {tone === "error" ? <TriangleAlert size={14} aria-hidden="true" /> : null}
-        <b>{label}</b>
-        {detail ? <span>{detail}</span> : null}
+    <div
+      className={cx(
+        "mt-2 overflow-hidden rounded-xs border border-line",
+        tone === "thinking" ? "border-dashed bg-panel" : "bg-canvas-deep"
+      )}
+    >
+      <button
+        type="button"
+        className="flex w-full cursor-pointer items-center gap-2 border-0 bg-none px-3 py-[9px] text-left hover:bg-[color-mix(in_srgb,var(--color-line)_40%,transparent)]"
+        onClick={() => setOpen(!open)}
+        aria-expanded={open}
+      >
+        <ChevronRight
+          size={14}
+          className={cx("shrink-0 text-faint transition-transform duration-[140ms]", open && "rotate-90")}
+          aria-hidden="true"
+        />
+        {tone === "thinking" ? <Brain size={14} className="shrink-0 text-faint" aria-hidden="true" /> : null}
+        {tone === "tool" ? <Terminal size={14} className="shrink-0 text-faint" aria-hidden="true" /> : null}
+        {tone === "error" ? <TriangleAlert size={14} className="shrink-0 text-red" aria-hidden="true" /> : null}
+        <b className={cx("text-xs font-[weight:560]", tone === "error" ? "text-red" : "text-ink-strong")}>{label}</b>
+        {detail ? <span className="min-w-0 flex-1 truncate text-xs text-muted">{detail}</span> : null}
       </button>
-      {open ? <pre>{children}</pre> : null}
+      {open ? (
+        <pre className="m-0 max-h-[460px] overflow-auto whitespace-pre-wrap px-3.5 pb-3.5 pt-0.5 font-[ui-monospace,SFMono-Regular,Menlo,monospace] text-2xs leading-[1.55] text-ink [overflow-wrap:anywhere]">
+          {children}
+        </pre>
+      ) : null}
     </div>
   );
 }
@@ -77,7 +103,7 @@ function toolDetail(input: string) {
 function Block({ block }: { block: TranscriptBlock }) {
   switch (block.kind) {
     case "text":
-      return <p className="transcript-text">{block.text}</p>;
+      return <p className="mb-2.5 whitespace-pre-wrap text-base text-ink [overflow-wrap:anywhere] last:mb-0">{block.text}</p>;
     case "thinking":
       return <Collapsible label="Thinking" tone="thinking">{block.text}</Collapsible>;
     case "tool_use":
@@ -98,7 +124,7 @@ function Block({ block }: { block: TranscriptBlock }) {
       );
     case "omitted":
       return (
-        <p className="transcript-omitted">
+        <p className="mt-2 flex items-center gap-[7px] text-xs text-faint">
           <ImageOff size={13} aria-hidden="true" />
           {omissionCopy[block.reason] ?? "Content omitted"}
         </p>
@@ -127,16 +153,16 @@ function displayRole(turn: TranscriptTurnView) {
 
 export function TranscriptView({ turns }: { turns: TranscriptTurnView[] }) {
   return (
-    <div className="transcript">
+    <div className="mt-9">
       {turns.map((turn) => {
         const role = displayRole(turn);
         return (
         <article
           key={turn.index}
-          className={`transcript-turn transcript-turn-${role.key}`}
+          className={cx("rounded-sm border px-[22px] py-[18px] not-first:mt-3", TURN_TONE[role.key])}
           id={`turn-${turn.index}`}
         >
-          <div className="transcript-role">
+          <div className="mb-2.5 flex justify-between gap-3 text-xs text-faint">
             <span>{role.label}</span>
             {turn.occurred_at ? (
               <time dateTime={new Date(turn.occurred_at).toISOString()}>
@@ -147,7 +173,7 @@ export function TranscriptView({ turns }: { turns: TranscriptTurnView[] }) {
               </time>
             ) : null}
           </div>
-          <div className="transcript-blocks">
+          <div>
             {turn.blocks.map((block, position) => (
               <Block key={position} block={block} />
             ))}

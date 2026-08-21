@@ -4,6 +4,7 @@ import { formatTokens } from "@agentprint/analytics";
 import { requireViewer } from "@/lib/auth";
 import { SiteHeader } from "@/components/site-header";
 import { SettingsControls } from "@/components/settings-controls";
+import { appMainClass } from "@/lib/ui";
 
 export const metadata: Metadata = { title: "Settings" };
 
@@ -68,20 +69,44 @@ export default async function SettingsPage() {
   return (
     <>
       <SiteHeader current={current} />
-      <main id="main" className="settings-main">
+      <main id="main" className={appMainClass}>
         <div className="shell">
-          <header className="settings-head">
-            <h1>Settings</h1>
-            <p>What your profile discloses, the devices allowed to report, and the data you can take with you.</p>
+          <header className="mb-7">
+            <h1 className="mb-1.5 text-[32px] font-[weight:520] tracking-[-.04em] max-tablet:text-[27px]">Settings</h1>
+            <p className="m-0 max-w-[62ch] text-base text-muted">
+              What your profile discloses, the devices allowed to report, and the data you can take with you.
+            </p>
           </header>
-          <section className="sync-readout" aria-label="Collection summary">
-            <div className="sync-state" data-tone={state.tone}>
-              <span className="sync-pulse"><i /></span>
-              <span><b>{state.title}</b><small>{state.detail}</small></span>
+          <section
+            className="grid grid-cols-[1.5fr_repeat(3,1fr)] overflow-hidden rounded-md border border-line-strong bg-panel max-desktop:grid-cols-2"
+            aria-label="Collection summary"
+          >
+            <div
+              className="group flex min-h-[92px] flex-row items-center gap-[13px] border-r border-line bg-canvas-deep px-[22px] py-[18px] max-desktop:border-b max-tablet:col-span-full"
+              data-tone={state.tone}
+            >
+              <span className="grid size-8 flex-[0_0_32px] place-items-center rounded-full border border-line-strong group-data-[tone=healthy]:border-[color-mix(in_srgb,var(--color-accent)_32%,var(--color-line))]">
+                <i className="size-2 rounded-full bg-faint group-data-[tone=healthy]:bg-accent group-data-[tone=waiting]:bg-amber" />
+              </span>
+              <span>
+                <b className="block text-base font-[weight:540] text-ink-strong">{state.title}</b>
+                <small className="mt-[3px] block text-xs text-muted">{state.detail}</small>
+              </span>
             </div>
-            <div><span>Devices</span><b>{active.length}</b></div>
-            <div><span>Trailing tokens</span><b>{formatTokens(data.summary.totalTokens)}</b></div>
-            <div><span>Records accepted</span><b>{data.activity.reduce((sum, day) => sum + day.events, 0).toLocaleString()}</b></div>
+            <div className="flex min-h-[92px] flex-col justify-center gap-1.5 border-r border-line px-[22px] py-[18px] max-desktop:border-b max-desktop:border-r-0">
+              <span className="text-xs text-faint">Devices</span>
+              <b className="text-[24px] font-[weight:560] leading-none text-ink-strong [font-variant-numeric:tabular-nums]">{active.length}</b>
+            </div>
+            <div className="flex min-h-[92px] flex-col justify-center gap-1.5 border-r border-line px-[22px] py-[18px] max-tablet:border-b">
+              <span className="text-xs text-faint">Trailing tokens</span>
+              <b className="text-[24px] font-[weight:560] leading-none text-ink-strong [font-variant-numeric:tabular-nums]">{formatTokens(data.summary.totalTokens)}</b>
+            </div>
+            <div className="flex min-h-[92px] flex-col justify-center gap-1.5 px-[22px] py-[18px]">
+              <span className="text-xs text-faint">Records accepted</span>
+              <b className="text-[24px] font-[weight:560] leading-none text-ink-strong [font-variant-numeric:tabular-nums]">
+                {data.activity.reduce((sum, day) => sum + day.events, 0).toLocaleString()}
+              </b>
+            </div>
           </section>
           <SettingsControls
             initialPrivacy={{

@@ -14,14 +14,14 @@ export function BrandMark({ className = "" }: { className?: string }) {
   );
 }
 
-export function Brand({ compact = false }: { compact?: boolean }) {
+export function Brand({ compact = false, className = "" }: { compact?: boolean; className?: string }) {
   return (
-    <Link href="/" className="brand" aria-label="Agentprint home">
+    <Link href="/" className={`inline-flex items-center ${className}`} aria-label="Agentprint home">
       {compact ? (
-        <BrandMark className="brand-mark" />
+        <BrandMark className="block size-7" />
       ) : (
         <Image
-          className="brand-lockup"
+          className="block h-7 w-[126px] max-desktop:h-[23px] max-desktop:w-[104px]"
           src="/brand/agentprint-lockup.svg"
           alt=""
           width={360}

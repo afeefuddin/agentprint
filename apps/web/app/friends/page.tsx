@@ -3,6 +3,7 @@ import { listFriendships } from "@agentprint/database";
 import { FriendsWorkspace } from "@/components/friends-workspace";
 import { requireViewer } from "@/lib/auth";
 import { SiteHeader } from "@/components/site-header";
+import { appMainClass } from "@/lib/ui";
 
 export const metadata: Metadata = { title: "Friends" };
 
@@ -13,7 +14,7 @@ export default async function FriendsPage() {
   return (
     <>
       <SiteHeader current={current} />
-      <main id="main" className="friends-main">
+      <main id="main" className={appMainClass}>
         <div className="shell">
           <FriendsWorkspace
             initialFriendships={friendships}

@@ -5,6 +5,9 @@ import { useState } from "react";
 import { Check, Copy, ExternalLink, Trash2 } from "lucide-react";
 import type { ShareSummary } from "@agentprint/database";
 import type { ShareVisibility } from "@agentprint/contracts";
+import { buttonClass, cx } from "@/lib/ui";
+
+const MONO = "font-[ui-monospace,SFMono-Regular,Menlo,monospace]";
 
 const harnessLabels: Record<string, string> = {
   codex: "Codex",
@@ -81,18 +84,23 @@ export function SharesWorkspace({
 
   if (shares.length === 0) {
     return (
-      <section className="shares-empty">
-        <h2>No shared sessions yet</h2>
-        <p>
+      <section className="rounded-md border border-line bg-panel p-10 text-center">
+        <h2 className="m-0 text-lg font-[weight:560] text-ink-strong">No shared sessions yet</h2>
+        <p className="mx-auto mt-2.5 max-w-[460px] text-sm text-muted">
           Sharing publishes one session at a time, and only when you ask for it. Your
           background sync never uploads transcript content.
         </p>
-        <div className="command-block">
+        <div className="mt-[22px] inline-block overflow-hidden rounded-sm border border-line bg-canvas-deep text-left">
           {emptyStateCommands.map((command) => (
-            <div className="command-row" data-copied={copiedCommand === command || undefined} key={command}>
-              <code>{command}</code>
+            <div
+              className="group grid grid-cols-[minmax(0,1fr)_auto] items-center gap-[18px] py-[5px] pl-4 pr-1.5 not-first:border-t not-first:border-line"
+              data-copied={copiedCommand === command || undefined}
+              key={command}
+            >
+              <code className={cx(MONO, "overflow-x-auto whitespace-pre text-xs leading-[1.7] text-ink-strong")}>{command}</code>
               <button
                 type="button"
+                className="grid size-8 cursor-pointer place-items-center rounded-xs border border-transparent bg-transparent p-0 text-faint transition-[background-color,border-color,color] duration-150 hover:border-line-strong hover:bg-panel hover:text-ink-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent group-data-[copied]:text-accent"
                 onClick={() => copyCommand(command)}
                 aria-label={copiedCommand === command ? "Copied" : `Copy ${command}`}
               >
@@ -101,7 +109,7 @@ export function SharesWorkspace({
             </div>
           ))}
         </div>
-        <p className="shares-empty-note">
+        <p className="mx-auto mt-2.5 max-w-[460px] text-xs text-faint">
           The dry run renders the exact payload locally so you can read it before anything
           is uploaded.
         </p>
@@ -110,17 +118,21 @@ export function SharesWorkspace({
   }
 
   return (
-    <div className="shares-list">
-      {error ? <p className="shares-error" role="alert">{error}</p> : null}
+    <div>
+      {error ? (
+        <p className="mb-4 rounded-sm border border-red px-4 py-3 text-xs text-red" role="alert">{error}</p>
+      ) : null}
       {shares.map((share) => (
-        <article className="share-card" key={share.id}>
-          <div className="share-card-head">
+        <article className="rounded-md border border-line bg-panel px-6 py-[22px] not-first:mt-3.5" key={share.id}>
+          <div className="flex items-start justify-between gap-6 max-compact:flex-col max-compact:gap-4">
             <div>
-              <span className="share-card-harness">
+              <span className="text-xs text-faint">
                 {harnessLabels[share.harness_id] ?? share.harness_id}
               </span>
-              <h2><Link href={`/s/${share.slug}`}>{share.title}</Link></h2>
-              <p>
+              <h2 className="mt-[5px] text-md font-[weight:560]">
+                <Link className="text-ink-strong hover:text-accent" href={`/s/${share.slug}`}>{share.title}</Link>
+              </h2>
+              <p className="mt-1.5 text-xs text-muted">
                 {share.turn_count} turns · {share.view_count} views ·{" "}
                 published {new Date(share.published_at).toLocaleDateString("en", {
                   day: "numeric",
@@ -135,27 +147,32 @@ export function SharesWorkspace({
                   : ""}
               </p>
             </div>
-            <div className="share-card-actions">
+            <div className="flex shrink-0 gap-2">
               <button
                 type="button"
-                className="button button-secondary button-small"
+                className={buttonClass({ variant: "secondary", size: "small" })}
                 onClick={() => copyLink(share)}
               >
                 {copied === share.id ? <Check size={14} /> : <Copy size={14} />}
                 {copied === share.id ? "Copied" : "Copy link"}
               </button>
-              <Link className="button button-secondary button-small" href={`/s/${share.slug}`}>
+              <Link className={buttonClass({ variant: "secondary", size: "small" })} href={`/s/${share.slug}`}>
                 Open <ExternalLink size={13} />
               </Link>
             </div>
           </div>
 
-          <div className="share-card-visibility">
-            <div className="share-visibility-choices" role="group" aria-label="Who can see this session">
+          <div className="mt-[18px] border-t border-line pt-4">
+            <div
+              className="inline-flex rounded-full border border-line-strong bg-canvas-deep p-[3px]"
+              role="group"
+              aria-label="Who can see this session"
+            >
               {(["unlisted", "friends", "public"] as const).map((option) => (
                 <button
                   key={option}
                   type="button"
+                  className="cursor-pointer rounded-full border-0 bg-none px-[15px] py-1.5 text-xs text-muted disabled:cursor-wait disabled:opacity-50 data-[active=true]:bg-panel-raised data-[active=true]:text-ink-strong data-[active=true]:shadow-[0_1px_2px_rgb(0_0_0_/_0.06)]"
                   data-active={share.visibility === option}
                   disabled={busy === share.id}
                   onClick={() => changeVisibility(share.id, option)}
@@ -164,19 +181,19 @@ export function SharesWorkspace({
                 </button>
               ))}
             </div>
-            <p>{visibilityCopy[share.visibility]}</p>
+            <p className="mt-2.5 text-xs text-muted">{visibilityCopy[share.visibility]}</p>
           </div>
 
           {confirming === share.id ? (
-            <div className="share-card-confirm">
-              <p>
+            <div className="mt-4 rounded-sm border border-red bg-[color-mix(in_srgb,var(--color-red)_5%,var(--color-panel))] px-4 py-3.5">
+              <p className="mb-3 text-xs text-ink">
                 Deleting removes the transcript from Agentprint and the link stops working.
                 This cannot be undone.
               </p>
-              <div>
+              <div className="flex gap-2">
                 <button
                   type="button"
-                  className="button button-danger button-small"
+                  className={buttonClass({ variant: "danger", size: "small" })}
                   disabled={busy === share.id}
                   onClick={() => revoke(share.id)}
                 >
@@ -184,7 +201,7 @@ export function SharesWorkspace({
                 </button>
                 <button
                   type="button"
-                  className="button button-secondary button-small"
+                  className={buttonClass({ variant: "secondary", size: "small" })}
                   onClick={() => setConfirming(null)}
                 >
                   Keep it
@@ -194,7 +211,7 @@ export function SharesWorkspace({
           ) : (
             <button
               type="button"
-              className="share-card-delete"
+              className="mt-4 inline-flex cursor-pointer items-center gap-1.5 border-0 bg-none p-0 text-xs text-faint hover:text-red"
               onClick={() => setConfirming(share.id)}
             >
               <Trash2 size={13} /> Delete this session
