@@ -20,8 +20,20 @@ func TestStringRemovesCredentialShapes(t *testing.T) {
 		{"stripe", "sk_live_abcdefghijklmnop1234", "sk_live_abcdef"},
 		{"jwt", "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dBjftJeZ4CVPmB92K27uhbUJU1p1r", "eyJhbGciOiJ"},
 		{"url password", "postgresql://owner:sup3rs3cret@db.example.com/app", "sup3rs3cret"},
+		{"url password without username", "redis://:shortsecret@cache.example.com/0", "shortsecret"},
+		{"url password containing at", "postgresql://owner:p@ssword@db.example.com/app", "p@ssword"},
 		{"authorization", "Authorization: Bearer abcdef123456ghijkl", "abcdef123456ghijkl"},
+		{"custom authorization", "Authorization: ApiKey keep-this-secret", "keep-this-secret"},
 		{"assignment", `DATABASE_PASSWORD="hunter2hunter2"`, "hunter2hunter2"},
+		{"short assignment", `password="cat"`, "cat"},
+		{"nested json", `{"database":{"password":"two words"}}`, "two words"},
+		{"sensitive header", "X-Api-Key: short-value", "short-value"},
+		{"cookie header", "Cookie: session=private", "session=private"},
+		{"command argument", "deploy --password short-value", "short-value"},
+		{"gitlab", "token glpat-abcdefghijklmnopqrst", "glpat-abcdefghijklmnopqrst"},
+		{"onepassword", "token ops_eyJabcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJ", "ops_eyJ"},
+		{"age", "AGE-SECRET-KEY-1QQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQ", "AGE-SECRET-KEY-1"},
+		{"pgp private key", "-----BEGIN PGP PRIVATE KEY BLOCK-----\nMIIabc\n-----END PGP PRIVATE KEY BLOCK-----", "MIIabc"},
 		{"private key", "-----BEGIN RSA PRIVATE KEY-----\nMIIabc\n-----END RSA PRIVATE KEY-----", "MIIabc"},
 	}
 	for _, testCase := range cases {
@@ -41,6 +53,43 @@ func TestStringRemovesCredentialShapes(t *testing.T) {
 	}
 }
 
+func TestStringRemovesUpstreamDeveloperTokenCorpus(t *testing.T) {
+	cases := []struct {
+		name  string
+		value string
+	}{
+		{"databricks", "dapi" + strings.Repeat("a1", 16)},
+		{"twilio", "SK" + strings.Repeat("a1", 16)},
+		{"stripe test", "sk_test_abcdefghijklmnop1234"},
+		{"slack app", "xapp-1-ABCDEFGHIJ-1234567890-abcdefghijklmnop"},
+		{"slack webhook", "https://hooks.slack.com/services/" + strings.Repeat("A", 43)},
+		{"digitalocean", "dop_v1_" + strings.Repeat("a1", 32)},
+		{"sentry", "sntryu_" + strings.Repeat("a1", 32)},
+		{"rubygems", "rubygems_" + strings.Repeat("a1", 24)},
+		{"pypi", "pypi-AgEIcHlwaS5vcmc" + strings.Repeat("a", 49) + "-"},
+		{"huggingface", "hf_" + strings.Repeat("a", 34)},
+		{"pulumi", "pul-" + strings.Repeat("a1", 20)},
+		{"postman", "PMAK-" + strings.Repeat("a1", 12) + "-" + strings.Repeat("b2", 17)},
+		{"linear", "lin_api_" + strings.Repeat("a1", 20)},
+		{"grafana", "glc_" + strings.Repeat("a", 32)},
+		{"square", "sq0csp-" + strings.Repeat("a", 42) + "-"},
+		{"terraform", strings.Repeat("a1", 7) + ".atlasv1." + strings.Repeat("b", 59) + "="},
+		{"onepassword secret key", "A3-ABCDEF-ABCDEFGHIJK-ABCDE-ABCDE-ABCDE"},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			redactor := New(DefaultOptions(LevelBalanced, "", ""))
+			result := redactor.String(testCase.value)
+			if strings.Contains(result, testCase.value) || !strings.Contains(result, "[redacted:") {
+				t.Fatalf("credential survived redaction: %q", result)
+			}
+			if found := credentialsIn(testCase.value); len(found) == 0 {
+				t.Fatal("server-equivalent audit did not recognize the credential")
+			}
+		})
+	}
+}
+
 // A redactor that mangles ordinary content is its own failure: the user
 // publishes a transcript that no longer says what they said.
 func TestStringLeavesOrdinaryContentAlone(t *testing.T) {
@@ -51,12 +100,48 @@ func TestStringLeavesOrdinaryContentAlone(t *testing.T) {
 		"The quick brown fox jumped over the lazy dog and then kept running.",
 		"https://github.com/agentprint/agentprint/blob/main/packages/contracts/src/index.ts",
 		"import { calculateStreaks, intensityFor, intensityThresholds } from \"@agentprint/analytics\";",
+		"session_timeout=30",
+		"cookie_domain=.example.com",
+		"authentication_mode=oauth",
+		"oidc_token_endpoint=https://example.com/oauth/token",
+		"public_token=example-value",
+		"client_secret_name=production-secret",
+		"credentials_id=credential-record-123",
 	}
 	for _, input := range cases {
 		redactor := New(DefaultOptions(LevelBalanced, "", ""))
 		if result := redactor.String(input); result != input {
 			t.Errorf("ordinary content was altered:\n  in:  %s\n  out: %s", input, result)
 		}
+	}
+}
+
+func TestLongOrdinaryStringDoesNotTriggerAssignmentBacktracking(t *testing.T) {
+	for _, input := range []string{strings.Repeat("A", 120_000), strings.Repeat("a=", 60_000)} {
+		redactor := New(DefaultOptions(LevelBalanced, "", ""))
+		if result := redactor.String(input); result != input {
+			t.Fatal("long ordinary content was altered")
+		}
+	}
+}
+
+func TestSensitiveAssignmentAliases(t *testing.T) {
+	for _, input := range []string{"creds=shortsecret", "otp=123456", "two_factor=123456"} {
+		redactor := New(DefaultOptions(LevelBalanced, "", ""))
+		if result := redactor.String(input); !strings.Contains(result, "[redacted:assignment]") {
+			t.Errorf("sensitive assignment survived: %q", result)
+		}
+	}
+}
+
+func TestCommandAssignmentCountsOneCredentialOnce(t *testing.T) {
+	redactor := New(DefaultOptions(LevelBalanced, "", ""))
+	result := redactor.String("deploy --password=short-value")
+	if strings.Contains(result, "short-value") {
+		t.Fatalf("credential survived redaction: %q", result)
+	}
+	if redactor.Stats().SecretsRemoved != 1 {
+		t.Fatalf("expected one removal, got %d", redactor.Stats().SecretsRemoved)
 	}
 }
 
@@ -182,6 +267,66 @@ func TestAuditCatchesSurvivingCredentials(t *testing.T) {
 	}}}}
 	if found := Audit(leaky); len(found) == 0 {
 		t.Fatal("expected the audit to catch an AWS key")
+	}
+	redacted := adapters.Transcript{Turns: []adapters.Turn{{Blocks: []adapters.Block{
+		{Kind: adapters.BlockToolResult, Output: "Cookie: [redacted:header]\nPASSWORD=[redacted:assignment]"},
+	}}}}
+	if found := Audit(redacted); len(found) != 0 {
+		t.Fatalf("visible redaction markers must not be reported as live credentials: %v", found)
+	}
+	mixed := adapters.Transcript{Turns: []adapters.Turn{{Blocks: []adapters.Block{
+		{Kind: adapters.BlockToolResult, Output: "Cookie: [redacted:header]\nPASSWORD=still-live"},
+	}}}}
+	if found := Audit(mixed); !strings.Contains(strings.Join(found, " "), "assigned-secret") {
+		t.Fatalf("a marker must not hide another credential in the same field: %v", found)
+	}
+}
+
+func TestTranscriptRedactsEveryUploadedStringField(t *testing.T) {
+	secret := "glpat-abcdefghijklmnopqrst"
+	source := adapters.Transcript{
+		HarnessID:      "codex",
+		HarnessVersion: secret,
+		Title:          secret,
+		Summary:        secret,
+		ModelIDs:       []string{secret},
+		Turns: []adapters.Turn{{
+			Index: 0, Role: "assistant", ModelID: secret,
+			Blocks: []adapters.Block{{
+				Kind: adapters.BlockToolUse, ID: secret, Name: secret, Input: secret,
+			}, {
+				Kind: adapters.BlockToolResult, ToolUseID: secret,
+				OK: adapters.Truthy(true), Output: secret,
+			}},
+		}},
+	}
+
+	result := New(DefaultOptions(LevelBalanced, "", "")).Transcript(source)
+	encoded := strings.Join([]string{
+		result.HarnessVersion, result.Title, result.Summary,
+		strings.Join(result.ModelIDs, " "), result.Turns[0].ModelID,
+		result.Turns[0].Blocks[0].ID, result.Turns[0].Blocks[0].Name,
+		result.Turns[0].Blocks[0].Input, result.Turns[0].Blocks[1].ToolUseID,
+		result.Turns[0].Blocks[1].Output,
+	}, " ")
+	if strings.Contains(encoded, secret) {
+		t.Fatalf("an uploaded string field was not redacted: %s", encoded)
+	}
+	if found := Audit(result); len(found) != 0 {
+		t.Fatalf("redacted transcript still has findings: %v", found)
+	}
+}
+
+func TestAuditScansMetadataAndGenericCredentialShapes(t *testing.T) {
+	transcript := adapters.Transcript{
+		Title:    "Cookie: session=private",
+		ModelIDs: []string{"glpat-abcdefghijklmnopqrst"},
+	}
+	found := strings.Join(Audit(transcript), " ")
+	for _, expected := range []string{"sensitive-header", "gitlab-token"} {
+		if !strings.Contains(found, expected) {
+			t.Errorf("expected %s finding, got %q", expected, found)
+		}
 	}
 }
 

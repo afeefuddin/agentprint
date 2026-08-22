@@ -148,20 +148,23 @@ func (application *app) share(ctx context.Context, args []string) error {
 	options.Exclude = excluded
 	redactor := redact.New(options)
 	redacted := redactor.Transcript(transcript)
-	stats := redactor.Stats()
 	if len(redacted.Turns) == 0 {
 		return errors.New("every turn was excluded; nothing would be published")
 	}
 	if *title != "" {
-		redacted.Title = *title
+		// Overrides are part of the upload too, so they pass through the same
+		// local scrub as every adapter-provided string.
+		redacted.Title = redactor.String(*title)
 	}
+	stats := redactor.Stats()
 
 	// A local re-scan after redaction. If a credential survived the patterns,
 	// the publish stops here rather than on the server.
 	if leaked := redact.Audit(redacted); len(leaked) > 0 {
 		return fmt.Errorf(
 			"redaction left values that still look like credentials (%s); "+
-				"rotate them or rerun with --redact strict",
+				"remove or rotate them, exclude the affected turns, or use --redact strict "+
+				"when the finding is in tool or thinking content",
 			strings.Join(leaked, ", "))
 	}
 
@@ -175,7 +178,7 @@ func (application *app) share(ctx context.Context, args []string) error {
 	if err := os.WriteFile(payloadPath, encoded, 0o600); err != nil {
 		return err
 	}
-	if err := share.WritePreview(previewPath, redacted, stats, *level); err != nil {
+	if err := share.WritePreview(previewPath, redacted, stats, *level, encoded); err != nil {
 		return err
 	}
 
@@ -189,7 +192,9 @@ func (application *app) share(ctx context.Context, args []string) error {
 
 	if *dryRun {
 		fmt.Println("\nDry run. Nothing was uploaded.")
-		_ = openBrowser("file://" + previewPath)
+		if err := openBrowser("file://" + previewPath); err != nil {
+			fmt.Printf("Open the local preview manually: %s (%v)\n", previewPath, err)
+		}
 		return nil
 	}
 
@@ -200,10 +205,12 @@ func (application *app) share(ctx context.Context, args []string) error {
 		if !isInteractive(os.Stdin) {
 			return errors.New("publishing needs confirmation; rerun with --yes or --dry-run")
 		}
-		fmt.Println("\nThis uploads the transcript above, including your prompts and the agent's")
-		fmt.Println("tool output. Anyone with the link will be able to read it. Transcripts often")
-		fmt.Println("mention colleagues, clients, and code you may not own.")
-		_ = openBrowser("file://" + previewPath)
+		fmt.Println("\nThis uploads the exact JSON payload saved above, including your prompts and")
+		fmt.Println("the agent's tool output. Anyone with the link will be able to read it. Transcripts")
+		fmt.Println("often mention colleagues, clients, and code you may not own.")
+		if err := openBrowser("file://" + previewPath); err != nil {
+			return fmt.Errorf("could not open the required local preview (%v); open %s, review it, then rerun", err, previewPath)
+		}
 		confirmed, err := confirmPublish(os.Stdin, os.Stdout)
 		if err != nil || !confirmed {
 			fmt.Println("Not published. The preview above stays on this machine.")
