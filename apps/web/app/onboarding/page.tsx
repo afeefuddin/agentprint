@@ -20,6 +20,7 @@ export default async function OnboardingPage() {
           <OnboardingFlow
             handle={current.handle}
             hasDevice={devices.some((device) => !device.revoked_at)}
+            hasCompletedSync={devices.some((device) => !device.revoked_at && Boolean(device.last_sync_at))}
             profileComplete={current.onboarding_complete}
             appUrl={process.env.NEXT_PUBLIC_APP_URL ?? "https://agentprint.tech"}
           />

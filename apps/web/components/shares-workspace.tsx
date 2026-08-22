@@ -2,28 +2,59 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Check, Copy, ExternalLink, Trash2 } from "lucide-react";
+import {
+  ArrowUpRight,
+  Check,
+  ChevronDown,
+  Copy,
+  EyeOff,
+  Globe2,
+  Trash2,
+  Users
+} from "lucide-react";
+import { formatTokens } from "@agentprint/analytics";
 import type { ShareSummary } from "@agentprint/database";
 import type { ShareVisibility } from "@agentprint/contracts";
-import { buttonClass, cx } from "@/lib/ui";
+import { harnessBrand, harnessLabels } from "@/lib/brands";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
+import { buttonClass, cx, iconButtonDangerClass, quietActionClass } from "@/lib/ui";
 
 const MONO = "font-[ui-monospace,SFMono-Regular,Menlo,monospace]";
-
-const harnessLabels: Record<string, string> = {
-  codex: "Codex",
-  "claude-code": "Claude Code",
-  opencode: "OpenCode",
-  "kimi-code": "Kimi Code",
-  synthetic: "Synthetic"
-};
-
 const emptyStateCommands = ["agentprint sessions", "agentprint share --dry-run"];
 
-const visibilityCopy: Record<ShareVisibility, string> = {
-  unlisted: "Anyone with the link. Never indexed or listed on your profile.",
-  public: "Listed on your public profile and indexable by search engines.",
-  friends: "Only people you are connected to on Agentprint can open it."
+const visibilityMeta: Record<ShareVisibility, { label: string; description: string }> = {
+  unlisted: { label: "Unlisted", description: "Anyone with the link can open it." },
+  public: { label: "Public", description: "Visible on your profile and in search." },
+  friends: { label: "Friends", description: "Only your Agentprint friends can open it." }
 };
+
+function VisibilityIcon({ visibility, size = 13 }: { visibility: ShareVisibility; size?: number }) {
+  if (visibility === "public") return <Globe2 size={size} aria-hidden="true" />;
+  if (visibility === "friends") return <Users size={size} aria-hidden="true" />;
+  return <EyeOff size={size} aria-hidden="true" />;
+}
+
+function duration(from: Date | string, to: Date | string) {
+  const minutes = Math.max(1, Math.round((new Date(to).getTime() - new Date(from).getTime()) / 60_000));
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 48) return `${hours} hr`;
+  return `${Math.round(hours / 24)} days`;
+}
+
+function publishedAt(value: Date | string) {
+  return new Date(value).toLocaleDateString("en", {
+    day: "numeric",
+    month: "short",
+    year: "numeric"
+  });
+}
 
 export function SharesWorkspace({
   initialShares,
@@ -110,115 +141,139 @@ export function SharesWorkspace({
           ))}
         </div>
         <p className="mx-auto mt-2.5 max-w-[460px] text-xs text-faint">
-          The dry run renders the exact payload locally so you can read it before anything
-          is uploaded.
+          The dry run renders the exact payload locally so you can read it before anything is uploaded.
         </p>
       </section>
     );
   }
 
   return (
-    <div>
+    <div className="grid gap-2.5">
       {error ? (
-        <p className="mb-4 rounded-sm border border-red px-4 py-3 text-xs text-red" role="alert">{error}</p>
+        <p className="rounded-sm border border-red px-4 py-3 text-xs text-red" role="alert">{error}</p>
       ) : null}
-      {shares.map((share) => (
-        <article className="rounded-md border border-line bg-panel p-7 not-first:mt-3.5 max-tablet:p-[22px]" key={share.id}>
-          <div className="flex items-start justify-between gap-6 max-compact:flex-col max-compact:gap-4">
-            <div>
-              <span className="text-xs text-faint">
-                {harnessLabels[share.harness_id] ?? share.harness_id}
-              </span>
-              <h2 className="mt-[5px] text-md font-[weight:560]">
-                <Link className="text-ink-strong hover:text-accent" href={`/s/${share.slug}`}>{share.title}</Link>
+      {shares.map((share) => {
+        const brand = harnessBrand(share.harness_id);
+        const visibility = visibilityMeta[share.visibility];
+        return (
+          <article
+            className="group relative grid grid-cols-[minmax(0,1fr)_auto] gap-x-8 gap-y-4 rounded-sm bg-panel px-6 py-5 transition-colors duration-150 hover:bg-panel-raised max-tablet:grid-cols-1 max-tablet:px-5"
+            key={share.id}
+          >
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2.5 text-xs text-faint">
+                <span className="inline-flex items-center gap-[7px] font-[weight:560] text-ink-strong">
+                  <i className="size-2 rounded-full" style={{ background: brand.color }} aria-hidden="true" />
+                  {harnessLabels[share.harness_id] ?? brand.label}
+                </span>
+                <span className="text-line-strong" aria-hidden="true">/</span>
+                <span className="inline-flex items-center gap-[5px]">
+                  <VisibilityIcon visibility={share.visibility} /> {visibility.label}
+                </span>
+                <span className="text-line-strong" aria-hidden="true">·</span>
+                <span>Published {publishedAt(share.published_at)}</span>
+              </div>
+
+              <h2 className="mt-2.5 max-w-[820px] text-[22px] font-[weight:570] leading-[1.25] tracking-[-.02em] text-ink-strong max-tablet:text-lg">
+                <Link className="inline-flex items-start gap-2 hover:text-accent" href={`/s/${share.slug}`}>
+                  {share.title}<ArrowUpRight className="mt-1 shrink-0 opacity-0 transition-opacity group-hover:opacity-100" size={16} aria-hidden="true" />
+                </Link>
               </h2>
-              <p className="mt-1.5 text-xs text-muted">
-                {share.turn_count} turns · {share.view_count} views ·{" "}
-                published {new Date(share.published_at).toLocaleDateString("en", {
-                  day: "numeric",
-                  month: "short",
-                  year: "numeric"
-                })}
-                {share.expires_at
-                  ? ` · expires ${new Date(share.expires_at).toLocaleDateString("en", {
-                      day: "numeric",
-                      month: "short"
-                    })}`
-                  : ""}
-              </p>
-            </div>
-            <div className="flex shrink-0 gap-2">
-              <button
-                type="button"
-                className={buttonClass({ variant: "secondary", size: "small" })}
-                onClick={() => copyLink(share)}
-              >
-                {copied === share.id ? <Check size={14} /> : <Copy size={14} />}
-                {copied === share.id ? "Copied" : "Copy link"}
-              </button>
-              <Link className={buttonClass({ variant: "secondary", size: "small" })} href={`/s/${share.slug}`}>
-                Open <ExternalLink size={13} />
-              </Link>
-            </div>
-          </div>
-
-          <div className="mt-5 border-t border-line pt-4">
-            <div
-              className="inline-flex rounded-full border border-line-strong bg-canvas-deep p-[3px]"
-              role="group"
-              aria-label="Who can see this session"
-            >
-              {(["unlisted", "friends", "public"] as const).map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  className="cursor-pointer rounded-full border-0 bg-none px-[15px] py-1.5 text-xs text-muted disabled:cursor-wait disabled:opacity-50 data-[active=true]:bg-panel-raised data-[active=true]:text-ink-strong data-[active=true]:shadow-[0_1px_2px_rgb(0_0_0_/_0.06)]"
-                  data-active={share.visibility === option}
-                  disabled={busy === share.id}
-                  onClick={() => changeVisibility(share.id, option)}
-                >
-                  {option === "unlisted" ? "Unlisted" : option === "friends" ? "Friends" : "Public"}
-                </button>
-              ))}
-            </div>
-            <p className="mt-2.5 text-xs text-muted">{visibilityCopy[share.visibility]}</p>
-          </div>
-
-          {confirming === share.id ? (
-            <div className="mt-4 rounded-sm border border-red bg-[color-mix(in_srgb,var(--color-red)_5%,var(--color-panel))] px-4 py-3.5">
-              <p className="mb-3 text-xs text-ink">
-                Deleting removes the transcript from Agentprint and the link stops working.
-                This cannot be undone.
-              </p>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  className={buttonClass({ variant: "danger", size: "small" })}
-                  disabled={busy === share.id}
-                  onClick={() => revoke(share.id)}
-                >
-                  Delete permanently
-                </button>
-                <button
-                  type="button"
-                  className={buttonClass({ variant: "secondary", size: "small" })}
-                  onClick={() => setConfirming(null)}
-                >
-                  Keep it
-                </button>
+              {share.summary ? (
+                <p className="mt-2 max-w-[820px] text-sm leading-[1.55] text-muted">{share.summary}</p>
+              ) : null}
+              <div className="mt-3.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted [font-variant-numeric:tabular-nums]">
+                <span><b className="font-[weight:560] text-ink-strong">{share.turn_count}</b> turns</span>
+                <span className="text-line-strong" aria-hidden="true">·</span>
+                <span><b className="font-[weight:560] text-ink-strong">{formatTokens(Number(share.total_tokens))}</b> tokens</span>
+                <span className="text-line-strong" aria-hidden="true">·</span>
+                <span><b className="font-[weight:560] text-ink-strong">{duration(share.started_at, share.ended_at)}</b></span>
               </div>
             </div>
-          ) : (
-            <button
-              type="button"
-              className="mt-4 inline-flex cursor-pointer items-center gap-1.5 border-0 bg-none p-0 text-xs text-faint hover:text-red"
-              onClick={() => setConfirming(share.id)}
-            >
-              <Trash2 size={13} /> Delete this session
-            </button>
-          )}
-        </article>
-      ))}
+
+            <div className="flex shrink-0 flex-col items-end justify-between gap-4 self-stretch max-tablet:w-full">
+              <div className="flex items-center gap-1">
+                <button type="button" className={quietActionClass} onClick={() => copyLink(share)}>
+                  {copied === share.id ? <Check size={14} /> : <Copy size={14} />}
+                  {copied === share.id ? "Copied" : "Copy link"}
+                </button>
+
+                <DropdownMenu modal={false}>
+                  <DropdownMenuTrigger asChild>
+                    <button type="button" className={cx(quietActionClass, "group/sharing")}>
+                      <VisibilityIcon visibility={share.visibility} /> Sharing
+                      <ChevronDown size={13} className="transition-transform group-data-[state=open]/sharing:rotate-180" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="end"
+                    sideOffset={8}
+                    className="w-[320px] rounded-sm border-line-strong bg-panel-raised p-2.5 text-ink shadow-[0_12px_32px_rgb(23_25_20_/_0.12)]"
+                  >
+                    <DropdownMenuLabel className="px-2 pb-2 pt-1 text-xs font-[weight:560] text-ink-strong">
+                      Who can open this session?
+                    </DropdownMenuLabel>
+                    {(["unlisted", "friends", "public"] as const).map((option) => (
+                      <DropdownMenuItem
+                        key={option}
+                        className="grid cursor-pointer grid-cols-[32px_1fr_auto] items-center gap-2.5 rounded-xs px-2 py-2.5 text-left focus:bg-canvas-deep focus:text-ink"
+                        disabled={busy === share.id}
+                        onSelect={() => changeVisibility(share.id, option)}
+                      >
+                        <span className="grid size-8 place-items-center rounded-xs border border-line bg-canvas text-muted">
+                          <VisibilityIcon visibility={option} size={14} />
+                        </span>
+                        <span className="min-w-0">
+                          <b className="block text-xs font-[weight:560] text-ink-strong">{visibilityMeta[option].label}</b>
+                          <span className="mt-0.5 block text-2xs text-muted">{visibilityMeta[option].description}</span>
+                        </span>
+                        {share.visibility === option ? <Check size={14} className="text-accent" aria-label="Selected" /> : null}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  className={iconButtonDangerClass}
+                  onClick={() => setConfirming(share.id)}
+                  aria-label={`Delete ${share.title}`}
+                >
+                  <Trash2 size={14} />
+                </button>
+                <Link className={buttonClass({ variant: "primary", size: "small", className: "ml-1" })} href={`/s/${share.slug}`}>
+                  Open <ArrowUpRight size={14} />
+                </Link>
+              </div>
+            </div>
+
+            {confirming === share.id ? (
+              <div className="col-span-full rounded-xs bg-[color-mix(in_srgb,var(--color-red)_6%,var(--color-panel))] px-4 py-3.5 max-tablet:col-span-1">
+                <p className="text-xs text-ink">Delete this transcript permanently? The shared link will stop working.</p>
+                <div className="mt-3 flex gap-2">
+                  <button
+                    type="button"
+                    className={buttonClass({ variant: "danger", size: "small" })}
+                    disabled={busy === share.id}
+                    onClick={() => revoke(share.id)}
+                  >
+                    Delete permanently
+                  </button>
+                  <button
+                    type="button"
+                    className={buttonClass({ variant: "secondary", size: "small" })}
+                    onClick={() => setConfirming(null)}
+                  >
+                    Keep session
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </article>
+        );
+      })}
     </div>
   );
 }

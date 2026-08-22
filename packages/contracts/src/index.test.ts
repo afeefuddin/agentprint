@@ -81,9 +81,9 @@ describe("friend contracts", () => {
     expect(friendshipIdSchema.safeParse("not-a-friendship-id").success).toBe(false);
   });
 
-  test("accepts friend comparison privacy without widening profile patches", () => {
-    expect(profilePatchSchema.safeParse({ friends_can_compare: true }).success).toBe(true);
-    expect(profilePatchSchema.safeParse({ friends_can_compare: true, friend_ids: [] }).success).toBe(false);
+  test("does not expose comparison as an optional profile setting", () => {
+    expect(profilePatchSchema.safeParse({ friends_can_compare: true }).success).toBe(false);
+    expect(profilePatchSchema.safeParse({ is_public: true, friend_ids: [] }).success).toBe(false);
   });
 });
 

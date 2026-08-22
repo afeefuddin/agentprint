@@ -101,8 +101,7 @@ export const profilePatchSchema = z.object({
   show_cost: z.boolean().optional(),
   show_harnesses: z.boolean().optional(),
   show_models: z.boolean().optional(),
-  show_streaks: z.boolean().optional(),
-  friends_can_compare: z.boolean().optional()
+  show_streaks: z.boolean().optional()
 }).strict();
 
 export const friendRequestSchema = z.object({

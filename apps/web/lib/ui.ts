@@ -6,6 +6,8 @@ export function cx(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(" ");
 }
 
+export const cn = cx;
+
 const BUTTON_BASE =
   "inline-flex cursor-pointer items-center justify-center gap-2.5 rounded-full border font-semibold leading-none transition-[filter,background-color,border-color] duration-[140ms] hover:brightness-[.94] active:brightness-[.88] disabled:cursor-wait disabled:opacity-55";
 

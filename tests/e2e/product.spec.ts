@@ -119,7 +119,7 @@ test("another profile can send and retain a friend request", async ({ page }) =>
   }
 });
 
-test("landing activity field updates its heat levels", async ({ page }) => {
+test("landing keeps its live heatmap and ends with the session-to-heatmap card", async ({ page }) => {
   await page.goto("/");
   const cells = page.locator(".landing-instrument .instrument-grid i");
   await expect(cells).toHaveCount(371);
@@ -131,6 +131,10 @@ test("landing activity field updates its heat levels", async ({ page }) => {
     () => cells.evaluateAll((items) => items.map((item) => item.getAttribute("data-level"))),
     { timeout: 3_500 }
   ).not.toEqual(initialLevels);
+
+  const finalCard = page.getByRole("region", { name: "Every session leaves a trace." });
+  await expect(finalCard.getByRole("img", { name: "Coding-agent sessions flowing into an activity heatmap" })).toHaveAttribute("src", /sessions-to-heatmap\.webp/);
+  await expect(finalCard.getByRole("link", { name: "Open your Agentprint" })).toBeVisible();
 });
 
 test("new account starts private and can be published", async ({ page }) => {
@@ -145,9 +149,31 @@ test("new account starts private and can be published", async ({ page }) => {
   await page.context().addCookies([{ name: "pm_session", value: token, url: "http://localhost:3000" }]);
   await page.goto("/onboarding");
   await page.getByLabel("Name", { exact: true }).fill("Browser Test");
+  await page.getByLabel("Username").fill("maya-builds");
+  await expect(page.getByLabel("Handle unavailable")).toBeVisible();
   await page.getByLabel("Username").fill(handle);
+  await expect(page.getByLabel("Handle available")).toBeVisible();
   await page.getByRole("button", { name: "Claim profile and continue" }).click();
-  await expect(page.getByRole("heading", { name: "One command. Then forget it." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Connect your machine." })).toBeVisible();
+  const windowsTab = page.getByRole("tab", { name: "Windows" });
+  await windowsTab.click();
+  await expect(windowsTab).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByText(/install\.ps1/)).toBeVisible();
+
+  const device = await pool.query<{ id: string }>(
+    `INSERT INTO devices (user_id, name, platform, agent_version, last_seen_at)
+     VALUES ($1, 'Browser test device', 'darwin/arm64', '0.3.0', now())
+     RETURNING id`,
+    [user.id]
+  );
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Run your first sync." })).toBeVisible();
+  await expect(page.getByLabel("Sync command", { exact: true })).toContainText("agentprint sync");
+
+  await pool.query("UPDATE devices SET last_sync_at = now() WHERE id = $1", [device.rows[0].id]);
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Your record is live." })).toBeVisible();
+
   await page.goto("/settings");
   const publicSwitch = page.getByRole("switch", { name: "Public profile" });
   await expect(publicSwitch).not.toBeChecked();
@@ -155,6 +181,10 @@ test("new account starts private and can be published", async ({ page }) => {
   await expect(publicSwitch).toBeChecked();
   const response = await page.request.get(`/v1/profiles/${handle}`);
   expect(response.ok()).toBeTruthy();
+  await page.getByRole("button", { name: "Log out" }).click();
+  await expect(page).toHaveURL(/\/$/);
+  await page.goto("/settings");
+  await expect(page).toHaveURL(/\/login$/);
 });
 
 test("OAuth choices preserve a pending device activation path", async ({ page }, testInfo) => {
@@ -177,7 +207,7 @@ test("OAuth choices preserve a pending device activation path", async ({ page },
   await expect(page.getByRole("textbox")).toHaveCount(0);
 });
 
-test("friends can connect, opt in, and compare paired traces", async ({ page, browser }, testInfo) => {
+test("friends can connect and compare paired traces", async ({ page, browser }, testInfo) => {
   const suffix = `${Date.now()}-${Math.floor(Math.random() * 1000)}`;
   const firstHandle = `trace-a-${suffix}`.slice(0, 29);
   const secondHandle = `trace-b-${suffix}`.slice(0, 29);
@@ -209,14 +239,17 @@ test("friends can connect, opt in, and compare paired traces", async ({ page, br
     const firstToken = await createSession(first.id);
     await page.context().addCookies([{ name: "pm_session", value: firstToken, url: "http://localhost:3000" }]);
     await page.goto("/friends");
-    await expect(page.getByRole("heading", { name: "Compare traces, not people." })).toBeVisible();
-    await Promise.all([
-      page.waitForResponse((response) => response.url().endsWith("/v1/me/profile") && response.request().method() === "PATCH"),
-      page.getByRole("switch", { name: "Friend comparisons" }).click()
-    ]);
-    await page.getByLabel("Exact Agentprint handle").fill(secondHandle);
-    await page.getByRole("button", { name: "Find friend" }).click();
+    await expect(page.getByRole("heading", { name: "Friends", exact: true })).toBeVisible();
+    await expect(page.getByRole("switch", { name: "Friend comparisons" })).toHaveCount(0);
+    await expect(page.getByText("Comparisons ready", { exact: true })).toHaveCount(0);
+    const addFriendSection = page.getByRole("region", { name: "Add a friend" });
+    const initialSearchHeight = (await addFriendSection.boundingBox())?.height;
+    await page.getByLabel("Agentprint handle").fill(secondHandle);
     await expect(page.getByText("Morgan Trace")).toBeVisible();
+    const resultPopover = page.locator('[data-slot="popover-content"]');
+    await expect(resultPopover).toBeVisible();
+    expect((await resultPopover.boundingBox())?.width).toBeLessThanOrEqual(361);
+    expect((await addFriendSection.boundingBox())?.height).toBe(initialSearchHeight);
     await page.getByRole("button", { name: "Send request" }).click();
     await expect(page.getByText(`Request sent to @${secondHandle}.`)).toBeVisible();
 
@@ -229,11 +262,8 @@ test("friends can connect, opt in, and compare paired traces", async ({ page, br
       await secondContext.addCookies([{ name: "pm_session", value: secondToken, url: "http://localhost:3000" }]);
       const secondPage = await secondContext.newPage();
       await secondPage.goto("/friends");
-      await expect(secondPage.getByRole("heading", { name: "Compare traces, not people." })).toBeVisible();
-      await Promise.all([
-        secondPage.waitForResponse((response) => response.url().endsWith("/v1/me/profile") && response.request().method() === "PATCH"),
-        secondPage.getByRole("switch", { name: "Friend comparisons" }).click()
-      ]);
+      await expect(secondPage.getByRole("heading", { name: "Friends", exact: true })).toBeVisible();
+      await expect(secondPage.getByRole("switch", { name: "Friend comparisons" })).toHaveCount(0);
       await expect(secondPage.getByText("Requests for you")).toBeVisible();
       await secondPage.getByRole("button", { name: "Accept", exact: true }).click();
       await expect(secondPage.getByText("Ready to compare")).toBeVisible();
@@ -292,19 +322,49 @@ test("a public shared session is readable, collapsible, and linked from the prof
   await page.goto(href!);
 
   await expect(page.getByRole("heading", { name: "Track down the flaky checkout test" })).toBeVisible();
+  await expect(page.locator("header").filter({ hasText: "Track down the flaky checkout test" }).locator(":scope > div").first()).toContainText(/Claude Code\s*\/\s*Public/);
+  await expect(page.getByRole("region", { name: "Session summary" })).toHaveClass(/rounded-sm.*border/);
   await expect(page.getByText("Shared by")).toBeVisible();
   // The redaction summary is the page's core claim; it must always be present.
-  await expect(page.getByText(/credential values removed/)).toBeVisible();
+  await expect(page.getByText(/credential values? removed/)).toBeVisible();
 
-  // Tool steps start collapsed so a several-hundred-step session stays readable.
-  const step = page.getByRole("button", { name: /^Read/ }).first();
-  await expect(step).toHaveAttribute("aria-expanded", "false");
-  await step.click();
-  await expect(step).toHaveAttribute("aria-expanded", "true");
-  await expect(page.getByText("seedCart")).toBeVisible();
+  // Tool calls and their results share one compact disclosure instead of
+  // becoming full transcript cards.
+  const step = page.locator("details").filter({ hasText: "<project>/tests/checkout.spec.ts" }).first();
+  await expect(step).not.toHaveAttribute("open", "");
+  await step.locator("summary").click();
+  await expect(step).toHaveAttribute("open", "");
+  await expect(step.getByText("seedCart")).toBeVisible();
+  await expect(page.getByText("Tool result")).toHaveCount(0);
+  await expect(page.getByText("Final answer", { exact: true })).toBeVisible();
+});
 
-  // Harnesses attribute tool output to the user role; it must not read as a prompt.
-  await expect(page.getByText("Tool result").first()).toBeVisible();
+test("the session library keeps cards compact and opens the transcript", async ({ page }) => {
+  const owner = await pool.query("SELECT user_id FROM profiles WHERE handle = 'maya-builds'");
+  const token = await createSession(owner.rows[0].user_id);
+  await page.context().addCookies([{ name: "pm_session", value: token, url: "http://localhost:3000" }]);
+
+  await page.goto("/sessions");
+  await expect(page.getByRole("heading", { name: "Your shared sessions" })).toBeVisible();
+
+  const session = page.locator("article").filter({ hasText: "Track down the flaky checkout test" });
+  await expect(session.getByText("Prompt", { exact: true })).toHaveCount(0);
+  await expect(session.getByText(/tool calls?$/)).toHaveCount(0);
+  await expect(session.getByText("Final answer", { exact: true })).toHaveCount(0);
+  const content = session.locator(":scope > div").first();
+  await expect(content.getByText(/10 turns/)).toBeVisible();
+  await expect(content.getByText(/293\.7K tokens/)).toBeVisible();
+  await expect(content.getByText("39 min", { exact: true })).toBeVisible();
+  await expect(content.getByText(/Published/)).toBeVisible();
+  await expect(session.locator("footer")).toHaveCount(0);
+  expect(await session.getAttribute("class")).not.toContain("border");
+  await expect(session.getByText(/views?$/)).toHaveCount(0);
+  await expect(session.getByRole("link", { name: "Open" })).toBeVisible();
+
+  await session.getByRole("button", { name: "Sharing" }).click();
+  await expect(page.getByText("Who can open this session?")).toBeVisible();
+  await content.getByText(/Published/).click();
+  await expect(page.getByText("Who can open this session?")).toBeHidden();
 });
 
 test("an unlisted session is reachable by link but never listed or indexed", async ({ page, request }) => {

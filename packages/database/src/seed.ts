@@ -107,6 +107,7 @@ await publishShare(
     harness_version: "2.1.0",
     session_fingerprint: createHash("sha256").update("demo:shared-session").digest("hex"),
     title: "Track down the flaky checkout test",
+    summary: "Found a shared database fixture leaking between CI workers, fixed test isolation, and verified the checkout suite in serial and parallel.",
     visibility: "public",
     redaction_level: "balanced",
     redaction: { secrets_removed: 1, paths_rewritten: 6, blocks_truncated: 1, turns_excluded: 0 },
@@ -178,11 +179,53 @@ await publishShare(
       {
         index: 5,
         role: "assistant",
+        at: "2026-08-14T16:04:38Z",
+        model_id: "claude-opus-4.1",
+        blocks: [
+          { kind: "text", text: "The serial run is clean, which strengthens the shared-state diagnosis. I’ll inspect the fixture helper, make the cleanup explicit, then rerun with parallel workers." },
+          { kind: "tool_use", id: "t3", name: "Read", input: JSON.stringify({ file_path: "<project>/tests/helpers/seed-cart.ts" }, null, 2) }
+        ]
+      },
+      {
+        index: 6,
+        role: "user",
+        at: "2026-08-14T16:04:45Z",
+        blocks: [{
+          kind: "tool_result",
+          tool_use_id: "t3",
+          ok: true,
+          output: "export async function seedCart(input) {\n  await db.cartItems.insertMany(input.items);\n}\n"
+        }]
+      },
+      {
+        index: 7,
+        role: "assistant",
+        at: "2026-08-14T16:06:10Z",
+        model_id: "claude-opus-4.1",
+        blocks: [
+          { kind: "text", text: "There’s the leak: the helper only inserts. I added scoped cleanup before seeding so every test starts from the same state." },
+          { kind: "tool_use", id: "t4", name: "Bash", input: JSON.stringify({ command: "npm test -- tests/checkout.spec.ts --workers=4 --repeat-each=20" }, null, 2) }
+        ]
+      },
+      {
+        index: 8,
+        role: "user",
+        at: "2026-08-14T16:40:40Z",
+        blocks: [{
+          kind: "tool_result",
+          tool_use_id: "t4",
+          ok: true,
+          output: "80 passed (4 workers)\n0 failed\nFinished in 34.2s"
+        }]
+      },
+      {
+        index: 9,
+        role: "assistant",
         at: "2026-08-14T16:41:00Z",
         model_id: "claude-opus-4.1",
         blocks: [{
           kind: "text",
-          text: "Confirmed: twelve serial runs pass. The fix is to truncate the cart tables in `beforeEach` rather than only inserting. I have made that change and the parallel suite is green."
+          text: "Fixed. `seedCart` now clears the current test cart before inserting fixtures, so worker order can’t change the total. The checkout spec passed 80 parallel runs with zero failures."
         }]
       }
     ]
