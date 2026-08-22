@@ -1,147 +1,154 @@
 import type { Metadata } from "next";
-import { Check, X } from "lucide-react";
+import Link from "next/link";
+import { EyeOff, LockKeyhole, Share2 } from "lucide-react";
 import { viewer } from "@/lib/auth";
 import { SiteHeader } from "@/components/site-header";
 import { eyebrowClass } from "@/lib/ui";
 
-const BOUNDARY_TITLE = "m-0 flex items-center gap-[9px] py-5 text-base font-[weight:550]";
-const BOUNDARY_ROW = "flex items-center gap-2.5 border-t border-line py-[11px] text-xs text-muted";
-const PROSE_SECTION = "ml-auto max-w-[720px]";
-const PROSE_TITLE = "text-[31px] font-[weight:520] tracking-[-.035em]";
-const PROSE_COPY = "my-4 leading-[1.8] text-muted";
+const SECTION =
+  "grid grid-cols-[190px_minmax(0,1fr)] gap-12 border-t border-line py-9 max-tablet:grid-cols-[1fr] max-tablet:gap-4 max-tablet:py-8";
+const SECTION_TITLE = "m-0 text-[22px] font-[weight:540] tracking-[-.025em] text-ink-strong";
+const COPY = "m-0 text-base leading-[1.7] text-muted";
+const LIST = "m-0 grid gap-3 pl-5 text-base leading-[1.65] text-muted marker:text-blue";
 
-export const metadata: Metadata = { title: "Collection boundary" };
-
-type SchemaField = { name: string; type: string; optional?: boolean };
-
-const schemaGroups: { label: string; note: string; fields: SchemaField[] }[] = [
+const assurances = [
   {
-    label: "Identity",
-    note: "Deduplicates a retry without naming you.",
-    fields: [
-      { name: "event_id", type: "string" },
-      { name: "schema_version", type: "1" },
-      { name: "source_fingerprint", type: "string" }
-    ]
+    icon: EyeOff,
+    title: "No work content",
+    copy: "Background sync does not collect prompts, responses, source code, or files."
   },
   {
-    label: "Time",
-    note: "Places the work on a calendar, nothing more.",
-    fields: [
-      { name: "occurred_at", type: "ISO 8601, UTC" },
-      { name: "local_date", type: "YYYY-MM-DD" }
-    ]
+    icon: LockKeyhole,
+    title: "Private by default",
+    copy: "You decide whether your profile, metrics, or friend comparisons are visible."
   },
   {
-    label: "Origin",
-    note: "Which agent and model did the work.",
-    fields: [
-      { name: "harness_id", type: "enum" },
-      { name: "harness_version", type: "string", optional: true },
-      { name: "provider_id", type: "string", optional: true },
-      { name: "model_id", type: "string", optional: true }
-    ]
-  },
-  {
-    label: "Volume",
-    note: "Counts only. Never the tokens themselves.",
-    fields: [
-      { name: "input_tokens", type: "integer" },
-      { name: "output_tokens", type: "integer" },
-      { name: "cached_input_tokens", type: "integer", optional: true },
-      { name: "reasoning_tokens", type: "integer", optional: true },
-      { name: "total_tokens", type: "integer" }
-    ]
-  },
-  {
-    label: "Cost",
-    note: "An estimate, plus how it was calculated.",
-    fields: [
-      { name: "estimated_cost_micros", type: "integer", optional: true },
-      { name: "cost_basis", type: "enum", optional: true }
-    ]
+    icon: Share2,
+    title: "Sharing is deliberate",
+    copy: "A transcript is uploaded only when you choose one session and confirm it."
   }
 ];
 
+export const metadata: Metadata = {
+  title: "Privacy",
+  description: "How Agentprint collects, uses, and protects your information."
+};
+
 export default async function PrivacyPage() {
   const current = await viewer();
-  const collected = ["UTC timestamp", "Local calendar date", "Harness and optional version", "Provider and model identifiers", "Numeric token categories", "Estimated numeric cost and provenance", "Anonymous source identity"];
-  const excluded = ["Prompt and response text", "Source code and file contents", "Repository names and paths", "Shell history", "API keys", "Other tool credentials", "Project or client names"];
+
   return (
     <>
       <SiteHeader current={current} variant="marketing" />
       <main id="main" className="shell pb-[var(--page-bottom)] pt-[var(--page-top)]">
-        <span className={eyebrowClass}>Privacy specification · schema v1</span>
-        <h1 className="my-[22px] max-w-[900px] text-[clamp(46px,6vw,75px)] font-normal leading-[.98] tracking-[-.055em] text-ink-strong">
-          The collection boundary<br /><em className="tracking-[-.06em] text-ink-strong">is intentionally narrow.</em>
-        </h1>
-        <p className="max-w-[680px] text-base leading-[1.7] text-muted">The local agent reads harness-owned usage records and creates a numeric metadata record. The server contract has no place for text content, code, or paths. Sharing a session is the one exception, and it never happens automatically—see <a href="#sharing">session sharing</a> below.</p>
-        <div className="mt-[65px] grid grid-cols-2 gap-6 max-tablet:grid-cols-[1fr]">
-          <section className="border-t-2 border-green">
-            <h2 className={BOUNDARY_TITLE}><Check size={18} /> Collected</h2>
-            {collected.map((item) => (
-              <div key={item} className={BOUNDARY_ROW}><i className="size-[5px] rounded-full bg-green" />{item}</div>
-            ))}
-          </section>
-          <section className="border-t-2 border-red">
-            <h2 className={BOUNDARY_TITLE}><X size={18} /> Never collected</h2>
-            {excluded.map((item) => (
-              <div key={item} className={BOUNDARY_ROW}><i className="size-[5px] rounded-full bg-red" />{item}</div>
-            ))}
-          </section>
-        </div>
-        <section className="my-20 mb-[95px] max-tablet:mb-[62px] max-tablet:mt-[52px]" aria-labelledby="schema-title">
-          <div className="grid grid-cols-2 items-end gap-10 pb-[34px] max-tablet:grid-cols-[1fr] max-tablet:gap-[18px] max-tablet:pb-[26px]">
-            <h2
-              id="schema-title"
-              className="m-0 text-[34px] font-[weight:520] leading-[1.15] tracking-[-.035em] text-ink-strong max-tablet:text-[27px]"
-            >
-              Sixteen fields.<br />That is the whole record.
-            </h2>
-            <p className="m-0 max-w-[430px] text-xs leading-[1.75] text-muted">
-              The <code className="font-[weight:550] text-ink-strong">UsageRecord</code> contract, schema v1. A record carrying any key outside this list is rejected at the boundary.
-            </p>
-          </div>
-          {schemaGroups.map((group) => (
+        <header className="max-w-[780px]">
+          <span className={eyebrowClass}>Privacy</span>
+          <h1 className="mb-6 mt-4 text-[clamp(48px,6vw,72px)] font-[weight:520] leading-[.96] tracking-[-.06em] text-ink-strong max-tablet:text-[48px]">
+            Your work stays yours.
+          </h1>
+          <p className="m-0 max-w-[680px] text-md leading-[1.65] text-muted">
+            Agentprint measures how you use coding agents without reading what you build with them. We collect the minimum information needed to sync your activity and create the profile you control.
+          </p>
+          <p className="mt-5 text-xs text-faint">Last updated August 22, 2026</p>
+        </header>
+
+        <section
+          className="mt-12 grid grid-cols-3 overflow-hidden rounded-md border border-line bg-panel max-desktop:grid-cols-[1fr]"
+          aria-label="Privacy at a glance"
+        >
+          {assurances.map(({ icon: Icon, title, copy }) => (
             <div
-              className="grid grid-cols-[210px_1fr] gap-11 border-t border-line pb-[34px] pt-[30px] last:border-b last:border-line max-tablet:grid-cols-[1fr] max-tablet:gap-[18px] max-tablet:pb-[26px] max-tablet:pt-6"
-              key={group.label}
+              className="grid grid-cols-[auto_1fr] items-start gap-4 border-r border-line p-6 last:border-r-0 max-desktop:border-b max-desktop:border-r-0 max-desktop:last:border-b-0 max-tablet:p-5"
+              key={title}
             >
-              <div>
-                <h3 className="m-0 text-base font-[weight:550] tracking-[-.01em] text-ink-strong">{group.label}</h3>
-                <p className="mt-[7px] text-xs leading-[1.6] text-faint">{group.note}</p>
-              </div>
-              <dl className="m-0 grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-x-[46px] gap-y-0 max-tablet:grid-cols-[1fr]">
-                {group.fields.map((field) => (
-                  <div key={field.name} className="flex items-baseline gap-3 py-[9px]">
-                    <dt className="flex flex-1 items-baseline gap-3 text-base font-[weight:520] text-ink-strong after:mb-[5px] after:flex-1 after:border-b after:border-dotted after:border-line-strong after:content-['']">
-                      {field.name}
-                    </dt>
-                    <dd className="m-0 whitespace-nowrap text-xs font-medium text-faint">
-                      {field.type}
-                      {field.optional && (
-                        <em className="not-italic text-amber before:mx-[5px] before:text-line-strong before:content-['·']">optional</em>
-                      )}
-                    </dd>
-                  </div>
-                ))}
-              </dl>
+              <span className="grid size-9 place-items-center rounded-full border border-line bg-canvas text-blue" aria-hidden="true">
+                <Icon size={16} />
+              </span>
+              <span>
+                <b className="block text-base font-[weight:540] text-ink-strong">{title}</b>
+                <small className="mt-1.5 block text-sm leading-[1.5] text-muted">{copy}</small>
+              </span>
             </div>
           ))}
         </section>
-        <section className={PROSE_SECTION} id="sharing">
-          <h2 className={PROSE_TITLE}>Session sharing is a separate pipeline.</h2>
-          <p className={PROSE_COPY}>Everything above describes background collection, which is automatic and structurally cannot carry content. Session sharing is the opposite: it publishes a full transcript—your prompts, the agent&rsquo;s replies, its tool calls and their output. It only ever runs when you ask for one specific session, one at a time, by running <code className="font-[weight:550] text-ink-strong">agentprint share</code>.</p>
-          <p className={PROSE_COPY}>Before anything is uploaded, the collector rewrites the transcript on your machine. Values matching known credential shapes—provider keys, tokens, private keys, passwords inside connection strings—are replaced with a visible marker. Your home directory becomes <code className="font-[weight:550] text-ink-strong">~</code> and your project path becomes <code className="font-[weight:550] text-ink-strong">&lt;project&gt;</code>. Images and binary attachments are dropped entirely. Oversized tool output is truncated. At the <em>strict</em> level, tool arguments, tool output, and the agent&rsquo;s reasoning are left out altogether.</p>
-          <p className={PROSE_COPY}>You then read the result before deciding. <code className="font-[weight:550] text-ink-strong">agentprint share --dry-run</code> renders the exact payload as a local page and uploads nothing at all; the interactive publish shows you the same page before asking for confirmation. The server independently re-scans every upload and refuses any transcript still carrying something that looks like a live credential.</p>
-          <p className={PROSE_COPY}>A shared session starts <em>unlisted</em>: reachable by its link, never indexed, never shown on your profile. Making it public or friends-only is a separate, deliberate choice. Deleting one removes the transcript from our database and the link stops resolving. Shared sessions are included in your data export and are deleted with your account.</p>
-          <p className={PROSE_COPY}>One thing redaction cannot do for you: a transcript is still your work in your own words. It can name colleagues and clients, and describe code you may not own. Read the preview before you publish.</p>
-        </section>
-        <section className={PROSE_SECTION}>
-          <h2 className={PROSE_TITLE}>Local first, public by choice.</h2>
-          <p className={PROSE_COPY}>Normalized events stay in a local SQLite queue until the server acknowledges them. A retry uses the same event and batch identities, so it cannot increase your totals. Your profile starts private, and visibility is enforced when profile data is queried—not merely hidden in the browser.</p>
-          <p className={PROSE_COPY}>You can pause the collector, revoke any device, export your normalized data, or delete the account and server-side data from the dashboard.</p>
-        </section>
+
+        <div className="mx-auto mt-16 max-w-[920px]">
+          <section className={SECTION} aria-labelledby="collect-title">
+            <h2 id="collect-title" className={SECTION_TITLE}>What we collect</h2>
+            <div className="grid gap-5">
+              <p className={COPY}>We collect only the information needed to operate Agentprint:</p>
+              <ul className={LIST}>
+                <li>Account information such as your name, handle, email from your sign-in provider, timezone, and profile settings.</li>
+                <li>Usage metadata such as dates, token counts, estimated cost, and the coding agent or model involved.</li>
+                <li>Device and source identifiers needed to sync reliably and prevent duplicate activity.</li>
+              </ul>
+            </div>
+          </section>
+
+          <section className={SECTION} aria-labelledby="never-title">
+            <h2 id="never-title" className={SECTION_TITLE}>What sync leaves alone</h2>
+            <div className="grid gap-5">
+              <p className={COPY}>Normal background sync does not collect the content of your work.</p>
+              <ul className={LIST}>
+                <li>No prompts or agent responses.</li>
+                <li>No source code, file contents, repository names, or local paths.</li>
+                <li>No shell history, API keys, passwords, or other credentials.</li>
+              </ul>
+            </div>
+          </section>
+
+          <section className={SECTION} id="sharing" aria-labelledby="sharing-title">
+            <h2 id="sharing-title" className={SECTION_TITLE}>Shared sessions</h2>
+            <div className="grid gap-5">
+              <p className={COPY}>
+                Session sharing is separate from background sync. It can include prompts, responses, and tool output, but only for the specific session you choose to publish.
+              </p>
+              <p className={COPY}>
+                Agentprint previews and redacts the session on your device before upload. New shares begin as unlisted, and you can change their visibility or delete them at any time. Redaction helps, but you should still read the preview before publishing.
+              </p>
+            </div>
+          </section>
+
+          <section className={SECTION} aria-labelledby="use-title">
+            <h2 id="use-title" className={SECTION_TITLE}>How we use information</h2>
+            <div className="grid gap-5">
+              <p className={COPY}>We use your information to authenticate your account, sync activity, build the views you request, provide support, and keep Agentprint reliable and secure.</p>
+              <p className={COPY}>We do not sell personal information or use it for targeted advertising. We share information only with service providers needed to run Agentprint, when you direct us to share it, or when required by law.</p>
+            </div>
+          </section>
+
+          <section className={SECTION} aria-labelledby="control-title">
+            <h2 id="control-title" className={SECTION_TITLE}>Your controls</h2>
+            <div className="grid gap-5">
+              <p className={COPY}>You control whether your profile is public, which metrics appear, and whether friends can compare activity with you. You can also revoke devices, export your data, delete shared sessions, or delete your account.</p>
+              <Link className="w-fit border-b border-line-strong text-base font-[weight:540] text-ink-strong hover:border-blue hover:text-blue" href="/settings#visibility">
+                Review your privacy settings
+              </Link>
+            </div>
+          </section>
+
+          <section className={SECTION} aria-labelledby="retention-title">
+            <h2 id="retention-title" className={SECTION_TITLE}>Retention and security</h2>
+            <div className="grid gap-5">
+              <p className={COPY}>We keep account and usage information while your account is active and as needed to provide the service. Deleting your account removes your active server-side data, including shared sessions, subject to limited security, backup, or legal retention requirements.</p>
+              <p className={COPY}>Your account uses your sign-in provider, and every connected device has its own access credential. You can revoke a device from Settings whenever you want.</p>
+            </div>
+          </section>
+
+          <section className={SECTION} aria-labelledby="rights-title">
+            <h2 id="rights-title" className={SECTION_TITLE}>Questions and requests</h2>
+            <div className="grid gap-5">
+              <p className={COPY}>Depending on where you live, you may have rights to access, correct, export, or delete your personal information. Most of these controls are available directly in Settings.</p>
+              <p className={COPY}>
+                For another privacy request or a question about this notice, contact us through the{" "}
+                <a className="border-b border-line-strong font-[weight:540] text-ink-strong hover:border-blue hover:text-blue" href="https://github.com/afeefuddin/agentprint/issues">
+                  Agentprint project
+                </a>.
+              </p>
+              <p className="m-0 text-xs leading-[1.6] text-faint">We may update this notice as Agentprint changes. The date at the top shows the latest revision.</p>
+            </div>
+          </section>
+        </div>
       </main>
     </>
   );
