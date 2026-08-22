@@ -84,7 +84,7 @@ export function SharesWorkspace({
 
   if (shares.length === 0) {
     return (
-      <section className="rounded-md border border-line bg-panel p-10 text-center">
+      <section className="rounded-md border border-line bg-panel p-7 text-center max-tablet:p-[22px]">
         <h2 className="m-0 text-lg font-[weight:560] text-ink-strong">No shared sessions yet</h2>
         <p className="mx-auto mt-2.5 max-w-[460px] text-sm text-muted">
           Sharing publishes one session at a time, and only when you ask for it. Your
@@ -123,7 +123,7 @@ export function SharesWorkspace({
         <p className="mb-4 rounded-sm border border-red px-4 py-3 text-xs text-red" role="alert">{error}</p>
       ) : null}
       {shares.map((share) => (
-        <article className="rounded-md border border-line bg-panel px-6 py-[22px] not-first:mt-3.5" key={share.id}>
+        <article className="rounded-md border border-line bg-panel p-7 not-first:mt-3.5 max-tablet:p-[22px]" key={share.id}>
           <div className="flex items-start justify-between gap-6 max-compact:flex-col max-compact:gap-4">
             <div>
               <span className="text-xs text-faint">
@@ -162,7 +162,7 @@ export function SharesWorkspace({
             </div>
           </div>
 
-          <div className="mt-[18px] border-t border-line pt-4">
+          <div className="mt-5 border-t border-line pt-4">
             <div
               className="inline-flex rounded-full border border-line-strong bg-canvas-deep p-[3px]"
               role="group"

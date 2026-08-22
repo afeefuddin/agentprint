@@ -56,7 +56,7 @@ const fields: { key: FieldKey; label: string }[] = [
   { key: "show_streaks", label: "Streaks" }
 ];
 
-const ROW = "mt-[34px] grid grid-cols-[248px_minmax(0,1fr)] gap-[46px] border-t border-line-strong pt-[34px] max-desktop:grid-cols-[1fr] max-desktop:gap-5";
+const ROW = "mt-9 grid grid-cols-[248px_minmax(0,1fr)] gap-12 border-t border-line-strong pt-9 max-desktop:grid-cols-[1fr] max-desktop:gap-5";
 const RAIL = "sticky top-[calc(var(--header-h)+26px)] self-start max-desktop:static";
 const RAIL_TITLE = "mb-1.5 text-md font-[weight:560] tracking-[-.015em] text-ink-strong";
 const RAIL_COPY = "m-0 text-xs leading-normal text-muted";

@@ -12,9 +12,7 @@ import { ShareButton } from "./share-button";
 type ProfileData = NonNullable<Awaited<ReturnType<typeof getProfile>>>;
 
 const METRIC_CARD =
-  "group relative col-span-2 min-h-[226px] overflow-hidden rounded-md border border-line px-[25px] py-[27px] isolate after:absolute after:-right-8 after:-bottom-[54px] after:-z-[1] after:aspect-square after:w-[210px] after:rounded-full after:bg-[color-mix(in_srgb,var(--color-panel-raised)_56%,transparent)] after:content-[''] max-desktop:col-auto max-desktop:min-h-[210px] max-tablet:min-h-[174px] max-tablet:px-5 max-tablet:py-[22px]";
-const METRIC_FILL =
-  "bg-[radial-gradient(circle_at_88%_82%,color-mix(in_srgb,var(--color-accent-soft)_90%,transparent),transparent_47%),var(--color-panel)]";
+  "group relative col-span-2 min-h-[226px] overflow-hidden rounded-md border border-line bg-panel px-[25px] py-[27px] isolate after:absolute after:-right-8 after:-bottom-[54px] after:-z-[1] after:aspect-square after:w-[210px] after:rounded-full after:bg-[color-mix(in_srgb,var(--color-panel-raised)_56%,transparent)] after:content-[''] max-desktop:col-auto max-desktop:min-h-[210px] max-tablet:min-h-[174px] max-tablet:px-5 max-tablet:py-[22px]";
 const METRIC_LABEL = "block text-sm font-medium text-faint";
 const METRIC_VALUE =
   "mb-2 mt-[18px] block text-[46px] font-[weight:540] leading-none text-ink-strong [font-variant-numeric:tabular-nums] max-desktop:text-[40px] max-tablet:mb-1.5 max-tablet:mt-3.5 max-tablet:text-[36px]";
@@ -46,7 +44,7 @@ function MetricCard({
   cardClass?: string;
 }) {
   return (
-    <div className={cx(METRIC_CARD, cardClass ?? METRIC_FILL)}>
+    <div className={cx(METRIC_CARD, cardClass)}>
       <div className="relative z-[1] w-[58%] max-tablet:w-[60%]">
         <span className={METRIC_LABEL}>{label}</span>
         <strong className={METRIC_VALUE}>{value}</strong>
@@ -69,10 +67,16 @@ export function ProfileView({
   const { profile, activity, thresholds, summary, harnesses, models } = data;
   const harnessTotal = Object.values(harnesses).reduce((sum, value) => sum + value, 0);
   const modelTotal = Object.values(models).reduce((sum, value) => sum + value, 0);
+  const topMetricCount = Number(profile.show_tokens) + Number(profile.show_cost) + 1;
+  const topMetricCardClass = topMetricCount === 1
+    ? "col-span-full"
+    : topMetricCount === 2
+      ? "col-span-3"
+      : undefined;
   return (
     <main id="main" data-profile-main className="overflow-x-clip pb-[var(--page-bottom)]">
       <div className="shell pt-[var(--page-top)]">
-        <section className="mb-9 grid grid-cols-[auto_1fr_auto] items-center gap-6 rounded-md border border-line p-7 max-tablet:grid-cols-[auto_1fr] max-tablet:p-[22px]">
+        <section className="mb-9 grid grid-cols-[auto_1fr_auto] items-center gap-6 rounded-md border border-line bg-panel p-7 max-tablet:grid-cols-[auto_1fr] max-tablet:p-[22px]">
           <div className={profileAvatarClass} aria-hidden="true">{initials(profile.display_name)}</div>
           <div>
             <div className="flex items-center gap-3 max-tablet:flex-col max-tablet:items-start max-tablet:gap-[5px]">
@@ -125,7 +129,8 @@ export function ProfileView({
               value={formatTokens(summary.totalTokens)}
               note="input + output"
               art="/metrics/generated/lifetime-tokens.png"
-              artClass="-right-[21px] -bottom-[30px] w-[56%] max-tablet:-right-[9px] max-tablet:-bottom-[35px] max-tablet:w-[47%]"
+              cardClass={topMetricCardClass}
+              artClass="-right-[21px] -bottom-[30px] w-[56%] max-w-[250px] max-tablet:-right-[9px] max-tablet:-bottom-[35px] max-tablet:w-[47%]"
             />
           )}
           {profile.show_cost && (
@@ -135,7 +140,8 @@ export function ProfileView({
               note="price-table estimate"
               noteTone="text-amber"
               art="/metrics/generated/estimated-spend.png"
-              artClass="-right-[21px] -bottom-[30px] w-[56%] max-tablet:-right-[9px] max-tablet:-bottom-[35px] max-tablet:w-[47%]"
+              cardClass={topMetricCardClass}
+              artClass="-right-[21px] -bottom-[30px] w-[56%] max-w-[250px] max-tablet:-right-[9px] max-tablet:-bottom-[35px] max-tablet:w-[47%]"
             />
           )}
           <MetricCard
@@ -143,7 +149,8 @@ export function ProfileView({
             value={summary.activeDays}
             note="trailing 12 months"
             art="/metrics/generated/active-days.png"
-            artClass="-right-[21px] -bottom-[30px] w-[56%] max-tablet:-right-[9px] max-tablet:-bottom-[35px] max-tablet:w-[47%]"
+            cardClass={topMetricCardClass}
+            artClass="-right-[21px] -bottom-[30px] w-[56%] max-w-[250px] max-tablet:-right-[9px] max-tablet:-bottom-[35px] max-tablet:w-[47%]"
           />
           {profile.show_streaks && (
             <>
@@ -152,7 +159,7 @@ export function ProfileView({
                 value={<>{summary.currentStreak}<i className="text-sm not-italic text-muted"> days</i></>}
                 note="local calendar"
                 art="/metrics/generated/current-streak.png"
-                cardClass="bg-[radial-gradient(circle_at_87%_80%,color-mix(in_srgb,var(--color-signal)_16%,var(--color-accent-soft)),transparent_50%),var(--color-panel)] col-span-3 min-h-[216px]"
+                cardClass="col-span-3 min-h-[216px]"
                 artClass="right-[1px] -bottom-[54px] w-[44%] max-tablet:right-0 max-tablet:-bottom-[42px] max-tablet:w-[42%]"
               />
               <MetricCard
@@ -160,17 +167,17 @@ export function ProfileView({
                 value={<>{summary.longestStreak}<i className="text-sm not-italic text-muted"> days</i></>}
                 note="all time"
                 art="/metrics/generated/longest-streak.png"
-                cardClass={cx(METRIC_FILL, "col-span-3 min-h-[216px] max-desktop:col-span-full max-tablet:col-auto")}
+                cardClass="col-span-3 min-h-[216px] max-desktop:col-span-full max-tablet:col-auto"
                 artClass="-right-[3px] -bottom-[38px] w-[42%] max-tablet:right-0 max-tablet:-bottom-[42px] max-tablet:w-[42%]"
               />
             </>
           )}
         </section>
 
-        <div className="grid grid-cols-[1fr] gap-0 pb-7 pt-9 max-desktop:gap-[60px]">
+        <div className="grid grid-cols-[1fr] gap-0 pb-7 pt-9">
           {profile.show_harnesses && (
             <section
-              className="min-w-0 not-first:mt-[30px] not-first:border-t not-first:border-line not-first:pt-[30px]"
+              className="min-w-0 not-first:mt-8 not-first:border-t not-first:border-line not-first:pt-8"
               aria-labelledby="harness-title"
             >
               <div className={sectionHeading.root}>
@@ -208,7 +215,7 @@ export function ProfileView({
           )}
           {profile.show_models && (
             <section
-              className="min-w-0 not-first:mt-[30px] not-first:border-t not-first:border-line not-first:pt-[30px]"
+              className="min-w-0 not-first:mt-8 not-first:border-t not-first:border-line not-first:pt-8"
               aria-labelledby="models-title"
             >
               <div className={sectionHeading.root}>
@@ -255,7 +262,7 @@ export function ProfileView({
 
         {data.sharedSessions.length > 0 && (
           <section
-            className="mt-5 min-w-0 rounded-md border border-line p-7 max-tablet:p-[22px]"
+            className="my-9 min-w-0 rounded-md border border-line bg-panel p-7 max-tablet:p-[22px]"
             aria-labelledby="sessions-title"
           >
             <div className={sectionHeading.root}>
@@ -292,7 +299,7 @@ export function ProfileView({
           </section>
         )}
 
-        <aside className="grid grid-cols-[auto_1fr_auto] items-center gap-[18px] rounded-md border border-line p-6 max-tablet:grid-cols-[auto_1fr] max-tablet:p-5">
+        <aside className="grid grid-cols-[auto_1fr_auto] items-center gap-[18px] rounded-md border border-line bg-panel p-6 max-tablet:grid-cols-[auto_1fr] max-tablet:p-5">
           <div className="flex size-[35px] items-end gap-0.5 rounded-full border border-line p-[9px]">
             <span className="h-[7px] w-[3px] bg-blue" />
             <span className="h-3.5 w-[3px] bg-blue" />

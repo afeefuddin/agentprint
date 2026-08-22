@@ -19,7 +19,6 @@ import { useEffect, useRef, useState, type FormEvent, type MouseEvent } from "re
 import {
   buttonClass,
   cx,
-  eyebrowClass,
   avatarChipClass,
   iconButtonClass,
   iconButtonDangerClass,
@@ -29,13 +28,13 @@ import {
   switchKnobClass
 } from "@/lib/ui";
 
-const PANEL = "mt-[18px] overflow-hidden rounded-md border border-line-strong bg-panel";
-const PANEL_HEADING = "flex min-h-[46px] items-center justify-between gap-6 px-4 py-3.5";
-const PANEL_TITLE = "m-0 block text-sm font-semibold text-ink-strong";
-const PANEL_SUB = "mt-[3px] block text-xs text-faint";
-const PANEL_COUNT = "grid h-[25px] min-w-[25px] place-items-center border border-line bg-canvas-deep text-2xs text-muted";
+const PANEL = "mt-9 overflow-hidden rounded-md border border-line bg-panel";
+const PANEL_HEADING = "flex items-end justify-between gap-7 px-7 py-6 max-tablet:px-[22px]";
+const PANEL_TITLE = "m-0 block text-[20px] font-[weight:530] tracking-[-.02em] text-ink-strong";
+const PANEL_SUB = "mt-1.5 block text-sm text-muted";
+const PANEL_COUNT = "pb-0.5 text-xs font-medium text-faint";
 const ROW =
-  "grid min-h-[76px] grid-cols-[minmax(220px,1fr)_minmax(175px,.7fr)_auto] items-center gap-[18px] border-b border-line px-[15px] py-[11px] transition-colors duration-[140ms] last:border-b-0 hover:bg-[color-mix(in_srgb,var(--color-canvas-deep)_55%,transparent)] max-desktop:grid-cols-[minmax(200px,1fr)_auto] max-tablet:grid-cols-[1fr] max-tablet:gap-[11px] max-tablet:py-3.5";
+  "grid min-h-[76px] grid-cols-[minmax(220px,1fr)_minmax(175px,.7fr)_auto] items-center gap-[18px] border-b border-line px-7 py-3 transition-colors duration-[140ms] last:border-b-0 hover:bg-[color-mix(in_srgb,var(--color-canvas-deep)_55%,transparent)] max-desktop:grid-cols-[minmax(200px,1fr)_auto] max-tablet:grid-cols-[1fr] max-tablet:gap-[11px] max-tablet:px-[22px] max-tablet:py-3.5";
 const ROW_ACTIONS =
   "flex items-center justify-end gap-[7px] max-desktop:col-start-2 max-desktop:row-span-2 max-desktop:row-start-1 max-tablet:col-start-1 max-tablet:row-auto max-tablet:flex-wrap max-tablet:justify-start";
 const RELATIONSHIP_NOTE = "inline-flex items-center gap-1.5 text-xs text-faint";
@@ -214,18 +213,20 @@ export function FriendsWorkspace({
 
   return (
     <>
-      <header className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-[60px] pb-[38px] pt-3 max-desktop:grid-cols-[1fr] max-desktop:items-start max-desktop:gap-8 max-tablet:pt-1.5">
-        <div>
-          <span className={eyebrowClass}>Private peer network</span>
-          <h1 className="mb-[13px] mt-3 text-[clamp(44px,6vw,68px)] font-[weight:480] leading-[.96] text-ink-strong max-tablet:text-[48px]">
-            Compare traces,<br /><em className="font-display text-blue">not people.</em>
-          </h1>
-          <p className="m-0 max-w-[610px] text-sm leading-[1.65] text-muted">
-            Connect by exact handle and align agent activity on the same dates. Every comparison requires both friends to opt in.
+      <header className="mb-9 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-12 max-desktop:grid-cols-[1fr] max-desktop:items-start max-desktop:gap-7">
+        <div className="min-w-0">
+          <div className="flex items-center gap-3 max-tablet:flex-col max-tablet:items-start max-tablet:gap-[5px]">
+            <h1 className="m-0 text-[36px] font-[weight:540] leading-none tracking-[-.04em] text-ink-strong">Friends</h1>
+            <span className="inline-flex items-center gap-[5px] text-xs font-[weight:560] text-blue">
+              <LockKeyhole size={13} /> Private peer network
+            </span>
+          </div>
+          <p className="mb-0 mt-2 max-w-[610px] text-sm leading-[1.55] text-muted">
+            Connect by exact handle and compare agent activity on the same dates. Every comparison requires both friends to opt in.
           </p>
         </div>
         <div
-          className="grid grid-cols-[repeat(3,minmax(98px,1fr))] border-y border-line-strong max-desktop:w-fit max-tablet:w-full max-tablet:grid-cols-3"
+          className="grid grid-cols-3 divide-x divide-line max-desktop:w-full"
           aria-label="Friend workspace summary"
         >
           {[
@@ -235,20 +236,20 @@ export function FriendsWorkspace({
           ].map((stat) => (
             <span
               key={stat.label}
-              className="min-h-[72px] border-r border-line px-[17px] py-[13px] last:border-r-0 max-tablet:min-w-0 max-tablet:px-2.5"
+              className="min-w-[104px] px-[17px] py-1 first:pl-0 last:pr-0 max-tablet:min-w-0 max-tablet:px-2.5"
             >
-              <b className="block text-[23px] font-[weight:560] text-ink-strong [font-variant-numeric:tabular-nums]">{stat.value}</b>
-              <small className="mt-0.5 block whitespace-nowrap text-2xs text-faint max-tablet:whitespace-normal">{stat.label}</small>
+              <b className="block text-[26px] font-[weight:540] leading-none text-ink-strong [font-variant-numeric:tabular-nums]">{stat.value}</b>
+              <small className="mt-1.5 block whitespace-nowrap text-xs text-faint max-tablet:whitespace-normal">{stat.label}</small>
             </span>
           ))}
         </div>
       </header>
 
       <section
-        className="grid min-h-[72px] grid-cols-[auto_1fr_auto_auto] items-center gap-[13px] rounded-md border border-steel-2 bg-[color-mix(in_srgb,var(--color-accent-soft)_46%,var(--color-panel))] px-4 py-3 max-tablet:grid-cols-[auto_1fr_auto]"
+        className="grid min-h-[82px] grid-cols-[auto_1fr_auto_auto] items-center gap-[13px] rounded-md border border-line bg-panel px-6 py-4 max-tablet:grid-cols-[auto_1fr_auto] max-tablet:px-[22px]"
         aria-labelledby="friend-sharing-title"
       >
-        <span className="grid size-[38px] place-items-center rounded-sm border border-steel-2 bg-panel text-blue"><LockKeyhole size={18} /></span>
+        <span className="grid size-[38px] place-items-center rounded-sm border border-line bg-canvas text-blue"><LockKeyhole size={18} /></span>
         <span>
           <b id="friend-sharing-title" className="block text-xs text-ink-strong">Friend comparisons</b>
           <small className="mt-[3px] block text-xs text-muted">
@@ -268,8 +269,8 @@ export function FriendsWorkspace({
         ><i className={switchKnobClass} /></button>
       </section>
 
-      <section className={cx(PANEL, "p-5 max-tablet:p-3.5")} aria-labelledby="add-friend-title">
-        <div className={cx(PANEL_HEADING, "px-0.5 pb-3.5 pt-0")}>
+      <section className={cx(PANEL, "p-7 max-tablet:p-[22px]")} aria-labelledby="add-friend-title">
+        <div className={cx(PANEL_HEADING, "px-0 pb-5 pt-0 max-tablet:px-0")}>
           <span className="min-w-0">
             <h2 id="add-friend-title" className={PANEL_TITLE}>Add a friend</h2>
             <small className={PANEL_SUB}>Exact handles protect discovery from becoming a public directory.</small>
@@ -315,7 +316,7 @@ export function FriendsWorkspace({
       </section>
 
       {friendships.incoming.length > 0 && (
-        <section className={cx(PANEL, "border-steel-2")} aria-labelledby="incoming-title">
+        <section className={PANEL} aria-labelledby="incoming-title">
           <div className={PANEL_HEADING}>
             <span className="min-w-0">
               <h2 id="incoming-title" className={PANEL_TITLE}>Requests for you</h2>
@@ -394,7 +395,7 @@ export function FriendsWorkspace({
       </section>
 
       {friendships.outgoing.length > 0 && (
-        <section className={cx(PANEL, "bg-[color-mix(in_srgb,var(--color-canvas-deep)_50%,var(--color-panel))]")} aria-labelledby="sent-title">
+        <section className={PANEL} aria-labelledby="sent-title">
           <div className={PANEL_HEADING}>
             <span className="min-w-0">
               <h2 id="sent-title" className={PANEL_TITLE}>Sent requests</h2>
@@ -415,7 +416,7 @@ export function FriendsWorkspace({
       )}
 
       {friendships.blocked.length > 0 && (
-        <details className="mt-[18px] border-t border-line-strong text-xs text-faint">
+        <details className="mt-9 border-t border-line text-xs text-faint">
           <summary className="flex w-fit cursor-pointer items-center gap-2 px-0.5 py-3.5">
             Blocked people <span className="grid h-5 min-w-5 place-items-center border border-line text-2xs">{friendships.blocked.length}</span>
           </summary>

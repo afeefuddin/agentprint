@@ -13,10 +13,10 @@ export const metadata: Metadata = { title: "Friend comparison" };
 
 const comparisonWindows = [7, 30, 90] as const;
 
-const PANEL = "mt-[18px] overflow-hidden rounded-md border border-line-strong bg-panel";
+const PANEL = "mt-9 overflow-hidden rounded-md border border-line bg-panel";
 const PANEL_TITLE = "m-0 block text-sm font-semibold text-ink-strong";
 const PANEL_SUB = "mt-[3px] block text-xs text-faint";
-const HEADING_ROW = "flex items-center justify-between gap-5 pb-[18px]";
+const HEADING_ROW = "flex items-center justify-between gap-5 pb-5";
 const METRIC_GRID =
   "grid grid-cols-[1fr_minmax(150px,.55fr)_1fr] items-center max-tablet:grid-cols-[1fr_92px_1fr]";
 const METRIC_VALUE =
@@ -46,7 +46,7 @@ export default async function FriendComparisonPage({
         <div className="shell">
           <Link className="inline-flex items-center gap-[7px] text-xs text-muted hover:text-ink-strong" href="/friends"><ArrowLeft size={15} /> Back to friends</Link>
           {comparison.status === "sharing_disabled" ? (
-            <section className="mx-auto mt-20 max-w-[700px] rounded-md border border-line-strong bg-panel p-[60px] text-center max-tablet:mt-[45px] max-tablet:px-5 max-tablet:py-[42px]">
+            <section className="mx-auto mt-9 max-w-[700px] rounded-md border border-line bg-panel p-7 text-center max-tablet:p-[22px]">
               <span className="mx-auto mb-5 grid size-[54px] place-items-center rounded-sm border border-steel-2 bg-accent-soft text-blue">
                 <LockKeyhole size={23} />
               </span>
@@ -70,7 +70,7 @@ function ComparisonReady({ comparison }: { comparison: Extract<Awaited<ReturnTyp
   const [mine, friend] = comparison.people;
   return (
     <>
-      <header className="mt-[42px] flex items-end justify-between gap-10 max-desktop:flex-col max-desktop:items-start max-tablet:mt-[34px]">
+      <header className="mt-9 flex items-end justify-between gap-10 max-desktop:flex-col max-desktop:items-start">
         <div>
           <span className={cx(eyebrowClass, "flex items-center gap-1.5")}><Users size={13} /> Mutual comparison</span>
           <h1 className="mb-2.5 mt-3 text-[clamp(42px,5.5vw,64px)] font-[weight:480] leading-[.96] text-ink-strong max-tablet:text-[42px]">
@@ -98,7 +98,7 @@ function ComparisonReady({ comparison }: { comparison: Extract<Awaited<ReturnTyp
       </header>
 
       <section
-        className="mt-[38px] grid grid-cols-[1fr_minmax(180px,.4fr)_1fr] items-center border-y border-line-strong py-3.5 max-tablet:grid-cols-[1fr_48px_1fr]"
+        className="mt-9 grid grid-cols-[1fr_minmax(180px,.4fr)_1fr] items-center border-y border-line-strong py-3.5 max-tablet:grid-cols-[1fr_48px_1fr]"
         aria-label="Friends being compared"
       >
         <TraceIdentity person={mine} side="left" />
@@ -125,7 +125,7 @@ function ComparisonReady({ comparison }: { comparison: Extract<Awaited<ReturnTyp
         <PairedMetric label="Longest streak" left={formatOptionalDays(mine.summary.longestStreak)} right={formatOptionalDays(friend.summary.longestStreak)} />
       </section>
 
-      <section className={cx(PANEL, "p-5 max-tablet:p-3.5")} aria-labelledby="routing-title">
+      <section className={cx(PANEL, "p-7 max-tablet:p-[22px]")} aria-labelledby="routing-title">
         <div className={cx(HEADING_ROW, "border-b border-line")}>
           <span>
             <h2 id="routing-title" className={PANEL_TITLE}>Routing fingerprints</h2>

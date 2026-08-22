@@ -111,7 +111,7 @@ export default async function SharedSessionPage({
           </header>
 
           <section
-            className="mt-[30px] flex flex-wrap gap-[34px] rounded-md border border-line bg-panel px-6 py-5 max-compact:gap-[22px]"
+            className="mt-9 flex flex-wrap gap-8 rounded-md border border-line bg-panel px-6 py-5 max-compact:gap-6"
             aria-label="Session summary"
           >
             <div>

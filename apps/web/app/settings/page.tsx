@@ -71,7 +71,7 @@ export default async function SettingsPage() {
       <SiteHeader current={current} />
       <main id="main" className={appMainClass}>
         <div className="shell">
-          <header className="mb-7">
+          <header className="mb-9">
             <h1 className="mb-1.5 text-[32px] font-[weight:520] tracking-[-.04em] max-tablet:text-[27px]">Settings</h1>
             <p className="m-0 max-w-[62ch] text-base text-muted">
               What your profile discloses, the devices allowed to report, and the data you can take with you.

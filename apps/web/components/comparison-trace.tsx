@@ -18,10 +18,10 @@ export function ComparisonTrace({ mine, friend, windowDays }: { mine: TracePerso
 
   return (
     <section
-      className="mt-[18px] overflow-hidden rounded-md border border-line-strong bg-panel p-5 max-tablet:p-3.5"
+      className="mt-9 overflow-hidden rounded-md border border-line bg-panel p-7 max-tablet:p-[22px]"
       aria-labelledby="shared-trace-title"
     >
-      <div className="flex items-center justify-between gap-5 pb-[18px]">
+      <div className="flex items-center justify-between gap-5 pb-5">
         <span>
           <h2 id="shared-trace-title" className="m-0 block text-sm font-semibold text-ink-strong">Shared date rail</h2>
           <small className="trace-live-detail mt-[3px] block min-h-[18px] text-xs text-muted" aria-live="polite">{activeDetail}</small>

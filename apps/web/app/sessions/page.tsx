@@ -20,7 +20,7 @@ export default async function SessionsPage() {
             <div>
               <span className={eyebrowClass}>Session sharing</span>
               <h1 className="mt-2 text-[32px] font-[weight:560] tracking-[-.03em] text-ink-strong">Shared sessions</h1>
-              <p className="mb-8 mt-2.5 max-w-[560px] text-sm text-muted">
+              <p className="mb-9 mt-2.5 max-w-[560px] text-sm text-muted">
                 Each of these is one session you chose to publish. Background sync never
                 uploads transcript content — only these do, and you can delete any of them.
               </p>
