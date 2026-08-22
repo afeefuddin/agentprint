@@ -17,11 +17,11 @@ import (
 	"github.com/agentprint/agentprint/cli/internal/redact"
 )
 
-func WritePreview(path string, transcript adapters.Transcript, stats redact.Stats, level string) error {
-	return os.WriteFile(path, []byte(renderPreview(transcript, stats, level)), 0o600)
+func WritePreview(path string, transcript adapters.Transcript, stats redact.Stats, level string, payload []byte) error {
+	return os.WriteFile(path, []byte(renderPreview(transcript, stats, level, payload)), 0o600)
 }
 
-func renderPreview(transcript adapters.Transcript, stats redact.Stats, level string) string {
+func renderPreview(transcript adapters.Transcript, stats redact.Stats, level string, payload []byte) string {
 	var page strings.Builder
 	page.WriteString(`<!doctype html><html lang="en"><head><meta charset="utf-8">`)
 	page.WriteString(`<meta name="viewport" content="width=device-width,initial-scale=1">`)
@@ -44,11 +44,14 @@ h1{margin:0 0 6px;color:var(--ink-strong);font-size:26px;font-weight:600;letter-
 .role{margin-bottom:10px;color:var(--muted);font-size:13px}
 pre{margin:0;white-space:pre-wrap;word-break:break-word;font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace}
 .text{white-space:pre-wrap;word-break:break-word}
-details{margin-top:10px;border:1px solid var(--line);border-radius:10px;background:#fbfbf9}
-details[open]{padding-bottom:10px}
-summary{padding:9px 12px;color:var(--muted);font-size:14px;cursor:pointer}
-details pre{padding:0 12px;color:#4a4d46}
-.tool summary{color:var(--ink-strong)}
+	details{margin-top:10px;border:1px solid var(--line);border-radius:10px;background:#fbfbf9}
+	details[open]{padding-bottom:10px}
+	summary{padding:9px 12px;color:var(--muted);font-size:14px;cursor:pointer}
+	details pre{padding:0 12px;color:#4a4d46}
+	.tool summary{color:var(--ink-strong)}
+	.payload{margin-bottom:28px;background:var(--panel)}
+	.payload summary{color:var(--ink-strong);font-weight:600}
+	.payload pre{max-height:480px;overflow:auto;padding:0 18px 18px}
 .omitted{margin-top:10px;color:var(--muted);font-size:14px;font-style:italic}
 mark{background:#ffe9c9;color:#7a4a12;padding:0 3px;border-radius:3px}
 </style></head><body><main>`)
@@ -59,14 +62,17 @@ mark{background:#ffe9c9;color:#7a4a12;padding:0 3px;border-radius:3px}
 		html.EscapeString(transcript.HarnessID), len(transcript.Turns),
 		html.EscapeString(transcript.StartedAt), html.EscapeString(transcript.EndedAt))
 
-	page.WriteString(`<div class="notice"><b>Nothing has been uploaded.</b> This is the exact payload `)
-	page.WriteString(`a publish would send, rendered locally from a file on this machine.<ul>`)
+	page.WriteString(`<div class="notice"><b>Nothing has been uploaded.</b> This page renders the transcript preview. `)
+	page.WriteString(`The exact JSON payload a publish would send is shown below and saved beside this file.<ul>`)
 	fmt.Fprintf(&page, `<li>Redaction level: %s</li>`, html.EscapeString(level))
 	fmt.Fprintf(&page, `<li>%d credential values removed</li>`, stats.SecretsRemoved)
 	fmt.Fprintf(&page, `<li>%d local paths rewritten</li>`, stats.PathsRewritten)
 	fmt.Fprintf(&page, `<li>%d blocks truncated</li>`, stats.BlocksTruncated)
 	fmt.Fprintf(&page, `<li>%d turns excluded</li>`, stats.TurnsExcluded)
 	page.WriteString(`</ul></div>`)
+	page.WriteString(`<details class="payload" open><summary>Exact JSON payload</summary><pre>`)
+	page.WriteString(html.EscapeString(string(payload)))
+	page.WriteString(`</pre></details>`)
 
 	for _, turn := range transcript.Turns {
 		class := "turn"
@@ -95,11 +101,19 @@ func highlight(value string) string {
 }
 
 var redactionMarkers = []string{
-	"[redacted:private-key]", "[redacted:authorization]", "[redacted:assignment]",
+	"[redacted:private-key]", "[redacted:authorization]", "[redacted:header]", "[redacted:assignment]", "[redacted:argument]",
 	"[redacted:high-entropy]", "[redacted:anthropic-key]", "[redacted:openai-key]",
 	"[redacted:github-token]", "[redacted:github-pat]", "[redacted:aws-access-key]",
 	"[redacted:google-key]", "[redacted:slack-token]", "[redacted:stripe-key]",
-	"[redacted:npm-token]", "[redacted:jwt]", "[redacted:url-password]", "&lt;project&gt;",
+	"[redacted:npm-token]", "[redacted:jwt]", "[redacted:gitlab-token]",
+	"[redacted:onepassword-service-token]", "[redacted:onepassword-secret-key]", "[redacted:age-secret-key]",
+	"[redacted:slack-app-token]", "[redacted:slack-config-token]", "[redacted:slack-webhook]",
+	"[redacted:databricks-token]", "[redacted:twilio-key]", "[redacted:digitalocean-token]",
+	"[redacted:sentry-token]", "[redacted:rubygems-token]", "[redacted:pypi-token]",
+	"[redacted:huggingface-token]", "[redacted:pulumi-token]", "[redacted:postman-token]",
+	"[redacted:linear-token]", "[redacted:grafana-token]", "[redacted:square-token]",
+	"[redacted:terraform-token]",
+	"[redacted:url-password]", "&lt;project&gt;",
 }
 
 func renderBlock(block adapters.Block) string {
