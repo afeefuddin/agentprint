@@ -43,10 +43,122 @@ func (application *app) listSessions(ctx context.Context, since time.Time) []ada
 		}
 		all = append(all, summaries...)
 	}
-	sort.Slice(all, func(first, second int) bool {
-		return all[first].EndedAt.After(all[second].EndedAt)
+	workingDirectory, err := os.Getwd()
+	if err != nil {
+		sort.Slice(all, func(first, second int) bool {
+			return all[first].EndedAt.After(all[second].EndedAt)
+		})
+		return all
+	}
+	home, _ := os.UserHomeDir()
+	return rankSessionsForDirectory(all, workingDirectory, home)
+}
+
+// rankSessionsForDirectory keeps every session available while making the
+// common case effortless: sessions from the project containing the current
+// directory come first, followed by project-agnostic sessions, then other
+// projects. A missing working directory stays agnostic rather than being
+// guessed from a title or timestamp.
+func rankSessionsForDirectory(
+	sessions []adapters.SessionSummary,
+	workingDirectory, home string,
+) []adapters.SessionSummary {
+	currentRoot := projectRoot(workingDirectory, home)
+	currentProject := filepath.Base(currentRoot)
+	type contextualSession struct {
+		summary adapters.SessionSummary
+		rank    int
+	}
+	contextual := make([]contextualSession, 0, len(sessions))
+	for _, session := range sessions {
+		root := projectRoot(session.WorkingDirectory, home)
+		session.ProjectRoot = root
+		projectAgnostic := root == "" && (session.WorkingDirectory != "" || session.Project == "")
+		rank := 1
+		if currentRoot != "" {
+			rank = 3
+			switch {
+			case root != "" && root == currentRoot:
+				rank = 0
+			case projectAgnostic:
+				rank = 1
+			case root == "" && session.Project == currentProject:
+				// Some harnesses expose only a project label. It is safe to use
+				// that as a ranking hint because selection still requires consent.
+				rank = 2
+			}
+		} else if projectAgnostic {
+			rank = 0
+		}
+		contextual = append(contextual, contextualSession{summary: session, rank: rank})
+	}
+	sort.SliceStable(contextual, func(first, second int) bool {
+		if contextual[first].rank != contextual[second].rank {
+			return contextual[first].rank < contextual[second].rank
+		}
+		return contextual[first].summary.EndedAt.After(contextual[second].summary.EndedAt)
 	})
-	return all
+	result := make([]adapters.SessionSummary, len(contextual))
+	for index, session := range contextual {
+		result[index] = session.summary
+	}
+	return result
+}
+
+// projectRoot resolves Git worktrees and ordinary project directories without
+// invoking Git or changing repository state. Running from the home directory
+// is project-agnostic, which matches how coding agents behave when launched
+// without a project.
+func projectRoot(path, home string) string {
+	if path == "" {
+		return ""
+	}
+	absolute, err := filepath.Abs(path)
+	if err != nil {
+		return ""
+	}
+	absolute = filepath.Clean(absolute)
+	if resolved, err := filepath.EvalSymlinks(absolute); err == nil {
+		absolute = resolved
+	}
+	if home != "" {
+		cleanHome, err := filepath.Abs(home)
+		if err == nil {
+			cleanHome = filepath.Clean(cleanHome)
+			if resolved, err := filepath.EvalSymlinks(cleanHome); err == nil {
+				cleanHome = resolved
+			}
+			if absolute == cleanHome {
+				return ""
+			}
+		}
+	}
+	for directory := absolute; ; directory = filepath.Dir(directory) {
+		if _, err := os.Stat(filepath.Join(directory, ".git")); err == nil {
+			return directory
+		}
+		parent := filepath.Dir(directory)
+		if parent == directory {
+			break
+		}
+	}
+	if absolute == filepath.VolumeName(absolute)+string(filepath.Separator) {
+		return ""
+	}
+	return absolute
+}
+
+func projectLabel(session adapters.SessionSummary) string {
+	if session.WorkingDirectory != "" {
+		if session.ProjectRoot == "" {
+			return "No project"
+		}
+		return filepath.Base(session.ProjectRoot)
+	}
+	if session.Project == "" {
+		return "No project"
+	}
+	return session.Project
 }
 
 func (application *app) sessions(ctx context.Context, args []string) error {
@@ -73,8 +185,8 @@ func (application *app) sessions(ctx context.Context, args []string) error {
 	fmt.Printf("Recent sessions (last %d days). Nothing here has been uploaded.\n\n", *days)
 	for index, session := range sessions {
 		fmt.Printf("  %2d  %-12s %s\n", index+1, session.HarnessID, truncateTitle(session.Title, 58))
-		fmt.Printf("      %s · %d turns · %s tokens · id %s\n\n",
-			session.EndedAt.Local().Format("2 Jan 15:04"), session.Turns,
+		fmt.Printf("      %s · %s · %d turns · %s tokens · id %s\n\n",
+			projectLabel(session), session.EndedAt.Local().Format("2 Jan 15:04"), session.Turns,
 			formatCount(session.Tokens), session.Key)
 	}
 	fmt.Println("Preview one with:  agentprint share <number|id> --dry-run")
@@ -270,8 +382,9 @@ func (application *app) selectSession(sessions []adapters.SessionSummary, wanted
 	shown := min(10, len(sessions))
 	fmt.Println("Recent sessions:")
 	for index := 0; index < shown; index++ {
-		fmt.Printf("  %2d  %-12s %s  (%s)\n", index+1, sessions[index].HarnessID,
-			truncateTitle(sessions[index].Title, 52),
+		fmt.Printf("  %2d  %-12s %-18s %s  (%s)\n", index+1, sessions[index].HarnessID,
+			truncateTitle(projectLabel(sessions[index]), 18),
+			truncateTitle(sessions[index].Title, 40),
 			sessions[index].EndedAt.Local().Format("2 Jan 15:04"))
 	}
 	fmt.Print("\nShare which session? [1] ")

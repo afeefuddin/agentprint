@@ -124,7 +124,8 @@ func (adapter *Adapter) summarize(path string) (adapters.SessionSummary, error) 
 		if envelope.AITitle != "" && summary.Title == "" {
 			summary.Title = envelope.AITitle
 		}
-		if envelope.CWD != "" && summary.Project == "" {
+		if envelope.CWD != "" && summary.WorkingDirectory == "" {
+			summary.WorkingDirectory = envelope.CWD
 			summary.Project = filepath.Base(envelope.CWD)
 		}
 		if envelope.Type != "user" && envelope.Type != "assistant" {

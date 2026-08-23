@@ -141,14 +141,16 @@ type Totals struct {
 // SessionSummary is the listing entry. It deliberately carries no message
 // content so `agentprint sessions` can be printed without reading transcripts.
 type SessionSummary struct {
-	HarnessID string    `json:"harness_id"`
-	Key       string    `json:"key"`
-	Title     string    `json:"title"`
-	StartedAt time.Time `json:"started_at"`
-	EndedAt   time.Time `json:"ended_at"`
-	Turns     int       `json:"turns"`
-	Tokens    int64     `json:"tokens"`
-	Project   string    `json:"project,omitempty"`
+	HarnessID        string    `json:"harness_id"`
+	Key              string    `json:"key"`
+	Title            string    `json:"title"`
+	StartedAt        time.Time `json:"started_at"`
+	EndedAt          time.Time `json:"ended_at"`
+	Turns            int       `json:"turns"`
+	Tokens           int64     `json:"tokens"`
+	Project          string    `json:"project,omitempty"`
+	WorkingDirectory string    `json:"-"`
+	ProjectRoot      string    `json:"-"`
 }
 
 type Transcript struct {

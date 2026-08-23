@@ -79,3 +79,23 @@ func TestCollectSkipsOversizedMetadataLines(t *testing.T) {
 		t.Fatalf("unexpected token mapping: %+v", records[0])
 	}
 }
+
+func TestListSessionsKeepsLocalProjectContext(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "rollout-session.jsonl")
+	body := `{"timestamp":"2026-08-24T09:30:00Z","type":"session_meta","payload":{"type":"session_meta","id":"session-1","cwd":"/Users/dana/work/api","cli_version":"0.40.0"}}` + "\n"
+	body += `{"timestamp":"2026-08-24T09:31:00Z","type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"fix the build"}]}}` + "\n"
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	sessions, err := (&Adapter{Root: root, Location: time.UTC}).ListSessions(context.Background(), time.Time{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(sessions) != 1 {
+		t.Fatalf("expected one session, got %d", len(sessions))
+	}
+	if sessions[0].Project != "api" || sessions[0].WorkingDirectory != "/Users/dana/work/api" {
+		t.Fatalf("unexpected project context: %+v", sessions[0])
+	}
+}

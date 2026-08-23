@@ -124,14 +124,15 @@ func (adapter *Adapter) ListSessions(ctx context.Context, since time.Time) ([]ad
 		started, _ := time.Parse(time.RFC3339, transcript.StartedAt)
 		ended, _ := time.Parse(time.RFC3339, transcript.EndedAt)
 		summaries = append(summaries, adapters.SessionSummary{
-			HarnessID: adapter.ID(),
-			Key:       transcript.Key,
-			Title:     transcript.Title,
-			StartedAt: started,
-			EndedAt:   ended,
-			Turns:     len(transcript.Turns),
-			Tokens:    transcript.Totals.TotalTokens,
-			Project:   filepath.Base(transcript.WorkingDirectory),
+			HarnessID:        adapter.ID(),
+			Key:              transcript.Key,
+			Title:            transcript.Title,
+			StartedAt:        started,
+			EndedAt:          ended,
+			Turns:            len(transcript.Turns),
+			Tokens:           transcript.Totals.TotalTokens,
+			Project:          filepath.Base(transcript.WorkingDirectory),
+			WorkingDirectory: transcript.WorkingDirectory,
 		})
 	}
 	sort.Slice(summaries, func(first, second int) bool {
