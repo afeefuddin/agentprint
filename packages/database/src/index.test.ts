@@ -357,14 +357,16 @@ describe("OAuth authentication", () => {
       timezone: "UTC"
     });
     const completed = await pool.query(
-      "SELECT handle, display_name, onboarding_complete FROM profiles WHERE user_id = $1",
+      `SELECT handle, display_name, onboarding_complete, onboarding_completed_at
+       FROM profiles WHERE user_id = $1`,
       [first.id]
     );
-    expect(completed.rows[0]).toEqual({
+    expect(completed.rows[0]).toMatchObject({
       handle: `github-${suffix}`,
       display_name: "GitHub Test",
       onboarding_complete: true
     });
+    expect(completed.rows[0].onboarding_completed_at).toBeInstanceOf(Date);
   });
 
   test("links GitHub to an existing email account", async () => {
@@ -388,6 +390,11 @@ describe("OAuth authentication", () => {
       handle: `linked-${suffix}`,
       onboardingComplete: true
     });
+    const completed = await pool.query(
+      "SELECT onboarding_completed_at FROM profiles WHERE user_id = $1",
+      [existing.id]
+    );
+    expect(completed.rows[0].onboarding_completed_at).toBeInstanceOf(Date);
   });
 });
 

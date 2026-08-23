@@ -38,20 +38,21 @@ To enable PostHog, set `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN` and
 `NEXT_PUBLIC_POSTHOG_HOST` for the browser, then set the matching
 `POSTHOG_PROJECT_TOKEN` and `POSTHOG_HOST` values for server events and before
 running `bun run cli:release` so the public ingestion configuration is compiled
-into CLI release binaries. The browser
-records full-site session replay, pageviews, web vitals, and exceptions. It masks
-password, email, telephone, and device-code inputs; removes URL query strings and
-fragments; and never records network bodies, headers, or console logs. DOM
+into CLI release binaries. The browser samples 10% of sessions for replay and
+records pageviews, web vitals, and exceptions. It masks password, email,
+telephone, and device-code inputs; removes URL query strings and fragments; and
+never records network bodies, headers, or console logs. DOM
 autocapture and heatmaps remain disabled in favor of explicit product events.
 Signed-in people use their completed Agentprint handle as both the PostHog
 distinct ID and visible username. Temporary pre-onboarding handles are not sent.
 
-Successful authenticated CLI commands start a detached sender that posts the
-command name, version, OS, and architecture directly to PostHog with a protected
-machine identifier and GeoIP disabled. Agentprint does not send arguments, raw
-errors, paths, session content, or credentials, and telemetry never changes a
-command's result. Set `AGENTPRINT_TELEMETRY_DISABLED=1` in the CLI environment to
-opt out without affecting collection or sync.
+Selected authenticated CLI commands whose use is not represented in Agentprint's
+database start a detached sender that posts the command name, version, OS, and
+architecture directly to PostHog with a protected machine identifier and GeoIP
+disabled. Agentprint does not send arguments, raw errors, paths, session content,
+or credentials, and telemetry never changes a command's result. Set
+`AGENTPRINT_TELEMETRY_DISABLED=1` in the CLI environment to opt out without
+affecting collection or sync.
 
 Open [http://localhost:3000](http://localhost:3000). The seeded public profile
 is available at `/maya-builds`.

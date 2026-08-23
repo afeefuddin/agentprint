@@ -62,8 +62,9 @@ export async function createAccount(input: {
       client
     );
     await client.query(
-      `INSERT INTO profiles (user_id, handle, display_name, timezone)
-       VALUES ($1, $2, $3, $4)`,
+      `INSERT INTO profiles (
+         user_id, handle, display_name, timezone, onboarding_completed_at
+       ) VALUES ($1, $2, $3, $4, now())`,
       [user!.id, input.handle, input.displayName, input.timezone]
     );
     await client.query("COMMIT");
@@ -565,7 +566,9 @@ export async function completeOnboardingProfile(userId: string, profile: Onboard
   const result = await pool.query(
     `UPDATE profiles
      SET handle = $2, display_name = $3, timezone = $4,
-         onboarding_complete = true, updated_at = now()
+         onboarding_complete = true,
+         onboarding_completed_at = COALESCE(onboarding_completed_at, now()),
+         updated_at = now()
      WHERE user_id = $1 AND onboarding_complete = false`,
     [userId, profile.handle, profile.display_name, profile.timezone]
   );
@@ -1106,7 +1109,7 @@ export async function usageExport(userId: string) {
   const profile = await one<Record<string, unknown>>(
     `SELECT user_id, handle, display_name, bio, timezone, is_public,
             show_tokens, show_harnesses, show_models, show_streaks,
-            onboarding_complete, published_at, updated_at
+            onboarding_complete, onboarding_completed_at, published_at, updated_at
      FROM profiles WHERE user_id = $1`,
     [userId]
   );

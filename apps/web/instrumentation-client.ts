@@ -18,7 +18,7 @@ if (projectToken && apiHost) {
     enable_recording_console_log: false,
     person_profiles: "identified_only",
     session_recording: {
-      sampleRate: 1,
+      sampleRate: 0.1,
       maskAllInputs: false,
       maskInputOptions: {
         email: true,

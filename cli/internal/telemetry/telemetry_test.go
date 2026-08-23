@@ -53,6 +53,24 @@ func TestTrackCommandHonorsEnvironmentOptOut(t *testing.T) {
 	}
 }
 
+func TestTrackCommandSkipsDatabaseBackedOutcomes(t *testing.T) {
+	t.Setenv("AGENTPRINT_TELEMETRY_DISABLED", "")
+	oldToken, oldHook := PostHogProjectToken, spawnHook
+	PostHogProjectToken = "phc_test"
+	defer func() {
+		PostHogProjectToken = oldToken
+		spawnHook = oldHook
+	}()
+	for _, command := range []string{"sync", "daemon", "share"} {
+		spawned := false
+		spawnHook = func(string) { spawned = true }
+		TrackCommand(command, "0.4.0")
+		if spawned {
+			t.Fatalf("database-backed command %q emitted telemetry", command)
+		}
+	}
+}
+
 func TestSendPostsDirectlyToPostHogBatchEndpoint(t *testing.T) {
 	t.Setenv("AGENTPRINT_TELEMETRY_DISABLED", "")
 	requestPath := ""

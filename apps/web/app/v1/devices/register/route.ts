@@ -1,8 +1,7 @@
-import { after, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { z } from "zod";
 import { registerDevice } from "@agentprint/database";
 import { parseJson, unauthorized } from "@/lib/http";
-import { capturePostHogEvent } from "@/lib/posthog-server";
 
 const schema = z.object({
   registration_token: z.string().min(32),
@@ -31,12 +30,6 @@ export async function POST(request: Request) {
     }))
   });
   if (!result) return unauthorized("The registration token is invalid or expired.");
-  if (result.onboardingComplete) {
-    after(() => capturePostHogEvent({
-      distinctId: result.handle,
-      event: "device_connected"
-    }));
-  }
   return NextResponse.json({
     device_id: result.deviceId,
     access_token: result.credential,

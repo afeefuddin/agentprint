@@ -608,7 +608,7 @@ BACKGROUND COLLECTION — automatic
 CLI telemetry — automatic, disable with AGENTPRINT_TELEMETRY_DISABLED=1
 
   COLLECTED
-    • Successful command name, CLI version, OS, and architecture
+    • Selected local command name, CLI version, OS, and architecture
     • A protected machine identifier, with GeoIP disabled
 
   NEVER COLLECTED

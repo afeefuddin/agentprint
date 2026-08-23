@@ -32,9 +32,23 @@ func (silentLogger) Errorf(string, ...interface{}) {}
 
 var spawnHook func(string)
 
+var trackedCommands = map[string]struct{}{
+	"status":   {},
+	"sources":  {},
+	"sessions": {},
+	"shares":   {},
+	"unshare":  {},
+	"doctor":   {},
+	"pause":    {},
+	"resume":   {},
+}
+
 // TrackCommand starts a detached sender and returns without waiting for PostHog.
 func TrackCommand(command, version string) {
 	if IsDisabled() || PostHogProjectToken == "" {
+		return
+	}
+	if _, tracked := trackedCommands[command]; !tracked {
 		return
 	}
 	distinctID, err := machineid.ProtectedID("agentprint-cli")
