@@ -276,9 +276,16 @@ export async function registerDevice(input: {
   try {
     await client.query("BEGIN");
     const sessionHash = hashSecret(`device-registration:${input.registrationToken}`);
-    const registration = await one<{ id: string; user_id: string }>(
-      `SELECT id, user_id FROM sessions
-       WHERE token_hash = $1 AND expires_at > now() FOR UPDATE`,
+    const registration = await one<{
+      id: string;
+      user_id: string;
+      handle: string;
+      onboarding_complete: boolean;
+    }>(
+      `SELECT s.id, s.user_id, p.handle, p.onboarding_complete
+       FROM sessions s
+       JOIN profiles p ON p.user_id = s.user_id
+       WHERE s.token_hash = $1 AND s.expires_at > now() FOR UPDATE OF s`,
       [sessionHash],
       client
     );
@@ -306,7 +313,12 @@ export async function registerDevice(input: {
     }
     await client.query("DELETE FROM sessions WHERE id = $1", [registration.id]);
     await client.query("COMMIT");
-    return { deviceId: device!.id, credential };
+    return {
+      deviceId: device!.id,
+      credential,
+      handle: registration.handle,
+      onboardingComplete: registration.onboarding_complete
+    };
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;

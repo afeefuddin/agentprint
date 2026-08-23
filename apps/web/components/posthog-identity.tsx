@@ -5,26 +5,42 @@ import posthog from "posthog-js";
 
 const IDENTIFIED_USER_KEY = "agentprint_posthog_identified_user";
 
-type PostHogIdentityProps = {
-  username: string | null;
-};
-
-export function PostHogIdentity({ username }: PostHogIdentityProps) {
+export function PostHogIdentity() {
   useEffect(() => {
     if (!posthog.__loaded) return;
 
-    const previousUsername = window.localStorage.getItem(IDENTIFIED_USER_KEY);
-    if (username) {
-      posthog.identify(username, { username });
-      window.localStorage.setItem(IDENTIFIED_USER_KEY, username);
-      return;
+    const controller = new AbortController();
+
+    async function identifyViewer() {
+      try {
+        const response = await fetch("/v1/me", {
+          cache: "no-store",
+          signal: controller.signal
+        });
+        if (response.status === 401) {
+          if (window.localStorage.getItem(IDENTIFIED_USER_KEY)) {
+            posthog.reset();
+            window.localStorage.removeItem(IDENTIFIED_USER_KEY);
+          }
+          return;
+        }
+        if (!response.ok) return;
+
+        const result = await response.json() as {
+          user: { handle: string; onboarding_complete: boolean };
+        };
+        if (!result.user.onboarding_complete) return;
+
+        posthog.identify(result.user.handle, { username: result.user.handle });
+        window.localStorage.setItem(IDENTIFIED_USER_KEY, result.user.handle);
+      } catch {
+        // Identity enrichment must never affect page availability.
+      }
     }
 
-    if (previousUsername) {
-      posthog.reset();
-      window.localStorage.removeItem(IDENTIFIED_USER_KEY);
-    }
-  }, [username]);
+    void identifyViewer();
+    return () => controller.abort();
+  }, []);
 
   return null;
 }

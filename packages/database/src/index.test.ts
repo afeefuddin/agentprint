@@ -214,6 +214,8 @@ describe("ingestion and public profile boundaries", () => {
       sources: [{ harnessId: "codex" }]
     });
     expect(device).not.toBeNull();
+    expect(device?.handle).toBe(handle);
+    expect(device?.onboardingComplete).toBe(true);
     const authenticatedDevice = await authenticateDevice(`Bearer ${device!.credential}`);
     expect(authenticatedDevice?.handle).toBe(handle);
 
