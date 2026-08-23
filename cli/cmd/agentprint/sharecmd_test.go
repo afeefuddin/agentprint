@@ -114,3 +114,72 @@ func TestSessionSummaryJSONKeepsLocalPathsPrivate(t *testing.T) {
 		t.Fatalf("session JSON lost its safe project label: %s", encoded)
 	}
 }
+
+func TestLatestSessionForDirectorySelectsNewestExactProjectMatch(t *testing.T) {
+	root := t.TempDir()
+	home := filepath.Join(root, "home")
+	current := filepath.Join(root, "work", "agentprint")
+	other := filepath.Join(root, "work", "storefront")
+	for _, directory := range []string{home, filepath.Join(current, ".git"), filepath.Join(other, ".git")} {
+		if err := os.MkdirAll(directory, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	now := time.Date(2026, 8, 24, 12, 0, 0, 0, time.UTC)
+	sessions := []adapters.SessionSummary{
+		{Key: "current-old", WorkingDirectory: current, EndedAt: now},
+		{Key: "other-newest", WorkingDirectory: other, EndedAt: now.Add(2 * time.Hour)},
+		{Key: "current-new", WorkingDirectory: filepath.Join(current, "cli"), EndedAt: now.Add(time.Hour)},
+	}
+
+	selected, err := latestSessionForDirectory(sessions, filepath.Join(current, "cli"), home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if selected.Key != "current-new" {
+		t.Fatalf("expected newest current-project session, got %q", selected.Key)
+	}
+}
+
+func TestLatestSessionForDirectorySelectsNewestGloballyOutsideProject(t *testing.T) {
+	root := t.TempDir()
+	home := filepath.Join(root, "home")
+	project := filepath.Join(root, "work", "agentprint")
+	for _, directory := range []string{home, filepath.Join(project, ".git")} {
+		if err := os.MkdirAll(directory, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	now := time.Date(2026, 8, 24, 12, 0, 0, 0, time.UTC)
+	sessions := []adapters.SessionSummary{
+		{Key: "agnostic", WorkingDirectory: home, EndedAt: now},
+		{Key: "project-newest", WorkingDirectory: project, EndedAt: now.Add(time.Hour)},
+	}
+
+	selected, err := latestSessionForDirectory(sessions, home, home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if selected.Key != "project-newest" {
+		t.Fatalf("expected newest session globally, got %q", selected.Key)
+	}
+}
+
+func TestLatestSessionForDirectoryRequiresCurrentProjectMatch(t *testing.T) {
+	root := t.TempDir()
+	home := filepath.Join(root, "home")
+	current := filepath.Join(root, "work", "agentprint")
+	other := filepath.Join(root, "work", "storefront")
+	for _, directory := range []string{home, filepath.Join(current, ".git"), filepath.Join(other, ".git")} {
+		if err := os.MkdirAll(directory, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	_, err := latestSessionForDirectory([]adapters.SessionSummary{{
+		Key: "other", WorkingDirectory: other, EndedAt: time.Now(),
+	}}, current, home)
+	if err == nil || !strings.Contains(err.Error(), "current project") {
+		t.Fatalf("expected current-project error, got %v", err)
+	}
+}

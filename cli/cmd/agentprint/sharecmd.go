@@ -217,6 +217,7 @@ func (application *app) share(ctx context.Context, args []string) error {
 	expires := flags.String("expires", "never", "never, 7d, or 30d")
 	dryRun := flags.Bool("dry-run", false, "render the payload locally and upload nothing")
 	yes := flags.Bool("yes", false, "publish without the confirmation prompt")
+	latest := flags.Bool("latest", false, "select the latest session for the current project")
 	days := flags.Int("days", 30, "how far back to look when selecting a session")
 	// The session selector is positional, and flag.Parse stops at the first
 	// non-flag argument. Lift it out first so `share <id> --dry-run` behaves
@@ -227,6 +228,9 @@ func (application *app) share(ctx context.Context, args []string) error {
 	}
 	if selector == "" {
 		selector = firstArgument(flags.Args())
+	}
+	if *latest && selector != "" {
+		return errors.New("use either --latest or a session number or id, not both")
 	}
 	if !redact.ValidLevel(*level) {
 		return fmt.Errorf("unknown redaction level %q; use strict, balanced, or full", *level)
@@ -259,7 +263,17 @@ func (application *app) share(ctx context.Context, args []string) error {
 		return errors.New("no shareable sessions were found; try a longer --days window")
 	}
 
-	selected, err := application.selectSession(sessions, selector)
+	var selected adapters.SessionSummary
+	if *latest {
+		workingDirectory, err := os.Getwd()
+		if err != nil {
+			return fmt.Errorf("find the current directory: %w", err)
+		}
+		home, _ := os.UserHomeDir()
+		selected, err = latestSessionForDirectory(sessions, workingDirectory, home)
+	} else {
+		selected, err = application.selectSession(sessions, selector)
+	}
 	if err != nil {
 		return err
 	}
@@ -308,6 +322,9 @@ func (application *app) share(ctx context.Context, args []string) error {
 		return err
 	}
 
+	if *latest {
+		fmt.Printf("\nSelected latest session from %s.\n", projectLabel(selected))
+	}
 	fmt.Printf("\n%s\n", redacted.Title)
 	fmt.Printf("  %s · %d turns · %s tokens\n", selected.HarnessID, len(redacted.Turns), formatCount(redacted.Totals.TotalTokens))
 	fmt.Printf("  redaction   %s — %d credentials removed, %d paths rewritten, %d blocks truncated, %d turns excluded\n",
@@ -361,6 +378,37 @@ func (application *app) share(ctx context.Context, args []string) error {
 	fmt.Printf("\n%s: %s\n", action, receipt.URL)
 	fmt.Println("Revoke it any time with: agentprint unshare " + receipt.ID)
 	return nil
+}
+
+// latestSessionForDirectory chooses the newest exact project match when run
+// inside a project. Without a project, it chooses the newest session globally.
+func latestSessionForDirectory(
+	sessions []adapters.SessionSummary,
+	workingDirectory, home string,
+) (adapters.SessionSummary, error) {
+	currentRoot := projectRoot(workingDirectory, home)
+	var latest adapters.SessionSummary
+	found := false
+	for _, session := range sessions {
+		root := session.ProjectRoot
+		if root == "" {
+			root = projectRoot(session.WorkingDirectory, home)
+			session.ProjectRoot = root
+		}
+		if currentRoot != "" && root != currentRoot {
+			continue
+		}
+		if !found || session.EndedAt.After(latest.EndedAt) {
+			latest = session
+			found = true
+		}
+	}
+	if found {
+		return latest, nil
+	}
+	return adapters.SessionSummary{}, errors.New(
+		"no sessions from the current project were found; run agentprint sessions to choose another session",
+	)
 }
 
 // splitSelector removes a leading positional argument from the flag list.
