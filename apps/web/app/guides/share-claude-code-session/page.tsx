@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { SeoContentPage } from "@/components/seo-content-page";
+import { ContentPage } from "@/components/content-page";
 import { absoluteUrl } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 };
 
 export default function ShareClaudeSessionGuide() {
-  return <SeoContentPage
+  return <ContentPage
     eyebrow="Claude Code session guide"
     title="Turn one Claude Code session into a link you control."
     intro="Choose a Claude Code session, review what will be shared on your machine, and publish it as unlisted, friends-only, or public. Your other sessions stay private."

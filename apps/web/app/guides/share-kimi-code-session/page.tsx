@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { SeoContentPage } from "@/components/seo-content-page";
+import { ContentPage } from "@/components/content-page";
 import { absoluteUrl } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 };
 
 export default function ShareKimiCodeSessionPage() {
-  return <SeoContentPage
+  return <ContentPage
     eyebrow="Kimi Code session guide"
     title="Share one Kimi Code session after you have seen the final payload."
     intro="Agentprint finds local Kimi Code sessions, prepares a readable redacted preview on your machine, and publishes only the session and audience you choose."

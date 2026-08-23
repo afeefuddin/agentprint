@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { SeoHubPage } from "@/components/seo-hub-page";
+import { ContentHubPage } from "@/components/content-hub-page";
 import { absoluteUrl } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -18,7 +18,7 @@ const items = [
 ];
 
 export default function IntegrationsPage() {
-  return <SeoHubPage
+  return <ContentHubPage
     eyebrow="Agentprint integrations"
     title="One activity history for the coding agents you actually use."
     intro="Connect Claude Code, Codex, OpenCode, and Kimi Code without maintaining a separate public profile for every tool. Agentprint normalizes local activity into one history you control."

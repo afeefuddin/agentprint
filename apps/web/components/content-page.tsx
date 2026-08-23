@@ -29,7 +29,7 @@ export type SeoPageProof = { value: string; label: string };
 type PageMode = "sharing" | "tracking" | "setup" | "boundary" | "profile";
 type Agent = "codex" | "claude" | "kimi" | "opencode" | "agentprint";
 
-export type SeoContentPageProps = {
+export type ContentPageProps = {
   eyebrow: string;
   title: string;
   intro: string;
@@ -252,7 +252,7 @@ function ProfileVisual() {
   );
 }
 
-function ProductArtifact({ agent, mode }: Pick<SeoContentPageProps, "agent" | "mode">) {
+function ProductArtifact({ agent, mode }: Pick<ContentPageProps, "agent" | "mode">) {
   if (mode === "sharing") return <SharingVisual agent={agent} />;
   if (mode === "boundary") return <BoundaryVisual />;
   if (mode === "profile") return <ProfileVisual />;
@@ -267,7 +267,7 @@ function parentFor(mode: PageMode) {
   return { href: "/privacy", label: "Privacy" };
 }
 
-export async function SeoContentPage(props: SeoContentPageProps) {
+export async function ContentPage(props: ContentPageProps) {
   const current = await viewer();
   const ctaHref = current?.onboarding_complete ? `/${current.handle}` : current ? "/onboarding" : "/login";
   const parent = props.parent ?? parentFor(props.mode);

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { SeoContentPage } from "@/components/seo-content-page";
+import { ContentPage } from "@/components/content-page";
 import { absoluteUrl } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 };
 
 export default function ShareCodexSessionGuide() {
-  return <SeoContentPage
+  return <ContentPage
     eyebrow="Codex session guide"
     title="Share a Codex session without sharing your whole machine."
     intro="Agentprint finds your Codex sessions, creates a readable preview on your device, hides likely credentials and private locations, then publishes only the session you choose."

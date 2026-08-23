@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { SeoContentPage } from "@/components/seo-content-page";
+import { ContentPage } from "@/components/content-page";
 import { absoluteUrl } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 };
 
 export default function AiCodingActivityTrackerPage() {
-  return <SeoContentPage
+  return <ContentPage
     eyebrow="AI coding activity tracker"
     title="Stop rebuilding your coding history inside every new agent."
     intro="Agentprint combines historical activity from Claude Code, Codex, OpenCode, and Kimi Code into one durable timeline, model mix, coding-tool mix, and set of streaks."

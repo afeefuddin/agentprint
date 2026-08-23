@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { SeoContentPage } from "@/components/seo-content-page";
+import { ContentPage } from "@/components/content-page";
 import { absoluteUrl } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 };
 
 export default function ClaudeCodeIntegrationPage() {
-  return <SeoContentPage
+  return <ContentPage
     eyebrow="Claude Code integration"
     title="A Claude Code activity tracker built around local logs."
     intro="Agentprint turns your Claude Code activity into a year-long history, model mix, streaks, and a public profile whose visibility you control."

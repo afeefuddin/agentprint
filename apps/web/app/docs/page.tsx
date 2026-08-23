@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { SeoHubPage } from "@/components/seo-hub-page";
+import { ContentHubPage } from "@/components/content-hub-page";
 import { absoluteUrl } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -18,7 +18,7 @@ const items = [
 ];
 
 export default function DocsPage() {
-  return <SeoHubPage
+  return <ContentHubPage
     eyebrow="Agentprint documentation"
     title="From first install to a profile you can explain."
     intro="Use the shortest path to get connected, then go deeper into the collection, privacy, and sharing decisions behind the product."

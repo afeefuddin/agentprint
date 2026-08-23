@@ -24,7 +24,7 @@ type HubItem = {
   tone?: "blue" | "cream" | "ink";
 };
 
-export type SeoHubPageProps = {
+export type ContentHubPageProps = {
   eyebrow: string;
   title: string;
   intro: string;
@@ -71,7 +71,7 @@ function LibraryMap({ items }: { items: HubItem[] }) {
   );
 }
 
-export async function SeoHubPage(props: SeoHubPageProps) {
+export async function ContentHubPage(props: ContentHubPageProps) {
   const current = await viewer();
   const ctaHref = current?.onboarding_complete ? `/${current.handle}` : current ? "/onboarding" : "/login";
   return (

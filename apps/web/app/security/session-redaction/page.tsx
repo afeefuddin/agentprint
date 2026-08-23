@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { SeoContentPage } from "@/components/seo-content-page";
+import { ContentPage } from "@/components/content-page";
 import { absoluteUrl } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 };
 
 export default function SessionRedactionPage() {
-  return <SeoContentPage
+  return <ContentPage
     eyebrow="Session redaction"
     title="Redaction is a review layer, not a promise that secrets cannot exist."
     intro="Before Agentprint publishes a selected coding session, it rewrites likely credentials and private paths locally, removes unsupported media, and shows you the exact prepared payload."

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { SeoHubPage } from "@/components/seo-hub-page";
+import { ContentHubPage } from "@/components/content-hub-page";
 import { absoluteUrl } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -18,7 +18,7 @@ const items = [
 ];
 
 export default function GuidesPage() {
-  return <SeoHubPage
+  return <ContentHubPage
     eyebrow="Agentprint guides"
     title="Share the session you mean to share. Nothing else."
     intro="Follow exact, local-first workflows for selecting a coding session, reviewing the final payload, choosing its audience, and breaking the link later."

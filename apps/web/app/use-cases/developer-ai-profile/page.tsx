@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { SeoContentPage } from "@/components/seo-content-page";
+import { ContentPage } from "@/components/content-page";
 import { absoluteUrl } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 };
 
 export default function DeveloperAiProfilePage() {
-  return <SeoContentPage
+  return <ContentPage
     eyebrow="Developer AI profile"
     title="Give your agent-assisted work a home beyond scattered terminals."
     intro="Agentprint turns a private cross-agent activity history into a recognizable developer profile with a shareable URL, live profile card, and optional published sessions."

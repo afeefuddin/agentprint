@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { SeoContentPage } from "@/components/seo-content-page";
+import { ContentPage } from "@/components/content-page";
 import { absoluteUrl } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 };
 
 export default function OpenCodeIntegrationPage() {
-  return <SeoContentPage
+  return <ContentPage
     eyebrow="OpenCode integration"
     title="See your OpenCode activity beyond a single terminal session."
     intro="Agentprint turns your OpenCode activity into a year-long history, coding-tool mix, model ranking, and privacy-controlled profile."

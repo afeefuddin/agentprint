@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { SeoContentPage } from "@/components/seo-content-page";
+import { ContentPage } from "@/components/content-page";
 import { absoluteUrl } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 };
 
 export default function KimiCodeIntegrationPage() {
-  return <SeoContentPage
+  return <ContentPage
     eyebrow="Kimi Code integration"
     title="Turn local Kimi Code activity into a durable work history."
     intro="Agentprint turns your Kimi Code activity into a year-long history, model mix, streaks, and a profile you control."

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { SeoContentPage } from "@/components/seo-content-page";
+import { ContentPage } from "@/components/content-page";
 import { absoluteUrl } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 };
 
 export default function ActivityMethodologyPage() {
-  return <SeoContentPage
+  return <ContentPage
     eyebrow="Activity methodology"
     title="From local agent records to a durable daily activity history."
     intro="Agentprint discovers supported coding-agent records on your machine, converts recognized numeric metadata into a shared format, and syncs idempotent batches into your profile."
