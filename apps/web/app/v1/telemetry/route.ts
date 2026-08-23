@@ -15,7 +15,7 @@ export async function POST(request: Request) {
   if (response) return response;
 
   after(() => capturePostHogEvent({
-    distinctId: device.user_id,
+    distinctId: device.handle,
     event: data.event,
     properties: { ...data.properties, source: "cli" }
   }));

@@ -48,7 +48,7 @@ export async function POST(request: Request) {
     share
   );
   after(() => capturePostHogEvent({
-    distinctId: device.user_id,
+    distinctId: device.handle,
     event: "session_share_published",
     properties: {
       visibility: share.visibility,

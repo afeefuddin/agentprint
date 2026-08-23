@@ -30,7 +30,7 @@ export async function POST(request: Request) {
     const completed = await completeOnboardingProfile(current.id, data);
     if (!completed) return conflict("Profile setup has already been completed.");
     after(() => capturePostHogEvent({
-      distinctId: current.id,
+      distinctId: data.handle,
       event: "onboarding_completed"
     }));
     return NextResponse.json({ ok: true });

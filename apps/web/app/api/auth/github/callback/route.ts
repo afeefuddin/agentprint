@@ -42,11 +42,13 @@ export async function GET(request: Request) {
     const safeNext = next?.startsWith("/") && !next.startsWith("//") ? next : undefined;
     const response = finish(request, user.onboardingComplete ? safeNext ?? `/${user.handle}` : "/onboarding");
     response.cookies.set(sessionCookie(token));
-    after(() => capturePostHogEvent({
-      distinctId: user.id,
-      event: "account_signed_in",
-      properties: { provider: "github", source }
-    }));
+    if (user.onboardingComplete) {
+      after(() => capturePostHogEvent({
+        distinctId: user.handle,
+        event: "account_signed_in",
+        properties: { provider: "github", source }
+      }));
+    }
     return response;
   } catch (error) {
     const reason = error instanceof Error && error.message === "github_verified_email_required"

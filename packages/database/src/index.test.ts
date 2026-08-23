@@ -2,6 +2,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
 import {
   actOnFriendship,
+  authenticateDevice,
   approveDeviceCode,
   completeOnboardingProfile,
   createAccount,
@@ -213,6 +214,8 @@ describe("ingestion and public profile boundaries", () => {
       sources: [{ harnessId: "codex" }]
     });
     expect(device).not.toBeNull();
+    const authenticatedDevice = await authenticateDevice(`Bearer ${device!.credential}`);
+    expect(authenticatedDevice?.handle).toBe(handle);
 
     const eventId = `stable-${randomUUID()}`;
     const record = {

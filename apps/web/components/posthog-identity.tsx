@@ -6,26 +6,25 @@ import posthog from "posthog-js";
 const IDENTIFIED_USER_KEY = "agentprint_posthog_identified_user";
 
 type PostHogIdentityProps = {
-  userId: string | null;
   username: string | null;
 };
 
-export function PostHogIdentity({ userId, username }: PostHogIdentityProps) {
+export function PostHogIdentity({ username }: PostHogIdentityProps) {
   useEffect(() => {
     if (!posthog.__loaded) return;
 
-    const previousUserId = window.localStorage.getItem(IDENTIFIED_USER_KEY);
-    if (userId) {
-      posthog.identify(userId, username ? { username } : undefined);
-      window.localStorage.setItem(IDENTIFIED_USER_KEY, userId);
+    const previousUsername = window.localStorage.getItem(IDENTIFIED_USER_KEY);
+    if (username) {
+      posthog.identify(username, { username });
+      window.localStorage.setItem(IDENTIFIED_USER_KEY, username);
       return;
     }
 
-    if (previousUserId) {
+    if (previousUsername) {
       posthog.reset();
       window.localStorage.removeItem(IDENTIFIED_USER_KEY);
     }
-  }, [userId, username]);
+  }, [username]);
 
   return null;
 }

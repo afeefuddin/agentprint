@@ -14,7 +14,7 @@ export async function POST(request: Request) {
   const data = parsed.data;
   const receipt = await ingestBatch(device, data);
   after(() => capturePostHogEvent({
-    distinctId: device.user_id,
+    distinctId: device.handle,
     event: "sync_completed",
     properties: {
       accepted: receipt.accepted,

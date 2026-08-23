@@ -19,9 +19,11 @@ export async function POST(request: Request) {
       { status: 400 }
     );
   }
-  after(() => capturePostHogEvent({
-    distinctId: current.id,
-    event: "device_connected"
-  }));
+  if (current.onboarding_complete) {
+    after(() => capturePostHogEvent({
+      distinctId: current.handle,
+      event: "device_connected"
+    }));
+  }
   return NextResponse.json({ ok: true });
 }

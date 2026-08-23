@@ -317,10 +317,11 @@ export async function registerDevice(input: {
 
 export async function authenticateDevice(authorization?: string | null) {
   if (!authorization?.startsWith("Bearer ")) return null;
-  return one<{ id: string; user_id: string; paused: boolean; signing_public_key: string | null }>(
-    `SELECT d.id, d.user_id, d.paused, c.signing_public_key
+  return one<{ id: string; user_id: string; handle: string; paused: boolean; signing_public_key: string | null }>(
+    `SELECT d.id, d.user_id, p.handle, d.paused, c.signing_public_key
      FROM device_credentials c
      JOIN devices d ON d.id = c.device_id
+     JOIN profiles p ON p.user_id = d.user_id
      WHERE c.credential_hash = $1 AND d.revoked_at IS NULL`,
     [hashSecret(authorization.slice(7))]
   );

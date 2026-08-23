@@ -70,7 +70,6 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           Skip to content
         </a>
         <PostHogIdentity
-          userId={current?.id ?? null}
           username={current?.onboarding_complete ? current.handle : null}
         />
         {children}
