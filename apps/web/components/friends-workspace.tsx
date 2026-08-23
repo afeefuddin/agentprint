@@ -355,15 +355,7 @@ export function FriendsWorkspace({
             return (
               <div className={ROW} key={entry.id}>
                 <FriendIdentity entry={entry.other} />
-                <div className="max-desktop:col-start-1 max-tablet:row-auto">
-                  <span
-                    className="inline-flex items-center gap-[7px] text-xs text-faint before:size-1.5 before:rounded-full before:bg-line-strong before:content-[''] data-[ready]:text-blue data-[ready]:before:bg-blue data-[ready]:before:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-blue)_10%,transparent)]"
-                    data-ready
-                  >
-                    Ready to compare
-                  </span>
-                </div>
-                <div className={ROW_ACTIONS}>
+                <div className={cx(ROW_ACTIONS, "col-start-3")}>
                   <ComparisonAction entry={entry} />
                   <ActionMenu
                     entry={entry}
