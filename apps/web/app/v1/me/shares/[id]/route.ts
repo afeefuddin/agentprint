@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { sharePatchSchema } from "@agentprint/contracts";
+import { auditSharePatchForCredentials, sharePatchSchema } from "@agentprint/contracts";
 import { revokeShare, updateShare } from "@agentprint/database";
 import { apiViewer } from "@/lib/auth";
 import { resolveOwner } from "@/lib/device-request";
@@ -14,6 +14,17 @@ export async function PATCH(
   const { id } = await context.params;
   const { data, response } = await parseJson(request, sharePatchSchema);
   if (response) return response;
+  const credentials = auditSharePatchForCredentials(data);
+  if (credentials.length > 0) {
+    return NextResponse.json(
+      {
+        error: "credentials_detected",
+        message: "The session title contains values that look like live credentials. Updating it was refused.",
+        detected: credentials
+      },
+      { status: 422 }
+    );
+  }
   const share = await updateShare(current.id, id, data);
   if (!share) return notFound("That shared session was not found.");
   return NextResponse.json(share);

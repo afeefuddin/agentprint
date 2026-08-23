@@ -211,5 +211,79 @@ describe("server-side credential audit", () => {
 
   test("stays quiet on an ordinary transcript", () => {
     expect(findCredentials("edited <project>/src/main.ts and ran npm test")).toEqual([]);
+    expect(findCredentials("Cookie: [redacted:header]\nPASSWORD=[redacted:assignment]")).toEqual([]);
+    expect(findCredentials("Cookie: [redacted:header]\nPASSWORD=still-live")).toContain("assigned-secret");
+  });
+
+  test("finds logging-style sensitive keys, headers, and current token prefixes", () => {
+    expect(findCredentials('password="cat"')).toContain("assigned-secret");
+    expect(findCredentials("Cookie: session=private")).toContain("sensitive-header");
+    expect(findCredentials("Authorization: ApiKey keep-this-secret")).toContain("sensitive-header");
+    expect(findCredentials("redis://:shortsecret@cache.example.com/0")).toContain("url-password");
+    expect(findCredentials("postgresql://owner:p@ssword@db.example.com/app")).toContain("url-password");
+    expect(findCredentials("glpat-abcdefghijklmnopqrst")).toContain("gitlab-token");
+    expect(findCredentials("AGE-SECRET-KEY-1QQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQ")).toContain("age-secret-key");
+  });
+
+  test("covers stable developer-token formats from the upstream rule corpus", () => {
+    const samples = [
+      "dapi" + "a1".repeat(16),
+      "SK" + "a1".repeat(16),
+      "sk_test_abcdefghijklmnop1234",
+      "xapp-1-ABCDEFGHIJ-1234567890-abcdefghijklmnop",
+      "https://hooks.slack.com/services/" + "A".repeat(43),
+      "dop_v1_" + "a1".repeat(32),
+      "sntryu_" + "a1".repeat(32),
+      "rubygems_" + "a1".repeat(24),
+      "pypi-AgEIcHlwaS5vcmc" + "a".repeat(49) + "-",
+      "hf_" + "a".repeat(34),
+      "pul-" + "a1".repeat(20),
+      "PMAK-" + "a1".repeat(12) + "-" + "b2".repeat(17),
+      "lin_api_" + "a1".repeat(20),
+      "glc_" + "a".repeat(32),
+      "sq0csp-" + "a".repeat(42) + "-",
+      "a1".repeat(7) + ".atlasv1." + "b".repeat(59) + "=",
+      "A3-ABCDEF-ABCDEFGHIJK-ABCDE-ABCDE-ABCDE"
+    ];
+    for (const sample of samples) expect(findCredentials(sample)).not.toEqual([]);
+  });
+
+  test("covers established sensitive assignment aliases", () => {
+    for (const sample of ["creds=shortsecret", "otp=123456", "two_factor=123456"]) {
+      expect(findCredentials(sample)).toContain("assigned-secret");
+    }
+  });
+
+  test("does not reject ordinary session, cookie, or authentication settings", () => {
+    expect(findCredentials("session_timeout=30")).toEqual([]);
+    expect(findCredentials("cookie_domain=.example.com")).toEqual([]);
+    expect(findCredentials("authentication_mode=oauth")).toEqual([]);
+    expect(findCredentials("oidc_token_endpoint=https://example.com/oauth/token")).toEqual([]);
+    expect(findCredentials("public_token=example-value")).toEqual([]);
+    expect(findCredentials("client_secret_name=production-secret")).toEqual([]);
+    expect(findCredentials("credentials_id=credential-record-123")).toEqual([]);
+  });
+
+  test("handles a maximum-size ordinary string without pathological backtracking", () => {
+    expect(findCredentials("A".repeat(120_000))).toEqual([]);
+    expect(findCredentials("a=".repeat(60_000))).toEqual([]);
+  });
+
+  test("scans metadata and identifier fields, not only transcript bodies", () => {
+    const parsed = sessionShareSchema.parse({
+      schema_version: 1 as const,
+      harness_id: "codex" as const,
+      session_fingerprint: "c".repeat(64),
+      title: "Cookie: session=private",
+      visibility: "unlisted" as const,
+      redaction_level: "balanced" as const,
+      redaction: { secrets_removed: 0, paths_rewritten: 0, blocks_truncated: 0, turns_excluded: 0 },
+      started_at: "2026-08-01T10:00:00Z",
+      ended_at: "2026-08-01T10:01:00Z",
+      model_ids: ["glpat-abcdefghijklmnopqrst"],
+      totals: { input_tokens: 1, output_tokens: 1, total_tokens: 2 },
+      turns: [{ index: 0, role: "assistant" as const, blocks: [{ kind: "text" as const, text: "safe" }] }]
+    });
+    expect(auditShareForCredentials(parsed)).toEqual(["assigned-secret", "gitlab-token", "sensitive-header"]);
   });
 });

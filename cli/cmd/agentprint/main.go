@@ -544,7 +544,14 @@ func openBrowser(url string) error {
 	default:
 		command = exec.Command("xdg-open", url)
 	}
-	return command.Start()
+	output, err := command.CombinedOutput()
+	if err == nil {
+		return nil
+	}
+	if detail := strings.TrimSpace(string(output)); detail != "" {
+		return fmt.Errorf("%w: %s", err, detail)
+	}
+	return err
 }
 
 func boolMark(value bool) string {
