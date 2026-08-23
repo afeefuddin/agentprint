@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { SeoContentPage } from "@/components/seo-content-page";
+import { ContentPage } from "@/components/content-page";
 import { absoluteUrl } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -9,13 +9,18 @@ export const metadata: Metadata = {
 };
 
 export default function ClaudeCodeIntegrationPage() {
-  return <SeoContentPage
+  return <ContentPage
     eyebrow="Claude Code integration"
     title="A Claude Code activity tracker built around local logs."
     intro="Agentprint turns your Claude Code activity into a year-long history, model mix, streaks, and a public profile whose visibility you control."
     qualifier="Agentprint tracks historical coding activity. It does not report remaining Claude plan quota, reset windows, or provider billing."
     agent="claude"
     mode="tracking"
+    proof={[
+      { value: "Local logs", label: "Read on your machine" },
+      { value: "Historical", label: "Activity, not remaining quota" },
+      { value: "Per metric", label: "Independent visibility controls" }
+    ]}
     outcomeTitle="See the shape of your Claude Code practice."
     outcomeBody="Keep a durable record across individual terminal sessions, then decide which totals, coding tools, models, and streaks belong on your public profile."
     steps={[

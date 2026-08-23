@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { SeoContentPage } from "@/components/seo-content-page";
+import { ContentPage } from "@/components/content-page";
 import { absoluteUrl } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -9,13 +9,18 @@ export const metadata: Metadata = {
 };
 
 export default function OpenCodeIntegrationPage() {
-  return <SeoContentPage
+  return <ContentPage
     eyebrow="OpenCode integration"
     title="See your OpenCode activity beyond a single terminal session."
     intro="Agentprint turns your OpenCode activity into a year-long history, coding-tool mix, model ranking, and privacy-controlled profile."
     qualifier="Agentprint tracks historical OpenCode activity. It does not report provider quota or billing, and OpenCode transcript sharing is not supported yet."
     agent="opencode"
     mode="tracking"
+    proof={[
+      { value: "Activity", label: "Historical totals are supported" },
+      { value: "Private", label: "Conversation content is excluded" },
+      { value: "Tracking only", label: "Session sharing is not supported yet" }
+    ]}
     outcomeTitle="One activity history across your coding agents."
     outcomeBody="OpenCode activity can contribute to the same profile as Claude Code, Codex, and Kimi Code without making you maintain a separate dashboard for every tool."
     steps={[

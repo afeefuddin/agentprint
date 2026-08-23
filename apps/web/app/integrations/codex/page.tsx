@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { SeoContentPage } from "@/components/seo-content-page";
+import { ContentPage } from "@/components/content-page";
 import { absoluteUrl } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -9,13 +9,18 @@ export const metadata: Metadata = {
 };
 
 export default function CodexIntegrationPage() {
-  return <SeoContentPage
+  return <ContentPage
     eyebrow="Codex integration"
     title="Your Codex activity, across days—not buried in terminals."
     intro="Agentprint turns your Codex activity into a clear history, model mix, streaks, and a public proof-of-work profile."
     qualifier="Agentprint is a historical activity dashboard, not an OpenAI quota, rate-limit, or billing monitor."
     agent="codex"
     mode="tracking"
+    proof={[
+      { value: "One command", label: "Refresh supported local sources" },
+      { value: "No content", label: "Prompts and code stay out of sync" },
+      { value: "Cross-agent", label: "One profile for your tools" }
+    ]}
     outcomeTitle="A durable trace of agent-assisted work."
     outcomeBody="Individual sessions disappear into terminal history. Agentprint keeps the numeric pattern visible while leaving the substance of your work on your machine by default."
     steps={[

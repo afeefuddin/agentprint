@@ -5,7 +5,7 @@ import type { Viewer } from "@agentprint/database";
 export function SiteFooter({ current }: { current?: Viewer | null }) {
   return (
     <footer className="border-t border-line bg-canvas text-ink-strong">
-      <div className="shell grid grid-cols-[1fr_auto_auto] items-start gap-[clamp(48px,8vw,110px)] py-11 max-tablet:grid-cols-2 max-tablet:gap-x-10 max-tablet:gap-y-9">
+      <div className="shell grid grid-cols-[1fr_auto_auto_auto] items-start gap-[clamp(32px,5vw,76px)] py-11 max-desktop:grid-cols-[1fr_auto_auto] max-tablet:grid-cols-2 max-tablet:gap-x-10 max-tablet:gap-y-9">
         <div className="max-tablet:col-span-full">
           <Link href="/" aria-label="Agentprint home" className="inline-flex">
             <Image
@@ -21,12 +21,19 @@ export function SiteFooter({ current }: { current?: Viewer | null }) {
           <p className="mb-0 mt-4 max-w-[280px] text-xs leading-[1.55] text-faint">Your coding agent activity, measured locally and shared on your terms.</p>
           <span className="mt-5 block text-xs text-faint">© 2026 Agentprint</span>
         </div>
-        <nav aria-label="Agent guides" className="grid min-w-[150px] gap-2.5 text-sm text-muted">
-          <b className="mb-1 text-xs font-semibold text-ink-strong">Guides</b>
+        <nav aria-label="Explore Agentprint" className="grid min-w-[120px] gap-2.5 text-sm text-muted">
+          <b className="mb-1 text-xs font-semibold text-ink-strong">Explore</b>
+          <Link className="transition-colors duration-[140ms] hover:text-accent-strong" href="/integrations">Integrations</Link>
+          <Link className="transition-colors duration-[140ms] hover:text-accent-strong" href="/guides">Guides</Link>
+          <Link className="transition-colors duration-[140ms] hover:text-accent-strong" href="/docs">Docs</Link>
+          <Link className="transition-colors duration-[140ms] hover:text-accent-strong" href="/use-cases/ai-coding-activity-tracker">Use cases</Link>
+        </nav>
+        <nav aria-label="Popular resources" className="grid min-w-[150px] gap-2.5 text-sm text-muted max-desktop:hidden max-tablet:grid">
+          <b className="mb-1 text-xs font-semibold text-ink-strong">Popular</b>
           <Link className="transition-colors duration-[140ms] hover:text-accent-strong" href="/integrations/claude-code">Claude Code</Link>
           <Link className="transition-colors duration-[140ms] hover:text-accent-strong" href="/integrations/codex">Codex</Link>
-          <Link className="transition-colors duration-[140ms] hover:text-accent-strong" href="/integrations/kimi-code">Kimi Code</Link>
-          <Link className="transition-colors duration-[140ms] hover:text-accent-strong" href="/integrations/opencode">OpenCode</Link>
+          <Link className="transition-colors duration-[140ms] hover:text-accent-strong" href="/guides/share-claude-code-session">Share a session</Link>
+          <Link className="transition-colors duration-[140ms] hover:text-accent-strong" href="/security/session-redaction">Session redaction</Link>
         </nav>
         <nav aria-label="Agentprint links" className="grid min-w-[120px] gap-2.5 text-sm text-muted">
           <b className="mb-1 text-xs font-semibold text-ink-strong">Agentprint</b>

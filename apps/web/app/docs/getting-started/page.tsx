@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { SeoContentPage } from "@/components/seo-content-page";
+import { ContentPage } from "@/components/content-page";
 import { absoluteUrl } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 };
 
 export default function GettingStartedPage() {
-  return <SeoContentPage
+  return <ContentPage
     eyebrow="Getting started"
     title="From coding activity to your first Agentprint profile."
     intro="Install Agentprint, connect your machine, and build a private profile from your coding activity. You choose when it becomes public."
