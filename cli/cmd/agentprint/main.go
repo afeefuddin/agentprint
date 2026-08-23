@@ -270,8 +270,8 @@ func login(ctx context.Context, manager *config.Manager, configuration config.Co
 	client := syncclient.NewClient(*server)
 	authorizationContext, cancelAuthorization := context.WithTimeout(ctx, 11*time.Minute)
 	defer cancelAuthorization()
-	fmt.Println("Agentprint connects numeric agent-usage metadata.")
-	fmt.Println("It never uploads prompts, responses, source code, repository names, paths, or credentials.")
+	fmt.Println("Agentprint adds your coding activity to your private profile.")
+	fmt.Println("Your prompts, responses, source code, repository names, paths, and credentials stay private.")
 	code, err := client.StartDeviceFlow(authorizationContext)
 	if err != nil {
 		return fmt.Errorf("start device authorization: %w", err)
@@ -301,7 +301,7 @@ func login(ctx context.Context, manager *config.Manager, configuration config.Co
 	localCollector := &collector.Collector{Adapters: availableAdapters, Store: tempStore}
 	statuses := localCollector.Sources(ctx)
 	var sources []syncclient.Source
-	fmt.Println("\nDiscovered sources:")
+	fmt.Println("\nCoding tools found:")
 	for _, status := range statuses {
 		if status.Detection.Detected {
 			fmt.Printf("  ✓ %-13s %s\n", status.ID, status.Detection.Detail)
@@ -332,7 +332,7 @@ func login(ctx context.Context, manager *config.Manager, configuration config.Co
 	}); err != nil {
 		return fmt.Errorf("store credential in OS keychain: %w", err)
 	}
-	queued, err := localCollector.Collect(ctx)
+	_, err = localCollector.Collect(ctx)
 	if err != nil {
 		return err
 	}
@@ -343,15 +343,15 @@ func login(ctx context.Context, manager *config.Manager, configuration config.Co
 	if err != nil {
 		return fmt.Errorf("initial sync: %w", err)
 	}
-	fmt.Printf("\nInitial sync complete: %d collected, %d accepted, %d duplicate, 0 pending.\n", queued, receipt.Accepted, receipt.Duplicate)
+	fmt.Printf("\nYour activity is up to date: %d new, %d already added.\n", receipt.Accepted, receipt.Duplicate)
 	if !*noService {
 		executable, err := os.Executable()
 		if err == nil {
-			path, installErr := service.Install(executable)
+			_, installErr := service.Install(executable)
 			if installErr != nil {
 				fmt.Printf("Warning: background service was not started: %v\n", installErr)
 			} else {
-				fmt.Printf("Background sync installed: %s\n", path)
+				fmt.Println("Automatic activity updates are on.")
 			}
 		}
 	}
@@ -395,7 +395,7 @@ func (application *app) sync(ctx context.Context, verbose bool) error {
 		return err
 	}
 	if verbose {
-		fmt.Printf("Sync complete. %d accepted, %d duplicate, %d rejected, 0 pending.\n", receipt.Accepted, receipt.Duplicate, receipt.Rejected)
+		fmt.Printf("Activity updated: %d new, %d already added, %d could not be added.\n", receipt.Accepted, receipt.Duplicate, receipt.Rejected)
 	}
 	return nil
 }
@@ -578,23 +578,23 @@ func boolMark(value bool) string {
 }
 
 func printPrivacy() {
-	fmt.Println(`Agentprint collection boundary (schema v1)
+	fmt.Println(`What Agentprint collects
 
-Agentprint has two pipelines. Background collection is automatic and carries
-no content. Session sharing carries content and only ever runs when you ask
-for one specific session, one at a time.
+Agentprint tracks your coding activity automatically without collecting the
+contents of your work. Sessions are only shared when you choose one and run
+agentprint share.
 
-BACKGROUND COLLECTION — automatic
+Background activity — automatic
 
-  COLLECTED
+  Collected
     • Timestamp and local calendar date
-    • Harness and optional version
-    • Provider and model identifiers, when present
-    • Numeric token categories
-    • Numeric cost and provenance, when reported
-    • Anonymous source identity
+    • Coding tool and version, when available
+    • Provider and model, when available
+    • Token counts
+    • Cost, when reported by the coding tool
+    • Information needed to avoid counting the same activity twice
 
-  NEVER COLLECTED
+  Never collected
     • Prompts or responses
     • Source code or file contents
     • Repository names or file paths
@@ -602,21 +602,21 @@ BACKGROUND COLLECTION — automatic
     • API keys or credentials
     • Project or client names
 
-  The sync contract rejects unknown fields, so content cannot enter a batch
-  even by accident. Adapters read harness-owned metadata files read-only.
+  Agentprint only reads activity records from supported coding tools. It does
+  not change them.
 
-SESSION SHARING — only when you run agentprint share
+Session sharing — only when you run agentprint share
 
-  UPLOADED, for the one session you choose
+  Shared from the session you choose
     • Your prompts and the agent's replies
     • Tool calls, their arguments, and their output
     • The agent's reasoning, unless you use --redact strict
 
-  REMOVED BEFORE UPLOAD, on this machine
-    • Values matching known credential shapes, and long high-entropy tokens
-    • Your home directory and project path, rewritten to ~ and <project>
+  Removed before sharing
+    • Values that look like credentials
+    • Details that reveal your home or project location
     • Images and binary attachments
-    • Anything past the size limit for a single block
+    • Oversized content
 
   Every share is previewed locally before it is uploaded, is unlisted unless
   you choose otherwise, and can be deleted with agentprint unshare.
@@ -632,21 +632,21 @@ Usage:
   agentprint <command>
 
 Commands:
-  login       connect this machine using a browser device code
-  status      health, queue, and detected harnesses
-  sync        collect and sync immediately
-  sources     show detected adapters and capabilities
-  sessions    list local harness sessions you could share
-  share       preview and publish one session (--dry-run uploads nothing)
+  login       connect this machine
+  status      check your connection and coding tools
+  sync        update your activity now
+  sources     show the coding tools Agentprint found
+  sessions    list sessions you could share
+  share       preview and publish one session (--dry-run publishes nothing)
   shares      list the sessions you have published
   unshare     delete a published session
-  privacy     print the exact collection boundary
-  doctor      run secret-safe diagnostics
+  privacy     explain what Agentprint collects and shares
+  doctor      diagnose connection problems
   pause       pause background collection
   resume      resume and sync
   update      check for and install a CLI update
-  logout      revoke this device and remove its credential
-  uninstall   remove service and local state (requires --yes)
-  version     print build information
+  logout      disconnect this machine
+  uninstall   remove Agentprint from this machine (requires --yes)
+  version     print the installed version
 `, version)
 }

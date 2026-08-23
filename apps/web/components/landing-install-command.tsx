@@ -30,7 +30,7 @@ export function LandingInstallCommand() {
         Start tracking in one command.
       </h2>
       <p className="mx-auto mt-4 max-w-[550px] text-sm leading-6 text-white/55 max-tablet:px-3">
-        Install the collector, sign in, and Agentprint finds your supported coding agents automatically.
+        Install Agentprint, sign in, and it finds your supported coding tools automatically.
       </p>
 
       <div className="mx-auto mt-8 max-w-[760px] overflow-hidden rounded-md border border-white/[.13] bg-[#1b1e1a] text-left shadow-[0_24px_70px_rgb(0_0_0_/_0.28),inset_0_1px_rgb(255_255_255_/_0.04)] max-tablet:mt-7">

@@ -141,7 +141,7 @@ export function SharesWorkspace({
           ))}
         </div>
         <p className="mx-auto mt-2.5 max-w-[460px] text-xs text-faint">
-          The dry run renders the exact payload locally so you can read it before anything is uploaded.
+          The dry run opens a local preview so you can read it before anything is published.
         </p>
       </section>
     );

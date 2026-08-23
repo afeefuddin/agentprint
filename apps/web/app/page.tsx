@@ -143,7 +143,7 @@ export default async function Home() {
             <article className={cx(FEATURE_CARD, FEATURE_CARD_WIDE)}>
               <div className={FEATURE_COPY}>
                 <h2 className={FEATURE_TITLE}>Connect once. Keep building.</h2>
-                <p className={FEATURE_LEAD}>A quiet local collector finds your coding agents and keeps your activity current.</p>
+                <p className={FEATURE_LEAD}>Agentprint finds your coding tools and keeps your activity current automatically.</p>
               </div>
               <div className="absolute inset-x-0 bottom-0 top-[110px]" aria-hidden="true">
                 <div className="absolute left-[-3%] top-[4%] size-[330px] rounded-full bg-[radial-gradient(circle,rgb(69_107_193_/_0.14),rgb(69_107_193_/_0)_70%)]" />
@@ -151,7 +151,7 @@ export default async function Home() {
                 <div className="absolute bottom-[62px] left-1/2 z-[2] w-[min(62%,610px)] min-w-[500px] -translate-x-1/2 overflow-hidden rounded-md border border-line-strong bg-[rgb(255_255_253_/_0.96)] shadow-[0_28px_75px_rgb(47_55_43_/_0.14)] max-tablet:bottom-[60px] max-tablet:w-[calc(100%-32px)] max-tablet:min-w-0">
                   <div className={WINDOW_BAR}>
                     <span className={WINDOW_DOT} /><span className={WINDOW_DOT} /><span className={WINDOW_DOT} />
-                    <b className="ml-[7px] text-xs font-semibold">agentprint collector</b>
+                    <b className="ml-[7px] text-xs font-semibold">Agentprint activity</b>
                     <RefreshCw size={12} className="ml-auto" />
                   </div>
                   <code className="m-[17px] block rounded-sm border border-line bg-canvas px-3.5 py-3 text-xs text-ink">
@@ -188,12 +188,12 @@ export default async function Home() {
             <article className={FEATURE_CARD}>
               <div className={FEATURE_COPY}>
                 <h2 className={FEATURE_TITLE}>Numbers in. Content out.</h2>
-                <p className={FEATURE_LEAD}>The contract cannot accept prompts, code, paths, or credentials.</p>
+                <p className={FEATURE_LEAD}>Your prompts, code, paths, and credentials stay private.</p>
               </div>
               <div className={cx(FLOATING_PANEL, "bottom-[-16px] overflow-hidden")} aria-hidden="true">
                 <div className={WINDOW_BAR}>
                   <span className={WINDOW_DOT} /><span className={WINDOW_DOT} /><span className={WINDOW_DOT} />
-                  <b className="ml-[7px] text-xs font-semibold">collection boundary</b>
+                  <b className="ml-[7px] text-xs font-semibold">Privacy protection</b>
                   <ShieldCheck size={12} className="ml-auto" />
                 </div>
                 {boundaryRows.map((row) => (
@@ -237,7 +237,7 @@ export default async function Home() {
               <div className={FEATURE_COPY}>
                 <h2 className={FEATURE_TITLE}>Publish a whole session. On purpose.</h2>
                 <p className={FEATURE_LEAD}>
-                  Background sync never uploads transcripts. Share one session deliberately—rendered locally first, credentials stripped.
+                  Automatic tracking never includes conversations. Share one session deliberately—previewed on your machine with likely credentials hidden.
                 </p>
               </div>
               <div className="absolute inset-x-0 bottom-0 top-[116px] max-tablet:top-[152px]" aria-hidden="true">
@@ -382,7 +382,7 @@ export default async function Home() {
                     Every session leaves a trace.
                   </h2>
                   <p className="mb-0 mt-5 text-base leading-[1.62] text-muted max-tablet:text-sm">
-                    Agentprint turns the metadata behind your coding sessions into one living activity field—ready to revisit, compare, and share.
+                    Agentprint turns your coding activity into one living history—ready to revisit, compare, and share.
                   </p>
                   <Link
                     className="group/action mt-7 inline-flex min-h-12 items-center gap-3 rounded-sm bg-ink-strong px-5 text-sm font-semibold text-panel-raised transition-[background-color,transform] duration-150 hover:-translate-y-0.5 hover:bg-ink focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-accent max-tablet:w-full max-tablet:justify-center"

@@ -44,7 +44,7 @@ const audiences: { key: "is_public"; label: string; description: string }[] = [
 
 const fields: { key: FieldKey; label: string }[] = [
   { key: "show_tokens", label: "Token totals" },
-  { key: "show_harnesses", label: "Harness mix" },
+  { key: "show_harnesses", label: "Coding-tool mix" },
   { key: "show_models", label: "Model mix" },
   { key: "show_streaks", label: "Streaks" }
 ];
@@ -214,7 +214,7 @@ export function SettingsControls({
         <div className="min-w-0">
           {harnesses.length === 0 ? (
             <p className="m-0 rounded-sm border border-line bg-panel p-[22px] text-xs text-faint">
-              No harness activity yet. Agents appear here after their first sync.
+              No coding-tool activity yet. Your tools appear here after the first update.
             </p>
           ) : (
             <div className={PANEL}>
@@ -311,7 +311,7 @@ export function SettingsControls({
       <section className={ROW}>
         <div className={RAIL}>
           <h2 className={RAIL_TITLE}>Devices</h2>
-          <p className={RAIL_COPY}>Revoking a credential stops ingestion immediately.</p>
+          <p className={RAIL_COPY}>Removing a device stops future activity updates from it immediately.</p>
         </div>
         <div className="min-w-0">
           <div className={PANEL}>
@@ -386,7 +386,7 @@ export function SettingsControls({
       <section className={ROW}>
         <div className={RAIL}>
           <h2 className={RAIL_TITLE}>Your data</h2>
-          <p className={RAIL_COPY}>Everything held server-side is yours to take or destroy.</p>
+          <p className={RAIL_COPY}>Download your information or permanently delete your account.</p>
         </div>
         <div className="min-w-0">
           <div className="flex min-h-[84px] items-center justify-between gap-6 rounded-sm border border-line bg-panel px-[22px] py-[19px] max-tablet:flex-col max-tablet:items-start max-tablet:gap-4 max-tablet:p-5">
@@ -406,7 +406,7 @@ export function SettingsControls({
           <div className="mt-2.5 flex min-h-[84px] items-center justify-between gap-6 rounded-sm border border-line bg-panel px-[22px] py-[19px] max-tablet:flex-col max-tablet:items-start max-tablet:gap-4 max-tablet:p-5">
             <span>
               <b className="block text-base font-medium text-ink-strong">Export personal data</b>
-              <small className="mt-1 flex items-center gap-1.5 text-xs text-muted">JSON · normalized records and settings</small>
+              <small className="mt-1 flex items-center gap-1.5 text-xs text-muted">Includes your activity, profile, and settings.</small>
             </span>
             <a
               className={buttonClass({ variant: "secondary", size: "small", className: "flex-none max-tablet:w-full" })}
@@ -420,13 +420,13 @@ export function SettingsControls({
             <span>
               <b className="block text-base font-medium text-ink-strong">Delete account</b>
               <small className="mt-1 flex items-center gap-1.5 text-xs text-muted">
-                <AlertTriangle size={14} className="shrink-0 text-red" /> Permanent and immediate. Removes every server-side record.
+                <AlertTriangle size={14} className="shrink-0 text-red" /> Permanently deletes your Agentprint account and all its data.
               </small>
             </span>
             <button
               className={buttonClass({ variant: "danger", size: "small", className: "flex-none max-tablet:w-full" })}
               onClick={async () => {
-                if (!window.confirm("Permanently delete your account and all server-side data? This cannot be undone.")) return;
+                if (!window.confirm("Permanently delete your Agentprint account and all its data? This cannot be undone.")) return;
                 const response = await fetch("/v1/me/account", { method: "DELETE" });
                 if (response.ok) window.location.assign("/");
               }}

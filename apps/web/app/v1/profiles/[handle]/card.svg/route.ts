@@ -52,7 +52,7 @@ export async function GET(
   <text x="235" y="157" fill="#f8f4e9" font-size="25">${formatTokens(data.summary.totalTokens)}</text>
   <text x="410" y="131" fill="#626b75" font-size="12">Active days</text>
   <text x="410" y="157" fill="#f8f4e9" font-size="25">${data.summary.activeDays}</text>
-  <text x="235" y="192" fill="#626b75" font-size="12">Most used harness</text>
+  <text x="235" y="192" fill="#626b75" font-size="12">Most used coding tool</text>
   <text x="235" y="208" fill="#929ba4" font-size="12">${escape(data.summary.mostUsedHarness ?? "—")}</text>
   <circle cx="568" cy="32" r="3" fill="#6dba97"/>
 </svg>`;

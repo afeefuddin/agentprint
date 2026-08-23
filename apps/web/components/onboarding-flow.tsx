@@ -217,14 +217,14 @@ export function OnboardingFlow({ handle, hasDevice, hasCompletedSync, profileCom
           <div className="flex min-h-[720px] flex-col justify-center pb-16 pt-10 max-tablet:min-h-0 max-tablet:justify-start max-tablet:pb-12 max-tablet:pt-14">
             <div>
               <h1 className={HEADING}>Connect your machine.</h1>
-              <p className={LEAD}>Install the local collector once. It finds supported tools and keeps your Agentprint current in the background.</p>
+              <p className={LEAD}>Install Agentprint once. It finds supported coding tools and keeps your activity current automatically.</p>
             </div>
 
             <div className="mt-9 grid gap-3">
               <div className="grid grid-cols-2 gap-2 max-tablet:grid-cols-[1fr]">
                 {[
-                  { icon: Laptop, title: "Native binary", copy: "No runtime dependencies" },
-                  { icon: RefreshCw, title: "Quiet sync", copy: "Runs in the background" },
+                  { icon: Laptop, title: "Simple setup", copy: "Nothing else to install" },
+                  { icon: RefreshCw, title: "Automatic updates", copy: "Keeps your activity current" },
                 ].map(({ icon: Icon, title, copy }) => (
                   <div key={title} className="flex items-start gap-3 rounded-sm border border-line bg-panel-raised p-3">
                     <span className="grid size-8 shrink-0 place-items-center rounded-sm border border-steel-1 bg-accent-soft text-blue"><Icon size={15} /></span>
