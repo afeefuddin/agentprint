@@ -41,6 +41,8 @@ records full-site session replay, pageviews, web vitals, and exceptions. It mask
 password, email, telephone, and device-code inputs; removes URL query strings and
 fragments; and never records network bodies, headers, or console logs. DOM
 autocapture and heatmaps remain disabled in favor of explicit product events.
+Signed-in people use the immutable account UUID as their identity key and the
+completed Agentprint handle as their visible PostHog username.
 
 Authenticated CLI commands send only command name, success, duration, version,
 OS, architecture, and a closed error category through Agentprint's API. Raw
