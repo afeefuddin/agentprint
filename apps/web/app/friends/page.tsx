@@ -16,10 +16,7 @@ export default async function FriendsPage() {
       <SiteHeader current={current} />
       <main id="main" className={appMainClass}>
         <div className="shell">
-          <FriendsWorkspace
-            initialFriendships={friendships}
-            initialComparisonSharing={current.friends_can_compare}
-          />
+          <FriendsWorkspace initialFriendships={friendships} />
         </div>
       </main>
     </>

@@ -62,3 +62,10 @@ export function formatTokens(value: number) {
   if (value >= 1_000) return `${(value / 1_000).toFixed(1)}K`;
   return String(value);
 }
+
+export function rankModelUsage(models: Record<string, number>) {
+  const ranked = Object.entries(models).sort((left, right) => right[1] - left[1]).slice(0, 10);
+  const highest = ranked[0]?.[1] ?? 0;
+
+  return ranked.filter(([, tokens], index) => index < 5 || tokens >= highest * 0.1);
+}

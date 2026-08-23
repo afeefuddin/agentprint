@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { calculateStreaks, intensityFor, intensityThresholds } from "./index";
+import { calculateStreaks, intensityFor, intensityThresholds, rankModelUsage } from "./index";
 
 describe("calculateStreaks", () => {
   test("deduplicates dates and calculates current and longest runs", () => {
@@ -25,4 +25,29 @@ test("personal intensity distribution stays bounded", () => {
   const thresholds = intensityThresholds([0, 10, 20, 30, 100]);
   expect(intensityFor(0, thresholds)).toBe(0);
   expect(intensityFor(1000, thresholds)).toBe(4);
+});
+
+describe("rankModelUsage", () => {
+  test("always keeps the first five models", () => {
+    const models = Object.fromEntries(
+      [101, 80, 60, 40, 20, 10, 9].map((tokens, index) => [`model-${index + 1}`, tokens])
+    );
+
+    expect(rankModelUsage(models).map(([name]) => name)).toEqual([
+      "model-1",
+      "model-2",
+      "model-3",
+      "model-4",
+      "model-5"
+    ]);
+  });
+
+  test("includes up to ten models at or above ten percent of the highest", () => {
+    const models = Object.fromEntries(
+      [100, 90, 80, 70, 60, 50, 40, 30, 20, 10, 10].map((tokens, index) => [`model-${index + 1}`, tokens])
+    );
+
+    expect(rankModelUsage(models)).toHaveLength(10);
+    expect(rankModelUsage(models).at(-1)).toEqual(["model-10", 10]);
+  });
 });

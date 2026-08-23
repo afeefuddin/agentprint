@@ -2,7 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import type { ReactNode } from "react";
 import { Calendar, CheckCircle2, Clock3, ExternalLink, MapPin } from "lucide-react";
-import { formatTokens } from "@agentprint/analytics";
+import { formatTokens, rankModelUsage } from "@agentprint/analytics";
 import type { getProfile } from "@agentprint/database";
 import { compactTokens, harnessBrand, harnessLabels, modelBrand } from "@/lib/brands";
 import { cx, handleClass, modelChart, profileAvatarClass, sectionHeading } from "@/lib/ui";
@@ -225,7 +225,7 @@ export function ProfileView({
                 <p className={BREAKDOWN_EMPTY}>Model usage will appear after the first sync.</p>
               ) : (
                 (() => {
-                  const ranked = Object.entries(models).sort((a, b) => b[1] - a[1]).slice(0, 10);
+                  const ranked = rankModelUsage(models);
                   return (
                     <div
                       className={modelChart.root}

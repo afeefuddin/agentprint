@@ -16,15 +16,15 @@ export default async function SessionsPage() {
       <SiteHeader current={current} />
       <main id="main" className={appMainClass}>
         <div className="shell">
-          <header>
+          <header className="mb-8 flex items-end justify-between gap-8 border-b border-line pb-7 max-tablet:items-start">
             <div>
-              <span className={eyebrowClass}>Session sharing</span>
-              <h1 className="mt-2 text-[32px] font-[weight:560] tracking-[-.03em] text-ink-strong">Shared sessions</h1>
-              <p className="mb-9 mt-2.5 max-w-[560px] text-sm text-muted">
-                Each of these is one session you chose to publish. Background sync never
-                uploads transcript content — only these do, and you can delete any of them.
-              </p>
+              <span className={eyebrowClass}>Published work</span>
+              <h1 className="mt-2 text-[36px] font-[weight:560] tracking-[-.035em] text-ink-strong max-tablet:text-[30px]">Your shared sessions</h1>
             </div>
+            <p className="shrink-0 text-right text-xs text-faint max-tablet:hidden">
+              <b className="block text-[28px] font-[weight:560] leading-none text-ink-strong [font-variant-numeric:tabular-nums]">{shares.length}</b>
+              <span className="mt-1.5 block">{shares.length === 1 ? "session" : "sessions"} published</span>
+            </p>
           </header>
           <SharesWorkspace initialShares={shares} baseUrl={baseUrl} />
         </div>
