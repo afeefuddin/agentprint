@@ -57,11 +57,12 @@ export async function capturePostHogException(
   if (!client) return;
 
   try {
-    await client.captureExceptionImmediate(
+    client.captureException(
       sanitizePostHogError(error),
       "agentprint-server",
       properties
     );
+    await client.flush();
   } catch {
     // Error reporting cannot be allowed to create a second application error.
   }

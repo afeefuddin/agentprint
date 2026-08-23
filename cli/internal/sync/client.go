@@ -47,21 +47,6 @@ type Source struct {
 	Version   string `json:"version,omitempty"`
 }
 
-type TelemetryProperties struct {
-	Command       string `json:"command"`
-	Success       bool   `json:"success"`
-	DurationMS    int    `json:"duration_ms"`
-	ErrorCategory string `json:"error_category,omitempty"`
-	CLIVersion    string `json:"cli_version"`
-	OS            string `json:"os"`
-	Arch          string `json:"arch"`
-}
-
-type TelemetryEvent struct {
-	Event      string              `json:"event"`
-	Properties TelemetryProperties `json:"properties"`
-}
-
 type Receipt struct {
 	BatchID        string `json:"batch_id"`
 	Acknowledgment string `json:"acknowledgement"`
@@ -291,10 +276,6 @@ func (client *Client) SyncAll(ctx context.Context, localStore *store.Store, cred
 
 func (client *Client) Revoke(ctx context.Context, credential string) error {
 	return client.request(ctx, http.MethodDelete, "/v1/device", nil, credential, nil)
-}
-
-func (client *Client) Track(ctx context.Context, credential string, event TelemetryEvent) error {
-	return client.request(ctx, http.MethodPost, "/v1/telemetry", event, credential, nil)
 }
 
 /* Session sharing. */

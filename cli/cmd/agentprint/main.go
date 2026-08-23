@@ -24,6 +24,7 @@ import (
 	"github.com/agentprint/agentprint/cli/internal/service"
 	"github.com/agentprint/agentprint/cli/internal/store"
 	syncclient "github.com/agentprint/agentprint/cli/internal/sync"
+	"github.com/agentprint/agentprint/cli/internal/telemetry"
 	"github.com/agentprint/agentprint/cli/internal/updater"
 )
 
@@ -50,6 +51,12 @@ func run() error {
 		return nil
 	}
 	command := os.Args[1]
+	if command == "__send_analytics" {
+		if len(os.Args) == 3 {
+			telemetry.Send(os.Args[2])
+		}
+		return nil
+	}
 	if command == "version" || command == "--version" {
 		fmt.Printf("agentprint %s (%s/%s)\n", version, runtime.GOOS, runtime.GOARCH)
 		return nil
@@ -98,7 +105,6 @@ func run() error {
 		collector: &collector.Collector{Adapters: availableAdapters, Store: localStore},
 		client:    syncclient.NewClient(configuration.Server),
 	}
-	started := time.Now()
 	var commandErr error
 	switch command {
 	case "status":
@@ -151,59 +157,10 @@ func run() error {
 	default:
 		return fmt.Errorf("unknown command %q; run agentprint help", command)
 	}
-	application.trackCommand(command, started, commandErr)
+	if commandErr == nil && application.config.DeviceID != "" {
+		telemetry.TrackCommand(command, version)
+	}
 	return commandErr
-}
-
-func (application *app) trackCommand(command string, started time.Time, commandErr error) {
-	if application.config.DeviceID == "" || os.Getenv("AGENTPRINT_TELEMETRY_DISABLED") == "1" {
-		return
-	}
-	credential, err := application.configManager.Credential(application.config.DeviceID)
-	if err != nil || credential.AccessToken == "" {
-		return
-	}
-
-	duration := int(time.Since(started).Milliseconds())
-	if duration > 3_600_000 {
-		duration = 3_600_000
-	}
-	properties := syncclient.TelemetryProperties{
-		Command: command, Success: commandErr == nil, DurationMS: duration,
-		CLIVersion: version, OS: runtime.GOOS, Arch: runtime.GOARCH,
-	}
-	if commandErr != nil {
-		properties.ErrorCategory = telemetryErrorCategory(commandErr)
-	}
-
-	telemetryContext, cancel := context.WithTimeout(context.Background(), 1500*time.Millisecond)
-	defer cancel()
-	_ = application.client.Track(telemetryContext, credential.AccessToken, syncclient.TelemetryEvent{
-		Event: "cli_command_completed", Properties: properties,
-	})
-}
-
-func telemetryErrorCategory(err error) string {
-	switch {
-	case errors.Is(err, context.Canceled):
-		return "cancelled"
-	case errors.Is(err, context.DeadlineExceeded):
-		return "timeout"
-	}
-
-	message := strings.ToLower(err.Error())
-	switch {
-	case strings.Contains(message, "credential"), strings.Contains(message, "unauthorized"), strings.Contains(message, "not connected"):
-		return "authentication"
-	case strings.Contains(message, "sqlite"), strings.Contains(message, "queue"), strings.Contains(message, "keychain"):
-		return "storage"
-	case strings.Contains(message, "connection"), strings.Contains(message, "network"), strings.Contains(message, "server"):
-		return "network"
-	case strings.Contains(message, "invalid"), strings.Contains(message, "requires"), strings.Contains(message, "unknown"):
-		return "validation"
-	default:
-		return "unknown"
-	}
 }
 
 func updateCLI(ctx context.Context, manager *config.Manager, args []string) error {
@@ -651,11 +608,11 @@ BACKGROUND COLLECTION — automatic
 CLI telemetry — automatic, disable with AGENTPRINT_TELEMETRY_DISABLED=1
 
   COLLECTED
-    • Command name, success, duration, CLI version, OS, and architecture
-    • A closed error category when a command fails
+    • Successful command name, CLI version, OS, and architecture
+    • A protected machine identifier, with GeoIP disabled
 
   NEVER COLLECTED
-    • Command arguments or raw error messages
+    • Failed commands, command arguments, or raw error messages
     • Paths, hostnames, server URLs, device codes, or credentials
     • Project names, session titles, prompts, responses, or tool output
 

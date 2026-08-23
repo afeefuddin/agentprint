@@ -164,38 +164,6 @@ func TestSyncCompressesSignsAndAcknowledges(t *testing.T) {
 	}
 }
 
-func TestTrackSendsOnlyStructuredTelemetry(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		if request.URL.Path != "/v1/telemetry" {
-			t.Errorf("path = %q, want /v1/telemetry", request.URL.Path)
-		}
-		if request.Header.Get("Authorization") != "Bearer access-token" {
-			t.Errorf("authorization header was not set")
-		}
-		var event TelemetryEvent
-		if err := json.NewDecoder(request.Body).Decode(&event); err != nil {
-			t.Fatal(err)
-		}
-		if event.Event != "cli_command_completed" || event.Properties.Command != "sync" {
-			t.Errorf("unexpected event: %#v", event)
-		}
-		response.WriteHeader(http.StatusNoContent)
-	}))
-	defer server.Close()
-
-	client := NewClient(server.URL)
-	err := client.Track(context.Background(), "access-token", TelemetryEvent{
-		Event: "cli_command_completed",
-		Properties: TelemetryProperties{
-			Command: "sync", Success: true, DurationMS: 42,
-			CLIVersion: "0.4.0", OS: "darwin", Arch: "arm64",
-		},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-}
-
 type byteReader struct {
 	body []byte
 	at   int

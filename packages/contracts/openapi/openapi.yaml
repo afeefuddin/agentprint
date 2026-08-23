@@ -66,22 +66,6 @@ paths:
       responses:
         "200": { description: Sync receipt }
         "404": { description: Not found for this device }
-  /v1/telemetry:
-    post:
-      summary: Record a privacy-safe CLI command outcome
-      description: >-
-        Accepts only the closed operational schema. Command arguments, raw
-        errors, paths, credentials, and session content are not valid fields.
-      security: [{ deviceBearer: [] }]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/CLITelemetry" }
-      responses:
-        "204": { description: Accepted or silently rate-limited }
-        "400": { description: The payload did not match the contract }
-        "401": { description: Device authentication required }
   /v1/me:
     get:
       summary: Current web account
@@ -365,26 +349,6 @@ components:
           minItems: 1
           maxItems: 2000
           items: { $ref: "#/components/schemas/UsageRecord" }
-    CLITelemetry:
-      type: object
-      additionalProperties: false
-      required: [event, properties]
-      properties:
-        event: { const: cli_command_completed }
-        properties:
-          type: object
-          additionalProperties: false
-          required: [command, success, duration_ms, cli_version, os, arch]
-          properties:
-            command:
-              enum: [status, sync, sources, sessions, share, shares, unshare, doctor, pause, resume, daemon]
-            success: { type: boolean }
-            duration_ms: { type: integer, minimum: 0, maximum: 3600000 }
-            error_category:
-              enum: [authentication, cancelled, network, storage, timeout, validation, unknown]
-            cli_version: { type: string, pattern: "^[0-9A-Za-z.+-]{1,40}$" }
-            os: { type: string, pattern: "^[a-z0-9_-]{1,24}$" }
-            arch: { type: string, pattern: "^[a-z0-9_-]{1,24}$" }
     TranscriptBlock:
       description: >-
         A closed vocabulary. Content the viewer cannot render is content nobody
