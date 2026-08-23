@@ -605,17 +605,6 @@ BACKGROUND COLLECTION — automatic
   The sync contract rejects unknown fields, so content cannot enter a batch
   even by accident. Adapters read harness-owned metadata files read-only.
 
-CLI telemetry — automatic, disable with AGENTPRINT_TELEMETRY_DISABLED=1
-
-  COLLECTED
-    • Selected local command name, CLI version, OS, and architecture
-    • A protected machine identifier, with GeoIP disabled
-
-  NEVER COLLECTED
-    • Failed commands, command arguments, or raw error messages
-    • Paths, hostnames, server URLs, device codes, or credentials
-    • Project names, session titles, prompts, responses, or tool output
-
 SESSION SHARING — only when you run agentprint share
 
   UPLOADED, for the one session you choose
