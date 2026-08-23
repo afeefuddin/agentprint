@@ -115,8 +115,7 @@ export default async function SettingsPage() {
               show_cost: current.show_cost,
               show_harnesses: current.show_harnesses,
               show_models: current.show_models,
-              show_streaks: current.show_streaks,
-              friends_can_compare: current.friends_can_compare
+              show_streaks: current.show_streaks
             }}
             initialDevices={devices}
             harnesses={harnesses}

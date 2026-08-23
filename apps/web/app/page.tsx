@@ -5,7 +5,7 @@ import { viewer } from "@/lib/auth";
 import { SiteHeader } from "@/components/site-header";
 import { LandingPreview } from "@/components/landing-preview";
 import { ShareGlobe } from "@/components/share-globe";
-import { buttonClass, cx, eyebrowClass } from "@/lib/ui";
+import { cx, eyebrowClass } from "@/lib/ui";
 
 function sampleActivityLevel(index: number) {
   let value = Math.imul(index + 23, 0x45d9f3b);
@@ -340,68 +340,41 @@ export default async function Home() {
 
         <section className="bg-canvas pb-[88px] pt-11 max-tablet:pb-14 max-tablet:pt-7" aria-labelledby="final-cta-title">
           <div className="shell">
-            <div className="grid min-h-[520px] grid-cols-[minmax(300px,.78fr)_minmax(480px,1.22fr)] items-center gap-[clamp(44px,6vw,92px)] overflow-hidden rounded-lg border border-accent-strong bg-accent px-[clamp(34px,5vw,72px)] py-[clamp(42px,5vw,68px)] text-accent-ink max-desktop:grid-cols-1 max-desktop:gap-12 max-tablet:min-h-0 max-tablet:px-5 max-tablet:py-9">
-              <div className="max-w-[490px]">
-                <h2
-                  id="final-cta-title"
-                  className="m-0 text-[clamp(44px,4.6vw,64px)] font-[weight:680] leading-[.96] max-tablet:text-[clamp(40px,11vw,52px)]"
-                >
-                  Your work. One unmistakable profile.
-                </h2>
-                <p className="mb-0 mt-6 max-w-[390px] text-base leading-[1.6] text-accent-ink/75 max-tablet:text-sm">
-                  Turn local agent activity into a profile you can share.
-                </p>
-                <Link
-                  className={buttonClass({
-                    variant: "signal",
-                    className: "group/action mt-8 min-h-[54px] gap-3.5 px-6 max-tablet:w-full"
-                  })}
-                  href={current?.onboarding_complete ? `/${current.handle}` : current ? "/onboarding" : "/login"}
-                >
-                  {current ? "Open your Agentprint" : "Create your Agentprint"}
-                  <ArrowRight size={17} className="transition-transform duration-[180ms] group-hover/action:translate-x-1" />
-                </Link>
+            <div className="grid min-h-[520px] grid-cols-[1.06fr_.94fr] overflow-hidden rounded-lg border border-line bg-panel-raised p-3 shadow-[0_24px_70px_rgb(39_49_38_/_0.09)] max-desktop:grid-cols-1 max-tablet:min-h-0 max-tablet:p-2">
+              <div className="relative isolate flex min-h-[496px] items-center justify-center overflow-hidden rounded-md bg-[radial-gradient(circle_at_23%_16%,rgb(255_255_255_/_0.28),transparent_29%),linear-gradient(145deg,#65a0ff_0%,#2868f6_54%,#234fbb_100%)] p-5 max-desktop:min-h-[420px] max-tablet:min-h-[285px] max-tablet:p-2">
+                <div
+                  className="absolute inset-0 opacity-[.13] [background-image:linear-gradient(rgb(255_255_255_/_0.2)_1px,transparent_1px),linear-gradient(90deg,rgb(255_255_255_/_0.2)_1px,transparent_1px)] [background-size:42px_42px]"
+                  aria-hidden="true"
+                />
+                <div className="absolute inset-x-[14%] bottom-[7%] h-[17%] rounded-[50%] bg-[#173c91]/35 blur-[28px]" aria-hidden="true" />
+                <Image
+                  src="/landing/sessions-to-heatmap.webp"
+                  alt="Coding-agent sessions flowing into an activity heatmap"
+                  width={1536}
+                  height={1024}
+                  className="relative z-[1] h-auto w-[112%] max-w-none object-contain drop-shadow-[0_24px_30px_rgb(17_52_132_/_0.25)] max-tablet:w-[110%]"
+                />
               </div>
 
-              <div className="w-full max-w-[640px] justify-self-end max-desktop:max-w-none" aria-hidden="true">
-                <div className="overflow-hidden rounded-md border border-accent-ink/20 bg-canvas p-5 text-ink-strong max-tablet:p-3.5">
-                  <div className="flex items-center gap-3.5 border-b border-line pb-4 max-tablet:pb-3">
-                    <span className="grid size-12 place-items-center rounded-sm border border-line bg-panel-raised max-tablet:size-10">
-                      <Image src="/brand/agentprint-mark.svg" alt="" width={27} height={27} className="size-7 max-tablet:size-6" loading="eager" unoptimized />
-                    </span>
-                    <div className="min-w-0">
-                      <b className="block text-sm font-bold">Your Agentprint</b>
-                      <span className="mt-0.5 block truncate text-sm text-accent-strong">agentprint.tech/you</span>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-flow-col grid-rows-[repeat(7,1fr)] grid-cols-[repeat(12,1fr)] gap-[5px] py-6 max-tablet:gap-[3px] max-tablet:py-4">
-                    {Array.from({ length: 84 }, (_, index) => (
-                      <i
-                        key={index}
-                        className="aspect-square rounded-[4px] bg-canvas-deep data-[level=1]:bg-steel-1 data-[level=2]:bg-steel-2 data-[level=3]:bg-steel-3 data-[level=4]:bg-steel-4"
-                        data-level={sampleActivityLevel(index + 17)}
-                      />
-                    ))}
-                  </div>
-
-                  <div className="grid grid-cols-[1fr_1fr_auto] items-end border-t border-line pt-4 max-tablet:grid-cols-2 max-tablet:gap-y-4">
-                    <span className="border-r border-line pr-5 max-tablet:pr-3">
-                      <b className="block text-2xl font-[weight:680] max-tablet:text-lg">212</b>
-                      <small className="mt-1 block text-sm text-faint">Active days</small>
-                    </span>
-                    <span className="pl-5 max-tablet:pl-3">
-                      <b className="block text-2xl font-[weight:680] max-tablet:text-lg">38d</b>
-                      <small className="mt-1 block text-sm text-faint">Current streak</small>
-                    </span>
-                    <span className="flex items-center pl-6 max-tablet:col-span-2 max-tablet:border-t max-tablet:border-line max-tablet:pl-0 max-tablet:pt-3">
-                      {collectorSources.map((source) => (
-                        <i key={source.label} className="-ml-1.5 grid size-8 place-items-center rounded-full border border-line-strong bg-panel-raised first:ml-0">
-                          <Image src={source.src} alt="" width={15} height={15} className="size-[15px] object-contain" />
-                        </i>
-                      ))}
-                    </span>
-                  </div>
+              <div className="flex items-center px-[clamp(34px,5vw,66px)] py-[clamp(42px,5vw,68px)] max-tablet:px-5 max-tablet:py-9">
+                <div className="max-w-[410px]">
+                  <span className="text-xs font-semibold text-accent">Sessions become signal</span>
+                  <h2
+                    id="final-cta-title"
+                    className="mb-0 mt-5 text-[clamp(40px,4vw,56px)] font-[weight:580] leading-[1.01] tracking-[-.055em] text-ink-strong max-tablet:text-[38px]"
+                  >
+                    Every session leaves a trace.
+                  </h2>
+                  <p className="mb-0 mt-5 text-base leading-[1.62] text-muted max-tablet:text-sm">
+                    Agentprint turns the metadata behind your coding sessions into one living activity field—ready to revisit, compare, and share.
+                  </p>
+                  <Link
+                    className="group/action mt-7 inline-flex min-h-12 items-center gap-3 rounded-sm bg-ink-strong px-5 text-sm font-semibold text-panel-raised transition-[background-color,transform] duration-150 hover:-translate-y-0.5 hover:bg-ink focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-accent max-tablet:w-full max-tablet:justify-center"
+                    href={current?.onboarding_complete ? `/${current.handle}` : current ? "/onboarding" : "/login"}
+                  >
+                    Open your Agentprint
+                    <ArrowRight size={17} className="transition-transform duration-[180ms] group-hover/action:translate-x-1" aria-hidden="true" />
+                  </Link>
                 </div>
               </div>
             </div>

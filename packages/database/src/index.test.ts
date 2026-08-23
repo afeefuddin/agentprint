@@ -43,8 +43,8 @@ afterAll(async () => {
   await pool.end();
 });
 
-describe("mutual friend comparisons", () => {
-  test("enforces request direction, blocking, mutual sharing, and metric intersections", async () => {
+describe("friend comparisons", () => {
+  test("enforces accepted friendships, blocking, and metric intersections", async () => {
     const alice = await createAccount({
       email: `alice-${suffix}@example.com`,
       password: "a-strong-test-password",
@@ -84,12 +84,7 @@ describe("mutual friend comparisons", () => {
     expect(await actOnFriendship(bob.id, request.id, "accept")).toBe(true);
 
     const accepted = await listFriendships(alice.id);
-    expect(accepted.friends[0]?.canCompare).toBe(false);
-    const disabled = await getFriendComparison(alice.id, request.id, 30);
-    expect(disabled?.status).toBe("sharing_disabled");
-
-    await updateProfile(alice.id, { friends_can_compare: true });
-    await updateProfile(bob.id, { friends_can_compare: true });
+    expect(accepted.friends).toHaveLength(1);
     await pool.query(
       `INSERT INTO daily_usage (
         user_id, local_date, harness_id, model_id, total_tokens, event_count
@@ -106,8 +101,8 @@ describe("mutual friend comparisons", () => {
     expect(comparison.windowDays).toBe(7);
     expect(comparison.people[0].summary.totalTokens).toBe(2000);
     expect(comparison.people[1].summary.totalTokens).toBe(900);
-		expect(comparison.people[0].activity).toHaveLength(7);
-		expect(comparison.visibility).toEqual({ tokens: true, harnesses: true, models: true, streaks: true });
+    expect(comparison.people[0].activity).toHaveLength(7);
+    expect(comparison.visibility).toEqual({ tokens: true, harnesses: true, models: true, streaks: true });
     expect(comparison.people[0].harnesses).toEqual({ codex: 1 });
     expect(comparison.people[0].models).toEqual({ "gpt-5.6-sol": 1 });
 
@@ -120,7 +115,7 @@ describe("mutual friend comparisons", () => {
     expect(hiddenTokens.people[0].harnesses).toEqual({ codex: 1 });
     expect(hiddenTokens.people[0].models).toEqual({ "gpt-5.6-sol": 1 });
 
-		await updateProfile(bob.id, { show_models: false });
+    await updateProfile(bob.id, { show_models: false });
     const redacted = await getFriendComparison(alice.id, request.id, 7);
     expect(redacted?.status).toBe("ready");
     if (!redacted || redacted.status !== "ready") throw new Error("redacted comparison was not ready");

@@ -7,7 +7,7 @@ import { ComparisonTrace } from "@/components/comparison-trace";
 import { requireViewer } from "@/lib/auth";
 import { SiteHeader } from "@/components/site-header";
 import { notFound } from "next/navigation";
-import { appMainClass, avatarChipClass, buttonClass, cx, eyebrowClass } from "@/lib/ui";
+import { appMainClass, avatarChipClass, cx, eyebrowClass } from "@/lib/ui";
 
 export const metadata: Metadata = { title: "Friend comparison" };
 
@@ -45,28 +45,14 @@ export default async function FriendComparisonPage({
       <main id="main" className={appMainClass}>
         <div className="shell">
           <Link className="inline-flex items-center gap-[7px] text-xs text-muted hover:text-ink-strong" href="/friends"><ArrowLeft size={15} /> Back to friends</Link>
-          {comparison.status === "sharing_disabled" ? (
-            <section className="mx-auto mt-9 max-w-[700px] rounded-md border border-line bg-panel p-7 text-center max-tablet:p-[22px]">
-              <span className="mx-auto mb-5 grid size-[54px] place-items-center rounded-sm border border-steel-2 bg-accent-soft text-blue">
-                <LockKeyhole size={23} />
-              </span>
-              <p className={eyebrowClass}>Private comparison</p>
-              <h1 className="my-[13px] text-[42px] font-[weight:480] text-ink-strong max-tablet:text-[37px]">Both traces must be shared.</h1>
-              <p className="mx-auto max-w-[490px] text-muted">
-                {comparison.mine.sharesComparisons ? `@${comparison.other.handle} has not enabled friend comparisons yet.` : "Enable friend comparisons before aligning your trace with a friend."}
-              </p>
-              <Link className={buttonClass({ className: "mt-[26px]" })} href="/friends">Review sharing controls</Link>
-            </section>
-          ) : (
-            <ComparisonReady comparison={comparison} />
-          )}
+          <ComparisonReady comparison={comparison} />
         </div>
       </main>
     </>
   );
 }
 
-function ComparisonReady({ comparison }: { comparison: Extract<Awaited<ReturnType<typeof getFriendComparison>>, { status: "ready" }> }) {
+function ComparisonReady({ comparison }: { comparison: NonNullable<Awaited<ReturnType<typeof getFriendComparison>>> }) {
   const [mine, friend] = comparison.people;
   return (
     <>

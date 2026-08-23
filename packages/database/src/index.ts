@@ -178,12 +178,9 @@ export type Viewer = {
   show_harnesses: boolean;
   show_models: boolean;
   show_streaks: boolean;
-  friends_can_compare: boolean;
   onboarding_complete: boolean;
   created_at: Date;
 };
-
-type ProfileViewer = Omit<Viewer, "friends_can_compare">;
 
 export async function getViewer(token?: string) {
   if (!token) return null;
@@ -191,7 +188,7 @@ export async function getViewer(token?: string) {
     `SELECT u.id, u.email, u.created_at, p.handle, p.display_name, p.bio,
             p.timezone, p.is_public, p.show_tokens, p.show_cost,
             p.show_harnesses, p.show_models, p.show_streaks,
-            p.friends_can_compare, p.onboarding_complete
+            p.onboarding_complete
      FROM sessions s
      JOIN users u ON u.id = s.user_id
      JOIN profiles p ON p.user_id = u.id
@@ -569,6 +566,16 @@ export async function completeOnboardingProfile(userId: string, profile: Onboard
   return result.rowCount === 1;
 }
 
+export async function isProfileHandleAvailable(userId: string, handle: string) {
+  const result = await pool.query(
+    `SELECT 1 FROM profiles
+     WHERE handle = $1 AND user_id <> $2
+     LIMIT 1`,
+    [handle, userId]
+  );
+  return result.rowCount === 0;
+}
+
 export type FriendshipEntry = {
   id: string;
   status: "pending" | "accepted" | "blocked";
@@ -578,9 +585,6 @@ export type FriendshipEntry = {
     handle: string;
     displayName: string;
   };
-  youShareComparisons: boolean;
-  friendSharesComparisons: boolean;
-  canCompare: boolean;
 };
 
 export type FriendshipList = {
@@ -598,15 +602,10 @@ export async function listFriendships(userId: string): Promise<FriendshipList> {
     created_at: Date;
     other_handle: string;
     other_display_name: string;
-    mine_shares: boolean;
-    other_shares: boolean;
   }>(
     `SELECT f.id, f.status, f.requester_id, f.created_at,
-            other.handle AS other_handle, other.display_name AS other_display_name,
-            mine.friends_can_compare AS mine_shares,
-            other.friends_can_compare AS other_shares
+            other.handle AS other_handle, other.display_name AS other_display_name
      FROM friendships f
-     JOIN profiles mine ON mine.user_id = $1
      JOIN profiles other ON other.user_id = CASE
        WHEN f.requester_id = $1 THEN f.addressee_id ELSE f.requester_id END
      WHERE (f.requester_id = $1 OR f.addressee_id = $1)
@@ -625,10 +624,7 @@ export async function listFriendships(userId: string): Promise<FriendshipList> {
       other: {
         handle: row.other_handle,
         displayName: row.other_display_name
-      },
-      youShareComparisons: row.mine_shares,
-      friendSharesComparisons: row.other_shares,
-      canCompare: row.status === "accepted" && row.mine_shares && row.other_shares
+      }
     };
     if (direction === "friend") lists.friends.push(entry);
     else if (direction === "incoming") lists.incoming.push(entry);
@@ -766,7 +762,6 @@ type ComparisonProfile = {
   showHarnesses: boolean;
   showModels: boolean;
   showStreaks: boolean;
-  sharesComparisons: boolean;
 };
 
 export async function getFriendComparison(userId: string, friendshipId: string, windowDays: 7 | 30 | 90) {
@@ -779,7 +774,6 @@ export async function getFriendComparison(userId: string, friendshipId: string, 
     mine_show_harnesses: boolean;
     mine_show_models: boolean;
     mine_show_streaks: boolean;
-    mine_shares: boolean;
     other_id: string;
     other_handle: string;
     other_display_name: string;
@@ -787,7 +781,6 @@ export async function getFriendComparison(userId: string, friendshipId: string, 
     other_show_harnesses: boolean;
     other_show_models: boolean;
     other_show_streaks: boolean;
-    other_shares: boolean;
   }>(
     `SELECT current_date::text AS comparison_date,
             mine.user_id AS mine_id, mine.handle AS mine_handle,
@@ -796,14 +789,12 @@ export async function getFriendComparison(userId: string, friendshipId: string, 
             mine.show_harnesses AS mine_show_harnesses,
             mine.show_models AS mine_show_models,
             mine.show_streaks AS mine_show_streaks,
-            mine.friends_can_compare AS mine_shares,
             other.user_id AS other_id, other.handle AS other_handle,
             other.display_name AS other_display_name,
             other.show_tokens AS other_show_tokens,
             other.show_harnesses AS other_show_harnesses,
             other.show_models AS other_show_models,
-            other.show_streaks AS other_show_streaks,
-            other.friends_can_compare AS other_shares
+            other.show_streaks AS other_show_streaks
      FROM friendships f
      JOIN profiles mine ON mine.user_id = $2
      JOIN profiles other ON other.user_id = CASE
@@ -821,8 +812,7 @@ export async function getFriendComparison(userId: string, friendshipId: string, 
     showTokens: friendship.mine_show_tokens,
     showHarnesses: friendship.mine_show_harnesses,
     showModels: friendship.mine_show_models,
-    showStreaks: friendship.mine_show_streaks,
-    sharesComparisons: friendship.mine_shares
+    showStreaks: friendship.mine_show_streaks
   };
   const other: ComparisonProfile = {
     id: friendship.other_id,
@@ -831,17 +821,8 @@ export async function getFriendComparison(userId: string, friendshipId: string, 
     showTokens: friendship.other_show_tokens,
     showHarnesses: friendship.other_show_harnesses,
     showModels: friendship.other_show_models,
-    showStreaks: friendship.other_show_streaks,
-    sharesComparisons: friendship.other_shares
+    showStreaks: friendship.other_show_streaks
   };
-  if (!mine.sharesComparisons || !other.sharesComparisons) {
-    return {
-      status: "sharing_disabled" as const,
-      friendshipId,
-      mine: comparisonIdentity(mine),
-      other: comparisonIdentity(other)
-    };
-  }
 
   const usage = await pool.query<{
     user_id: string;
@@ -883,14 +864,6 @@ function comparisonDates(today: string, windowDays: number) {
     date.setUTCDate(end.getUTCDate() - (windowDays - index - 1));
     return date.toISOString().slice(0, 10);
   });
-}
-
-function comparisonIdentity(profile: ComparisonProfile) {
-  return {
-    handle: profile.handle,
-    displayName: profile.displayName,
-    sharesComparisons: profile.sharesComparisons
-  };
 }
 
 function normalizedMix(values: Record<string, number>): Record<string, number> {
@@ -943,7 +916,7 @@ function buildComparisonPerson(
 }
 
 export async function getProfile(handle: string, viewerId?: string) {
-  const profile = await one<ProfileViewer>(
+  const profile = await one<Viewer>(
     `SELECT u.id, u.email, u.created_at, p.handle, p.display_name, p.bio,
             p.timezone, p.is_public, p.show_tokens, p.show_cost,
             p.show_harnesses, p.show_models, p.show_streaks, p.onboarding_complete

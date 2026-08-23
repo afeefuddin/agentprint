@@ -15,7 +15,7 @@ import {
   Users,
   X
 } from "lucide-react";
-import { useEffect, useRef, useState, type FormEvent, type MouseEvent } from "react";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
 import {
   buttonClass,
   cx,
@@ -23,22 +23,22 @@ import {
   iconButtonClass,
   iconButtonDangerClass,
   quietActionClass,
-  spinnerClass,
-  switchClass,
-  switchKnobClass
+  spinnerClass
 } from "@/lib/ui";
+import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
 
-const PANEL = "mt-9 overflow-hidden rounded-md border border-line bg-panel";
-const PANEL_HEADING = "flex items-end justify-between gap-7 px-7 py-6 max-tablet:px-[22px]";
-const PANEL_TITLE = "m-0 block text-[20px] font-[weight:530] tracking-[-.02em] text-ink-strong";
-const PANEL_SUB = "mt-1.5 block text-sm text-muted";
-const PANEL_COUNT = "pb-0.5 text-xs font-medium text-faint";
+const SECTION = "mt-10";
+const SECTION_HEADING = "mb-3 flex items-end justify-between gap-7";
+const SECTION_TITLE = "m-0 block text-base font-[weight:560] text-ink-strong";
+const SECTION_SUB = "mt-1 block text-xs leading-[1.5] text-muted";
+const SECTION_COUNT = "pb-0.5 text-xs font-medium text-faint";
+const CARD = "rounded-md border border-line bg-panel shadow-[0_1px_2px_color-mix(in_srgb,var(--color-ink-strong)_5%,transparent)]";
 const ROW =
-  "grid min-h-[76px] grid-cols-[minmax(220px,1fr)_minmax(175px,.7fr)_auto] items-center gap-[18px] border-b border-line px-7 py-3 transition-colors duration-[140ms] last:border-b-0 hover:bg-[color-mix(in_srgb,var(--color-canvas-deep)_55%,transparent)] max-desktop:grid-cols-[minmax(200px,1fr)_auto] max-tablet:grid-cols-[1fr] max-tablet:gap-[11px] max-tablet:px-[22px] max-tablet:py-3.5";
+  `${CARD} grid min-h-[92px] grid-cols-[minmax(220px,1fr)_minmax(175px,.7fr)_auto] items-center gap-[18px] px-5 py-4 transition-[border-color,box-shadow,transform] duration-[160ms] hover:-translate-y-px hover:border-line-strong hover:shadow-[0_8px_22px_color-mix(in_srgb,var(--color-ink-strong)_7%,transparent)] max-desktop:grid-cols-[minmax(200px,1fr)_auto] max-tablet:grid-cols-[1fr] max-tablet:gap-[13px] max-tablet:px-[18px] max-tablet:py-4`;
 const ROW_ACTIONS =
   "flex items-center justify-end gap-[7px] max-desktop:col-start-2 max-desktop:row-span-2 max-desktop:row-start-1 max-tablet:col-start-1 max-tablet:row-auto max-tablet:flex-wrap max-tablet:justify-start";
 const RELATIONSHIP_NOTE = "inline-flex items-center gap-1.5 text-xs text-faint";
-const LIST = "border-t border-line";
+const LIST = "grid gap-2.5";
 const MENU_ITEM =
   "flex min-h-[35px] w-full cursor-pointer items-center gap-[7px] rounded-xs border-0 bg-transparent px-[9px] text-left text-xs text-muted hover:bg-canvas-deep hover:text-ink-strong disabled:cursor-wait disabled:opacity-50";
 
@@ -59,18 +59,15 @@ type Notice = { message: string; tone: "success" | "error" };
 type ConnectionTarget = Pick<FriendshipEntry, "id" | "other">;
 
 export function FriendsWorkspace({
-  initialFriendships,
-  initialComparisonSharing
+  initialFriendships
 }: {
   initialFriendships: FriendshipList;
-  initialComparisonSharing: boolean;
 }) {
   const [friendships, setFriendships] = useState(initialFriendships);
-  const [comparisonSharing, setComparisonSharing] = useState(initialComparisonSharing);
   const [handle, setHandle] = useState("");
   const [candidate, setCandidate] = useState<Candidate | null>(null);
   const [searching, setSearching] = useState(false);
-  const [sharingBusy, setSharingBusy] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const [pending, setPending] = useState<Record<string, true>>({});
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
@@ -79,6 +76,37 @@ export function FriendsWorkspace({
   useEffect(() => () => {
     if (noticeTimer.current) clearTimeout(noticeTimer.current);
   }, []);
+
+  useEffect(() => {
+    const query = handle.trim().toLowerCase();
+    if (!query) return;
+
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const response = await fetch(`/v1/me/friends/search?handle=${encodeURIComponent(query)}`, {
+          signal: controller.signal
+        });
+        const result = await response.json();
+        if (!response.ok) {
+          setSearchError(result.message ?? "That profile could not be found.");
+          return;
+        }
+        setCandidate(result.candidate);
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        setSearchError("That profile could not be found.");
+      } finally {
+        if (!controller.signal.aborted) setSearching(false);
+      }
+    }, 350);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [handle]);
 
   function showNotice(message: string, tone: Notice["tone"] = "success") {
     if (noticeTimer.current) clearTimeout(noticeTimer.current);
@@ -99,24 +127,6 @@ export function FriendsWorkspace({
     const response = await fetch("/v1/me/friends");
     if (!response.ok) throw new Error("Friend list refresh failed");
     setFriendships(await response.json());
-  }
-
-  async function search(event: FormEvent) {
-    event.preventDefault();
-    setSearching(true);
-    setCandidate(null);
-    setNotice(null);
-
-    try {
-      const response = await fetch(`/v1/me/friends/search?handle=${encodeURIComponent(handle.trim().toLowerCase())}`);
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.message ?? "That profile could not be found.");
-      setCandidate(result.candidate);
-    } catch (error) {
-      showNotice(error instanceof Error ? error.message : "That profile could not be found.", "error");
-    } finally {
-      setSearching(false);
-    }
   }
 
   async function sendRequest() {
@@ -179,27 +189,6 @@ export function FriendsWorkspace({
     }
   }
 
-  async function toggleSharing() {
-    const next = !comparisonSharing;
-    setComparisonSharing(next);
-    setSharingBusy(true);
-
-    try {
-      const response = await fetch("/v1/me/profile", {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ friends_can_compare: next })
-      });
-      if (!response.ok) throw new Error("Comparison sharing could not be updated.");
-      showNotice(next ? "Friend comparisons enabled." : "Friend comparisons paused.");
-    } catch (error) {
-      setComparisonSharing(!next);
-      showNotice(error instanceof Error ? error.message : "Comparison sharing could not be updated.", "error");
-    } finally {
-      setSharingBusy(false);
-    }
-  }
-
   async function confirmAction() {
     if (!confirmation) return;
     const { action, entry } = confirmation;
@@ -209,120 +198,116 @@ export function FriendsWorkspace({
   }
 
   const friendCount = friendships.friends.length;
-  const readyCount = friendships.friends.filter((entry) => canCompare(entry, comparisonSharing)).length;
 
   return (
     <>
-      <header className="mb-9 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-12 max-desktop:grid-cols-[1fr] max-desktop:items-start max-desktop:gap-7">
-        <div className="min-w-0">
-          <div className="flex items-center gap-3 max-tablet:flex-col max-tablet:items-start max-tablet:gap-[5px]">
-            <h1 className="m-0 text-[36px] font-[weight:540] leading-none tracking-[-.04em] text-ink-strong">Friends</h1>
-            <span className="inline-flex items-center gap-[5px] text-xs font-[weight:560] text-blue">
-              <LockKeyhole size={13} /> Private peer network
-            </span>
-          </div>
-          <p className="mb-0 mt-2 max-w-[610px] text-sm leading-[1.55] text-muted">
-            Connect by exact handle and compare agent activity on the same dates. Every comparison requires both friends to opt in.
-          </p>
-        </div>
-        <div
-          className="grid grid-cols-3 divide-x divide-line max-desktop:w-full"
-          aria-label="Friend workspace summary"
-        >
-          {[
-            { value: friendCount, label: "Connected" },
-            { value: friendships.incoming.length, label: "Requests" },
-            { value: readyCount, label: "Ready to compare" }
-          ].map((stat) => (
-            <span
-              key={stat.label}
-              className="min-w-[104px] px-[17px] py-1 first:pl-0 last:pr-0 max-tablet:min-w-0 max-tablet:px-2.5"
-            >
-              <b className="block text-[26px] font-[weight:540] leading-none text-ink-strong [font-variant-numeric:tabular-nums]">{stat.value}</b>
-              <small className="mt-1.5 block whitespace-nowrap text-xs text-faint max-tablet:whitespace-normal">{stat.label}</small>
-            </span>
-          ))}
-        </div>
-      </header>
-
-      <section
-        className="grid min-h-[82px] grid-cols-[auto_1fr_auto_auto] items-center gap-[13px] rounded-md border border-line bg-panel px-6 py-4 max-tablet:grid-cols-[auto_1fr_auto] max-tablet:px-[22px]"
-        aria-labelledby="friend-sharing-title"
-      >
-        <span className="grid size-[38px] place-items-center rounded-sm border border-line bg-canvas text-blue"><LockKeyhole size={18} /></span>
-        <span>
-          <b id="friend-sharing-title" className="block text-xs text-ink-strong">Friend comparisons</b>
-          <small className="mt-[3px] block text-xs text-muted">
-            {comparisonSharing ? "Accepted friends can compare mutually visible metrics." : "Your trace stays unavailable until you enable sharing."}
-          </small>
-        </span>
-        <span className="text-xs text-faint data-[enabled]:text-blue max-tablet:col-start-2" data-enabled={comparisonSharing || undefined}>
-          {comparisonSharing ? "Enabled" : "Paused"}
-        </span>
-        <button
-          className={cx(switchClass, "max-tablet:col-start-3 max-tablet:row-span-2 max-tablet:row-start-1")}
-          role="switch"
-          aria-checked={comparisonSharing}
-          aria-label="Friend comparisons"
-          onClick={toggleSharing}
-          disabled={sharingBusy}
-        ><i className={switchKnobClass} /></button>
-      </section>
-
-      <section className={cx(PANEL, "p-7 max-tablet:p-[22px]")} aria-labelledby="add-friend-title">
-        <div className={cx(PANEL_HEADING, "px-0 pb-5 pt-0 max-tablet:px-0")}>
-          <span className="min-w-0">
-            <h2 id="add-friend-title" className={PANEL_TITLE}>Add a friend</h2>
-            <small className={PANEL_SUB}>Exact handles protect discovery from becoming a public directory.</small>
+      <header className="mb-10">
+        <div className="flex items-center gap-3">
+          <h1 className="m-0 text-[36px] font-[weight:540] leading-none tracking-[-.04em] text-ink-strong">Friends</h1>
+          <span className="inline-flex items-center gap-[5px] rounded-full border border-line bg-panel px-2.5 py-1 text-xs font-[weight:540] text-muted">
+            <LockKeyhole size={12} /> Private
           </span>
         </div>
-        <form
-          className="grid min-h-[56px] grid-cols-[auto_1fr_auto] items-center rounded-sm border border-line bg-canvas-deep transition-[border-color,box-shadow] duration-150 focus-within:border-steel-3 focus-within:shadow-[inset_0_0_0_1px_var(--color-steel-2)]"
-          onSubmit={search}
-        >
-          <label className="sr-only" htmlFor="friend-handle">Exact Agentprint handle</label>
-          <span aria-hidden="true" className="pl-4 text-faint">@</span>
-          <input
-            id="friend-handle"
-            className="h-[54px] min-w-0 border-0 bg-transparent pl-[3px] pr-3 text-ink-strong outline-0 placeholder:text-faint"
-            value={handle}
-            onChange={(event) => setHandle(event.target.value)}
-            placeholder="Exact Agentprint handle"
-            autoComplete="off"
-            required
-          />
-          <button
-            className={buttonClass({ size: "small", className: "mr-[7px] max-tablet:min-w-[44px] max-tablet:px-3" })}
-            disabled={searching || !handle.trim()}
-          >
-            {searching ? <span className={spinnerClass} /> : <Search size={14} />} {searching ? "Searching…" : "Find friend"}
-          </button>
-        </form>
+        <p className="mb-0 mt-2 max-w-[610px] text-sm leading-[1.55] text-muted">
+          See how your activity lines up with friends.
+        </p>
+      </header>
 
-        {candidate && (
-          <div
-            className="flex min-h-[72px] items-center gap-[18px] rounded-b-sm border border-t-0 border-steel-2 bg-[color-mix(in_srgb,var(--color-accent-soft)_34%,var(--color-panel))] px-[13px] py-[11px] animate-[friend-enter_220ms_cubic-bezier(.16,1,.3,1)_both] max-tablet:flex-col max-tablet:items-start"
-            aria-live="polite"
-          >
-            <FriendIdentity entry={candidate} className="flex-1" />
-            <CandidateAction
-              candidate={candidate}
-              pending={Boolean(pending[`candidate:${candidate.handle}`]) || Boolean(candidate.friendshipId && isPending(pending, candidate.friendshipId))}
-              onAccept={() => act({ id: candidate.friendshipId!, other: candidate }, "accept")}
-              onSend={sendRequest}
-            />
+      <section aria-labelledby="network-overview-title">
+        <div className={SECTION_HEADING}>
+          <span className="min-w-0">
+            <h2 id="network-overview-title" className={SECTION_TITLE}>Your network</h2>
+            <small className={SECTION_SUB}>A private space for the people you build alongside.</small>
+          </span>
+        </div>
+        <div className={cx(CARD, "p-4 max-tablet:p-3.5")} aria-label="Friend workspace summary">
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              { value: friendCount, label: "Friends" },
+              { value: friendships.incoming.length, label: "New requests" },
+              { value: friendships.outgoing.length, label: "Sent requests" }
+            ].map((stat) => (
+              <span key={stat.label} className="rounded-sm bg-canvas-deep px-4 py-3.5 max-tablet:px-3">
+                <b className="block text-[22px] font-[weight:560] leading-none text-ink-strong [font-variant-numeric:tabular-nums]">{stat.value}</b>
+                <small className="mt-2 block text-xs text-muted">{stat.label}</small>
+              </span>
+            ))}
           </div>
-        )}
+        </div>
+      </section>
+
+      <section className={SECTION} aria-labelledby="add-friend-title">
+        <div className={SECTION_HEADING}>
+          <span className="min-w-0">
+            <h2 id="add-friend-title" className={SECTION_TITLE}>Add a friend</h2>
+            <small className={SECTION_SUB}>Search by their Agentprint handle.</small>
+          </span>
+        </div>
+        <div className={cx(CARD, "p-4 max-tablet:p-3.5")}>
+          <Popover
+            open={Boolean(candidate || searchError)}
+            onOpenChange={(open) => {
+              if (open) return;
+              setCandidate(null);
+              setSearchError(null);
+            }}
+          >
+            <PopoverAnchor asChild>
+              <div className="grid min-h-[52px] grid-cols-[auto_1fr_auto] items-center rounded-sm bg-canvas-deep transition-[box-shadow] duration-150 focus-within:shadow-[inset_0_0_0_1px_var(--color-steel-3)]">
+                <label className="sr-only" htmlFor="friend-handle">Agentprint handle</label>
+                <span aria-hidden="true" className="pl-4 text-faint">@</span>
+                <input
+                  id="friend-handle"
+                  className="h-[52px] min-w-0 border-0 bg-transparent pl-[3px] pr-3 text-ink-strong outline-0 placeholder:text-faint"
+                  value={handle}
+                  onChange={(event) => {
+                    setHandle(event.target.value);
+                    setCandidate(null);
+                    setSearchError(null);
+                    setSearching(false);
+                  }}
+                  placeholder="handle"
+                  autoComplete="off"
+                  required
+                />
+                <span className="mr-4 grid size-5 place-items-center text-faint" aria-label={searching ? "Searching" : "Search by handle"}>
+                  {searching ? <span className={spinnerClass} /> : <Search size={15} />}
+                </span>
+              </div>
+            </PopoverAnchor>
+            <PopoverContent
+              align="start"
+              sideOffset={8}
+              onOpenAutoFocus={(event) => event.preventDefault()}
+              className="w-[360px] max-w-[calc(100vw-28px)] border-line-strong bg-panel-raised p-2.5 text-ink shadow-[0_14px_36px_color-mix(in_srgb,var(--color-ink-strong)_12%,transparent)]"
+              aria-live="polite"
+            >
+              {candidate ? (
+                <div className="flex min-h-[58px] items-center gap-3 rounded-sm bg-canvas-deep p-2.5 max-tablet:flex-col max-tablet:items-stretch">
+                  <FriendIdentity entry={candidate} className="min-w-0 flex-1" />
+                  <CandidateAction
+                    candidate={candidate}
+                    pending={Boolean(pending[`candidate:${candidate.handle}`]) || Boolean(candidate.friendshipId && isPending(pending, candidate.friendshipId))}
+                    onAccept={() => act({ id: candidate.friendshipId!, other: candidate }, "accept")}
+                    onSend={sendRequest}
+                  />
+                </div>
+              ) : (
+                <p className="m-0 px-2 py-2 text-xs leading-[1.5] text-muted" role="status">{searchError}</p>
+              )}
+            </PopoverContent>
+          </Popover>
+        </div>
       </section>
 
       {friendships.incoming.length > 0 && (
-        <section className={PANEL} aria-labelledby="incoming-title">
-          <div className={PANEL_HEADING}>
+        <section className={SECTION} aria-labelledby="incoming-title">
+          <div className={SECTION_HEADING}>
             <span className="min-w-0">
-              <h2 id="incoming-title" className={PANEL_TITLE}>Requests for you</h2>
-              <small className={PANEL_SUB}>Only accept people whose handle you recognize.</small>
+              <h2 id="incoming-title" className={SECTION_TITLE}>Requests for you</h2>
+              <small className={SECTION_SUB}>People who want to connect with you.</small>
             </span>
-            <span className={PANEL_COUNT}>{friendships.incoming.length}</span>
+            <span className={SECTION_COUNT}>{friendships.incoming.length}</span>
           </div>
           <div className={LIST}>
             {friendships.incoming.map((entry) => (
@@ -348,39 +333,38 @@ export function FriendsWorkspace({
         </section>
       )}
 
-      <section className={PANEL} aria-labelledby="network-title">
-        <div className={PANEL_HEADING}>
+      <section className={SECTION} aria-labelledby="network-title">
+        <div className={SECTION_HEADING}>
           <span className="min-w-0">
-            <h2 id="network-title" className={PANEL_TITLE}>Your friends</h2>
-            <small className={PANEL_SUB}>Comparison availability follows both people’s sharing controls.</small>
+            <h2 id="network-title" className={SECTION_TITLE}>Your friends</h2>
+            <small className={SECTION_SUB}>Compare activity with the people you’ve added.</small>
           </span>
-          <span className={PANEL_COUNT}>{friendCount}</span>
+          <span className={SECTION_COUNT}>{friendCount}</span>
         </div>
         <div className={LIST}>
           {friendCount === 0 && (
-            <div className="flex min-h-[92px] items-center gap-[13px] px-4 py-[18px] text-faint">
-              <Users size={22} />
+            <div className={cx(CARD, "flex min-h-[104px] items-center gap-[13px] px-5 py-[18px] text-faint")}>
+              <span className="grid size-10 shrink-0 place-items-center rounded-sm bg-canvas-deep"><Users size={18} /></span>
               <span>
-                <b className="block text-xs text-ink">Your peer rail is empty</b>
-                <small className="mt-[3px] block text-xs">Add someone by exact handle to align your first traces.</small>
+                <b className="block text-sm font-[weight:540] text-ink-strong">No friends yet</b>
+                <small className="mt-1 block text-xs">Add someone above to start comparing activity.</small>
               </span>
             </div>
           )}
           {friendships.friends.map((entry) => {
-            const ready = canCompare(entry, comparisonSharing);
             return (
               <div className={ROW} key={entry.id}>
                 <FriendIdentity entry={entry.other} />
                 <div className="max-desktop:col-start-1 max-tablet:row-auto">
                   <span
                     className="inline-flex items-center gap-[7px] text-xs text-faint before:size-1.5 before:rounded-full before:bg-line-strong before:content-[''] data-[ready]:text-blue data-[ready]:before:bg-blue data-[ready]:before:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-blue)_10%,transparent)]"
-                    data-ready={ready || undefined}
+                    data-ready
                   >
-                    {sharingStatus(entry, comparisonSharing)}
+                    Ready to compare
                   </span>
                 </div>
                 <div className={ROW_ACTIONS}>
-                  <ComparisonAction entry={entry} ready={ready} comparisonSharing={comparisonSharing} sharingBusy={sharingBusy} onEnableSharing={toggleSharing} />
+                  <ComparisonAction entry={entry} />
                   <ActionMenu
                     entry={entry}
                     disabled={isPending(pending, entry.id)}
@@ -395,13 +379,13 @@ export function FriendsWorkspace({
       </section>
 
       {friendships.outgoing.length > 0 && (
-        <section className={PANEL} aria-labelledby="sent-title">
-          <div className={PANEL_HEADING}>
+        <section className={SECTION} aria-labelledby="sent-title">
+          <div className={SECTION_HEADING}>
             <span className="min-w-0">
-              <h2 id="sent-title" className={PANEL_TITLE}>Sent requests</h2>
-              <small className={PANEL_SUB}>Pending until the other person accepts.</small>
+              <h2 id="sent-title" className={SECTION_TITLE}>Sent requests</h2>
+              <small className={SECTION_SUB}>Waiting for the other person.</small>
             </span>
-            <span className={PANEL_COUNT}>{friendships.outgoing.length}</span>
+            <span className={SECTION_COUNT}>{friendships.outgoing.length}</span>
           </div>
           <div className={LIST}>
             {friendships.outgoing.map((entry) => (
@@ -420,7 +404,7 @@ export function FriendsWorkspace({
           <summary className="flex w-fit cursor-pointer items-center gap-2 px-0.5 py-3.5">
             Blocked people <span className="grid h-5 min-w-5 place-items-center border border-line text-2xs">{friendships.blocked.length}</span>
           </summary>
-          <div className="overflow-hidden rounded-md border border-line bg-panel">
+          <div className={LIST}>
             {friendships.blocked.map((entry) => (
               <div className={ROW} key={entry.id}>
                 <FriendIdentity entry={entry.other} />
@@ -570,16 +554,6 @@ function FriendIdentity({ entry, className }: { entry: { handle: string; display
   );
 }
 
-function canCompare(entry: FriendshipEntry, comparisonSharing: boolean) {
-  return comparisonSharing && entry.friendSharesComparisons;
-}
-
-function sharingStatus(entry: FriendshipEntry, comparisonSharing: boolean) {
-  if (canCompare(entry, comparisonSharing)) return "Ready to compare";
-  if (!comparisonSharing) return "Your sharing is paused";
-  return "Waiting for their sharing";
-}
-
 function isPending(pending: Record<string, true>, friendshipId: string) {
   return Object.keys(pending).some((key) => key.startsWith(`${friendshipId}:`));
 }
@@ -591,10 +565,8 @@ function actionMessage(entry: ConnectionTarget, action: "accept" | "decline" | "
   return `@${entry.other.handle} unblocked.`;
 }
 
-function ComparisonAction({ entry, ready, comparisonSharing, sharingBusy, onEnableSharing }: { entry: FriendshipEntry; ready: boolean; comparisonSharing: boolean; sharingBusy: boolean; onEnableSharing: () => void }) {
-  if (ready) return <Link className={buttonClass({ variant: "secondary", size: "small" })} href={`/friends/${entry.id}`}>Compare traces <ArrowRight size={13} /></Link>;
-  if (!comparisonSharing) return <button className={cx(quietActionClass, "text-blue")} onClick={onEnableSharing} disabled={sharingBusy}>Enable sharing</button>;
-  return null;
+function ComparisonAction({ entry }: { entry: FriendshipEntry }) {
+  return <Link className={buttonClass({ variant: "secondary", size: "small" })} href={`/friends/${entry.id}`}>Compare traces <ArrowRight size={13} /></Link>;
 }
 
 function confirmationCopy(confirmation: Confirmation) {

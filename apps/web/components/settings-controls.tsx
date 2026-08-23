@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { AlertTriangle, Check, Copy, Download, ExternalLink, Globe, Laptop, Terminal, Trash2, Users } from "lucide-react";
+import { AlertTriangle, Check, Copy, Download, ExternalLink, Globe, Laptop, LogOut, Terminal, Trash2 } from "lucide-react";
 import { compactTokens, harnessBrand, harnessLabels, modelBrand } from "@/lib/brands";
 import { buttonClass, iconButtonDangerClass, modelChart, switchClass, switchKnobClass } from "@/lib/ui";
 import { useState } from "react";
@@ -35,17 +35,12 @@ type Privacy = {
   show_harnesses: boolean;
   show_models: boolean;
   show_streaks: boolean;
-  friends_can_compare: boolean;
 };
 
 type FieldKey = "show_tokens" | "show_cost" | "show_harnesses" | "show_models" | "show_streaks";
 
-// Two audience switches decide whether anyone can see the profile at all; the field
-// switches below decide which metrics those audiences get. The old flat grid of seven
-// identical toggles hid that distinction.
-const audiences: { key: "is_public" | "friends_can_compare"; label: string; description: string }[] = [
-  { key: "is_public", label: "Public profile", description: "Anyone holding your profile address can open it." },
-  { key: "friends_can_compare", label: "Friend comparisons", description: "Accepted friends can compare their trace against yours." }
+const audiences: { key: "is_public"; label: string; description: string }[] = [
+  { key: "is_public", label: "Public profile", description: "Anyone holding your profile address can open it." }
 ];
 
 const fields: { key: FieldKey; label: string }[] = [
@@ -70,12 +65,8 @@ function stamp(value: string) {
 }
 
 function audienceNote(privacy: Privacy) {
-  if (privacy.is_public && privacy.friends_can_compare) {
-    return "Anyone with your address, plus accepted friends, can see the fields marked visible.";
-  }
-  if (privacy.is_public) return "Anyone with your address can see the fields marked visible.";
-  if (privacy.friends_can_compare) return "Only accepted friends can see the fields marked visible.";
-  return "Nothing is shared right now. These fields apply the moment you turn on an audience.";
+  if (privacy.is_public) return "Anyone with your address can see these fields. Accepted friends can also compare them.";
+  return "Your public profile is private. Accepted friends can still compare the fields marked visible.";
 }
 
 export function SettingsControls({
@@ -141,7 +132,7 @@ export function SettingsControls({
               key={audience.key}
             >
               <span className="grid size-[42px] place-items-center rounded-sm border border-line bg-canvas text-faint group-data-[on]:border-steel-2 group-data-[on]:bg-panel-raised group-data-[on]:text-accent max-tablet:hidden">
-                {audience.key === "is_public" ? <Globe size={17} /> : <Users size={17} />}
+                <Globe size={17} />
               </span>
               <span>
                 <b className="block text-base font-[weight:540] text-ink-strong">{audience.label}</b>
@@ -401,6 +392,20 @@ export function SettingsControls({
         </div>
         <div className="min-w-0">
           <div className="flex min-h-[84px] items-center justify-between gap-6 rounded-sm border border-line bg-panel px-[22px] py-[19px] max-tablet:flex-col max-tablet:items-start max-tablet:gap-4 max-tablet:p-5">
+            <span>
+              <b className="block text-base font-[weight:540] text-ink-strong">Current session</b>
+              <small className="mt-1 flex items-center gap-1.5 text-xs text-muted">Sign out of Agentprint on this browser.</small>
+            </span>
+            <form action="/api/auth/logout" method="post" className="flex-none max-tablet:w-full">
+              <button
+                className={buttonClass({ variant: "secondary", size: "small", className: "max-tablet:w-full" })}
+                type="submit"
+              >
+                <LogOut size={15} /> Log out
+              </button>
+            </form>
+          </div>
+          <div className="mt-2.5 flex min-h-[84px] items-center justify-between gap-6 rounded-sm border border-line bg-panel px-[22px] py-[19px] max-tablet:flex-col max-tablet:items-start max-tablet:gap-4 max-tablet:p-5">
             <span>
               <b className="block text-base font-[weight:540] text-ink-strong">Export personal data</b>
               <small className="mt-1 flex items-center gap-1.5 text-xs text-muted">JSON · normalized records and settings</small>
