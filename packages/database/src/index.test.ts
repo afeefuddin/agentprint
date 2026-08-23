@@ -266,6 +266,9 @@ describe("ingestion and public profile boundaries", () => {
     expect(stored.rows[0]).toEqual({ estimated_cost_micros: null, cost_basis: null });
 
     const publicProfile = await getProfile(handle);
+    expect(publicProfile?.profile).not.toHaveProperty("id");
+    expect(publicProfile?.profile).not.toHaveProperty("email");
+    expect(publicProfile?.profile).not.toHaveProperty("onboarding_complete");
     expect(publicProfile?.summary.totalTokens).toBe(0);
     expect(publicProfile?.summary.currentStreak).toBe(0);
     expect(publicProfile?.harnesses).toEqual({});

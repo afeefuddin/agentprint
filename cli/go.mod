@@ -1,6 +1,6 @@
 module github.com/agentprint/agentprint/cli
 
-go 1.25
+go 1.25.13
 
 require (
 	github.com/denisbrodbeck/machineid v1.0.1

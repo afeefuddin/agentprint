@@ -14,7 +14,8 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const { device, payload, response } = await readSignedDeviceRequest(request, {
-    maxBytes: 8 * 1024 * 1024
+    maxCompressedBytes: 8 * 1024 * 1024,
+    maxDecompressedBytes: 32 * 1024 * 1024
   });
   if (response) return response;
   if (!(await consumeRateLimit(`share:${device.user_id}`, 60, 3600))) {

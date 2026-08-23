@@ -999,8 +999,23 @@ export async function getProfile(handle: string, viewerId?: string) {
     mostUsedHarness:
       Object.entries(harnesses).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null
   };
+  // Keep account-only fields out of every profile response. This explicit DTO
+  // is intentionally allowlisted so future Viewer fields do not become public
+  // just because they were added to the internal query above.
+  const publicProfile = {
+    handle: profile.handle,
+    display_name: profile.display_name,
+    bio: profile.bio,
+    timezone: profile.timezone,
+    is_public: profile.is_public,
+    show_tokens: profile.show_tokens,
+    show_harnesses: profile.show_harnesses,
+    show_models: profile.show_models,
+    show_streaks: profile.show_streaks,
+    created_at: profile.created_at
+  };
   const result = {
-    profile,
+    profile: publicProfile,
     activity,
     harnesses,
     models,
