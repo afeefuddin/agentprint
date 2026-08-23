@@ -15,6 +15,11 @@ export default function ShareClaudeSessionGuide() {
     intro="Choose a Claude Code session, review what will be shared on your machine, and publish it as unlisted, friends-only, or public. Your other sessions stay private."
     agent="claude"
     mode="sharing"
+    proof={[
+      { value: "One session", label: "Chosen from local history" },
+      { value: "Strict mode", label: "Safer starting redaction" },
+      { value: "Revocable", label: "Delete it and disable the link" }
+    ]}
     outcomeTitle="Show the work behind the result."
     outcomeBody="A shared session can preserve the useful arc of a debugging or building run without sharing your other conversations."
     steps={[

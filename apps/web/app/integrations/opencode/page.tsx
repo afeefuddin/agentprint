@@ -16,6 +16,11 @@ export default function OpenCodeIntegrationPage() {
     qualifier="Agentprint tracks historical OpenCode activity. It does not report provider quota or billing, and OpenCode transcript sharing is not supported yet."
     agent="opencode"
     mode="tracking"
+    proof={[
+      { value: "Activity", label: "Historical totals are supported" },
+      { value: "Private", label: "Conversation content is excluded" },
+      { value: "Tracking only", label: "Session sharing is not supported yet" }
+    ]}
     outcomeTitle="One activity history across your coding agents."
     outcomeBody="OpenCode activity can contribute to the same profile as Claude Code, Codex, and Kimi Code without making you maintain a separate dashboard for every tool."
     steps={[

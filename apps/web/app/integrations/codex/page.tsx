@@ -16,6 +16,11 @@ export default function CodexIntegrationPage() {
     qualifier="Agentprint is a historical activity dashboard, not an OpenAI quota, rate-limit, or billing monitor."
     agent="codex"
     mode="tracking"
+    proof={[
+      { value: "One command", label: "Refresh supported local sources" },
+      { value: "No content", label: "Prompts and code stay out of sync" },
+      { value: "Cross-agent", label: "One profile for your tools" }
+    ]}
     outcomeTitle="A durable trace of agent-assisted work."
     outcomeBody="Individual sessions disappear into terminal history. Agentprint keeps the numeric pattern visible while leaving the substance of your work on your machine by default."
     steps={[

@@ -16,6 +16,11 @@ export default function KimiCodeIntegrationPage() {
     qualifier="Agentprint tracks historical coding activity. It does not report remaining Kimi quota, reset windows, or provider billing."
     agent="kimi"
     mode="tracking"
+    proof={[
+      { value: "Local first", label: "Kimi activity read on-device" },
+      { value: "Two paths", label: "Tracking and sharing stay separate" },
+      { value: "Private", label: "Your profile starts hidden" }
+    ]}
     outcomeTitle="Keep the pattern, without syncing the work itself."
     outcomeBody="Kimi Code sessions contribute to the same cross-agent activity field as your other tools, while prompts, responses, code, repository names, and local paths remain outside normal sync."
     steps={[
@@ -35,8 +40,8 @@ export default function KimiCodeIntegrationPage() {
       { question: "Can Kimi Code activity remain private?", answer: "Yes. The profile begins private, and each public metric group has its own visibility control." }
     ]}
     related={[
+      { href: "/guides/share-kimi-code-session", label: "Share a Kimi Code session", detail: "Preview and publish one selected session." },
       { href: "/integrations/claude-code", label: "Claude Code guide", detail: "Track another supported local agent." },
-      { href: "/integrations/codex", label: "Codex guide", detail: "Add Codex activity to the same profile." },
       { href: "/privacy", label: "Read about privacy", detail: "See what Agentprint tracks automatically and what you choose to share." }
     ]}
   />;

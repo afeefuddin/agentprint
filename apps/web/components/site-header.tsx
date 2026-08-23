@@ -41,9 +41,24 @@ export function SiteHeader({
                 Finish setup
               </Link>
             ) : (
-              <Link className={buttonClass({ variant: "signal", size: "small" })} href="/login">
-                Sign in
-              </Link>
+              <>
+                {variant === "marketing" ? (
+                  <div className="mr-2 flex items-center gap-1 max-tablet:hidden">
+                    <Link className="rounded-lg px-3 py-2 text-sm font-medium text-muted transition-colors hover:bg-panel hover:text-ink-strong" href="/integrations">
+                      Integrations
+                    </Link>
+                    <Link className="rounded-lg px-3 py-2 text-sm font-medium text-muted transition-colors hover:bg-panel hover:text-ink-strong" href="/guides">
+                      Guides
+                    </Link>
+                    <Link className="rounded-lg px-3 py-2 text-sm font-medium text-muted transition-colors hover:bg-panel hover:text-ink-strong" href="/docs">
+                      Docs
+                    </Link>
+                  </div>
+                ) : null}
+                <Link className={buttonClass({ variant: "signal", size: "small" })} href="/login">
+                  Sign in
+                </Link>
+              </>
             )}
           </nav>
         )}

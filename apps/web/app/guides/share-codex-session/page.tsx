@@ -15,6 +15,11 @@ export default function ShareCodexSessionGuide() {
     intro="Agentprint finds your Codex sessions, creates a readable preview on your device, hides likely credentials and private locations, then publishes only the session you choose."
     agent="codex"
     mode="sharing"
+    proof={[
+      { value: "Exact preview", label: "Review the prepared payload" },
+      { value: "Checked twice", label: "Local and server safeguards" },
+      { value: "Unlisted", label: "The default sharing audience" }
+    ]}
     outcomeTitle="A deliberate link, not a background recording."
     outcomeBody="Automatic activity tracking never includes your conversations. Sharing is a separate choice you make for one session at a time."
     steps={[

@@ -16,6 +16,11 @@ export default function ClaudeCodeIntegrationPage() {
     qualifier="Agentprint tracks historical coding activity. It does not report remaining Claude plan quota, reset windows, or provider billing."
     agent="claude"
     mode="tracking"
+    proof={[
+      { value: "Local logs", label: "Read on your machine" },
+      { value: "Historical", label: "Activity, not remaining quota" },
+      { value: "Per metric", label: "Independent visibility controls" }
+    ]}
     outcomeTitle="See the shape of your Claude Code practice."
     outcomeBody="Keep a durable record across individual terminal sessions, then decide which totals, coding tools, models, and streaks belong on your public profile."
     steps={[
