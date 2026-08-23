@@ -1,0 +1,104 @@
+name: CLI
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/cli.yml"
+      - "cli/**"
+      - "scripts/build-local-releases.sh"
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+    paths:
+      - ".github/workflows/cli.yml"
+      - "cli/**"
+      - "scripts/build-local-releases.sh"
+
+concurrency:
+  group: cli-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref_type != 'tag' }}
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Test and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: cli/go.mod
+          cache-dependency-path: cli/go.sum
+
+      - name: Test CLI
+        working-directory: cli
+        run: go test ./...
+
+      - name: Vet CLI
+        working-directory: cli
+        run: go vet ./...
+
+      - name: Build release archives
+        env:
+          RELEASE_OUTPUT_DIR: ${{ runner.temp }}/agentprint-release
+        run: sh scripts/build-local-releases.sh
+
+      - name: Upload release archives
+        uses: actions/upload-artifact@v4
+        with:
+          name: agentprint-cli-${{ github.sha }}
+          path: ${{ runner.temp }}/agentprint-release/
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    name: Publish GitHub release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: cli/go.mod
+          cache-dependency-path: cli/go.sum
+
+      - name: Validate release version
+        run: |
+          tag_version="${GITHUB_REF_NAME#v}"
+          cli_version="$(cd cli && go run ./cmd/agentprint version | awk '{print $2}')"
+          if [ "$tag_version" != "$cli_version" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match CLI version $cli_version" >&2
+            exit 1
+          fi
+
+      - name: Build release archives
+        env:
+          POSTHOG_PROJECT_TOKEN: ${{ secrets.POSTHOG_PROJECT_TOKEN }}
+          POSTHOG_HOST: ${{ secrets.POSTHOG_HOST }}
+          RELEASE_OUTPUT_DIR: ${{ runner.temp }}/agentprint-release
+        run: sh scripts/build-local-releases.sh
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            "$RUNNER_TEMP"/agentprint-release/* \
+            --verify-tag \
+            --notes "Agentprint CLI binaries for macOS, Linux, and Windows." \
+            --title "Agentprint ${GITHUB_REF_NAME#v}"

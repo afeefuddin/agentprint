@@ -75,6 +75,12 @@ bun run cli:release
 The onboarding installer then downloads them from
 `apps/web/public/releases/latest`.
 
+GitHub Actions runs the CLI tests and builds the same six release archives on
+pull requests and pushes to `main`. Pushing a tag that matches the CLI version,
+such as `v0.4.0`, also publishes the archives and checksum manifest to a GitHub
+Release. Configure the optional `POSTHOG_PROJECT_TOKEN` and `POSTHOG_HOST`
+repository secrets to compile telemetry into tagged release binaries.
+
 ## Session sharing
 
 Background collection never uploads transcript content. Sharing is a separate

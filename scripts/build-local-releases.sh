@@ -2,7 +2,7 @@
 set -eu
 
 project_root="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
-output_dir="$project_root/apps/web/public/releases/latest"
+output_dir="${RELEASE_OUTPUT_DIR:-$project_root/apps/web/public/releases/latest}"
 temporary="$(mktemp -d)"
 trap 'rm -rf "$temporary"' EXIT
 mkdir -p "$output_dir"
