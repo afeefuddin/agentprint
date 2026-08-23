@@ -8,6 +8,7 @@ import {
   publicProfileSearchSchema,
   reservedHandles,
   sessionShareSchema,
+  cliTelemetrySchema,
   syncBatchSchema,
   usageRecordSchema,
   auditShareForCredentials,
@@ -55,6 +56,34 @@ test("batch contract rejects unknown top-level fields", () => {
     records: [validRecord],
     prompts: []
   }).success).toBe(false);
+});
+
+describe("CLI telemetry contract", () => {
+  const event = {
+    event: "cli_command_completed",
+    properties: {
+      command: "sync",
+      success: true,
+      duration_ms: 42,
+      cli_version: "0.4.0",
+      os: "darwin",
+      arch: "arm64"
+    }
+  };
+
+  test("accepts the closed operational event", () => {
+    expect(cliTelemetrySchema.safeParse(event).success).toBe(true);
+  });
+
+  test.each(["arguments", "error", "path", "session_title", "prompt"])(
+    "rejects content-bearing property %s",
+    (property) => {
+      expect(cliTelemetrySchema.safeParse({
+        ...event,
+        properties: { ...event.properties, [property]: "private" }
+      }).success).toBe(false);
+    }
+  );
 });
 
 describe("profile handles", () => {

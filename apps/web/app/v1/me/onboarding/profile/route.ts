@@ -1,8 +1,9 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { onboardingProfileSchema } from "@agentprint/contracts";
 import { completeOnboardingProfile, consumeRateLimit, isProfileHandleAvailable } from "@agentprint/database";
 import { apiViewer } from "@/lib/auth";
 import { conflict, parseJson, tooManyRequests, unauthorized } from "@/lib/http";
+import { capturePostHogEvent } from "@/lib/posthog-server";
 
 export async function GET(request: Request) {
   const current = await apiViewer();
@@ -28,6 +29,10 @@ export async function POST(request: Request) {
   try {
     const completed = await completeOnboardingProfile(current.id, data);
     if (!completed) return conflict("Profile setup has already been completed.");
+    after(() => capturePostHogEvent({
+      distinctId: current.id,
+      event: "onboarding_completed"
+    }));
     return NextResponse.json({ ok: true });
   } catch (error) {
     if (

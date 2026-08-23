@@ -1,8 +1,9 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { z } from "zod";
 import { approveDeviceCode } from "@agentprint/database";
 import { apiViewer } from "@/lib/auth";
 import { parseJson, unauthorized } from "@/lib/http";
+import { capturePostHogEvent } from "@/lib/posthog-server";
 
 const schema = z.object({ user_code: z.string().regex(/^[A-F0-9]{6}-[A-F0-9]{6}$/i) });
 
@@ -18,5 +19,9 @@ export async function POST(request: Request) {
       { status: 400 }
     );
   }
+  after(() => capturePostHogEvent({
+    distinctId: current.id,
+    event: "device_connected"
+  }));
   return NextResponse.json({ ok: true });
 }

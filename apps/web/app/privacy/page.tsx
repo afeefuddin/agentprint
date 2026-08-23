@@ -97,6 +97,7 @@ export default async function PrivacyPage() {
             <section className={SECTION} aria-labelledby="cookies-title">
               <h2 id="cookies-title" className={SECTION_TITLE}>8. Cookies and analytics</h2>
               <p className={COPY}>Our website uses cookies and similar technologies for essential functionality and to understand how the site is used. You can control cookies through your browser settings.</p>
+              <p className={COPY}>We use PostHog for product analytics, error reporting, and session replay. Recordings can include the pages and published session content visible in your browser. Passwords, contact inputs, device codes, URL parameters, network payloads, and console logs are excluded or masked.</p>
             </section>
 
             <section className={SECTION} aria-labelledby="changes-title">

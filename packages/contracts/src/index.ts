@@ -97,6 +97,43 @@ export const syncBatchSchema = z.object({
   records: z.array(usageRecordSchema).min(1).max(2_000)
 }).strict();
 
+export const cliTelemetryCommands = [
+  "status",
+  "sync",
+  "sources",
+  "sessions",
+  "share",
+  "shares",
+  "unshare",
+  "doctor",
+  "pause",
+  "resume",
+  "daemon"
+] as const;
+
+export const cliTelemetryErrorCategories = [
+  "authentication",
+  "cancelled",
+  "network",
+  "storage",
+  "timeout",
+  "validation",
+  "unknown"
+] as const;
+
+export const cliTelemetrySchema = z.object({
+  event: z.literal("cli_command_completed"),
+  properties: z.object({
+    command: z.enum(cliTelemetryCommands),
+    success: z.boolean(),
+    duration_ms: z.int().nonnegative().max(3_600_000),
+    error_category: z.enum(cliTelemetryErrorCategories).optional(),
+    cli_version: z.string().regex(/^[0-9A-Za-z.+-]{1,40}$/),
+    os: z.string().regex(/^[a-z0-9_-]{1,24}$/),
+    arch: z.string().regex(/^[a-z0-9_-]{1,24}$/)
+  }).strict()
+}).strict();
+
 export const profilePatchSchema = z.object({
   display_name: z.string().trim().min(1).max(80).optional(),
   bio: z.string().trim().max(180).optional(),

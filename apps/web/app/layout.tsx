@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { PostHogIdentity } from "@/components/posthog-identity";
+import { viewer } from "@/lib/auth";
 import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -55,7 +57,9 @@ const structuredData = {
   ]
 };
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  const current = await viewer();
+
   return (
     <html lang="en">
       <body>
@@ -65,6 +69,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         >
           Skip to content
         </a>
+        <PostHogIdentity userId={current?.id ?? null} />
         {children}
         <script
           type="application/ld+json"

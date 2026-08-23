@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { createSession, findOrCreateOAuthUser } from "@agentprint/database";
 import { sessionCookie } from "@/lib/auth";
 import {
@@ -9,6 +9,7 @@ import {
   googleIdentity
 } from "@/lib/google-oauth";
 import { requestUrl } from "@/lib/http";
+import { capturePostHogEvent } from "@/lib/posthog-server";
 
 function finish(request: Request, path: string) {
   const response = NextResponse.redirect(requestUrl(request, path));
@@ -41,6 +42,11 @@ export async function GET(request: Request) {
     const safeNext = next?.startsWith("/") && !next.startsWith("//") ? next : undefined;
     const response = finish(request, user.onboardingComplete ? safeNext ?? `/${user.handle}` : "/onboarding");
     response.cookies.set(sessionCookie(token));
+    after(() => capturePostHogEvent({
+      distinctId: user.id,
+      event: "account_signed_in",
+      properties: { provider: "google", source }
+    }));
     return response;
   } catch (error) {
     const reason = error instanceof Error && error.message === "google_verified_email_required"

@@ -98,52 +98,111 @@ func run() error {
 		collector: &collector.Collector{Adapters: availableAdapters, Store: localStore},
 		client:    syncclient.NewClient(configuration.Server),
 	}
+	started := time.Now()
+	var commandErr error
 	switch command {
 	case "status":
-		return application.status(ctx, os.Args[2:])
+		commandErr = application.status(ctx, os.Args[2:])
 	case "sync":
-		return application.sync(ctx, true)
+		commandErr = application.sync(ctx, true)
 	case "sources":
-		return application.sources(ctx, os.Args[2:])
+		commandErr = application.sources(ctx, os.Args[2:])
 	case "sessions":
-		return application.sessions(ctx, os.Args[2:])
+		commandErr = application.sessions(ctx, os.Args[2:])
 	case "share":
-		return application.share(ctx, os.Args[2:])
+		commandErr = application.share(ctx, os.Args[2:])
 	case "shares":
-		return application.shares(ctx, os.Args[2:])
+		commandErr = application.shares(ctx, os.Args[2:])
 	case "unshare":
-		return application.unshare(ctx, os.Args[2:])
+		commandErr = application.unshare(ctx, os.Args[2:])
 	case "privacy":
 		printPrivacy()
 		return nil
 	case "doctor":
-		return application.doctor(ctx, os.Args[2:])
+		commandErr = application.doctor(ctx, os.Args[2:])
 	case "pause":
-		application.config.Paused = true
-		if err := manager.Save(application.config); err != nil {
-			return err
-		}
-		fmt.Println("Collection paused. Local records remain safely queued.")
-		return nil
+		commandErr = func() error {
+			application.config.Paused = true
+			if err := manager.Save(application.config); err != nil {
+				return err
+			}
+			fmt.Println("Collection paused. Local records remain safely queued.")
+			return nil
+		}()
 	case "resume":
-		application.config.Paused = false
-		if err := manager.Save(application.config); err != nil {
-			return err
-		}
-		fmt.Println("Collection resumed.")
-		return application.sync(ctx, true)
+		commandErr = func() error {
+			application.config.Paused = false
+			if err := manager.Save(application.config); err != nil {
+				return err
+			}
+			fmt.Println("Collection resumed.")
+			return application.sync(ctx, true)
+		}()
 	case "logout":
 		return application.logout(ctx)
 	case "daemon":
 		if application.config.Paused {
 			return nil
 		}
-		return application.sync(ctx, false)
+		commandErr = application.sync(ctx, false)
 	case "help", "--help", "-h":
 		printHelp()
 		return nil
 	default:
 		return fmt.Errorf("unknown command %q; run agentprint help", command)
+	}
+	application.trackCommand(command, started, commandErr)
+	return commandErr
+}
+
+func (application *app) trackCommand(command string, started time.Time, commandErr error) {
+	if application.config.DeviceID == "" || os.Getenv("AGENTPRINT_TELEMETRY_DISABLED") == "1" {
+		return
+	}
+	credential, err := application.configManager.Credential(application.config.DeviceID)
+	if err != nil || credential.AccessToken == "" {
+		return
+	}
+
+	duration := int(time.Since(started).Milliseconds())
+	if duration > 3_600_000 {
+		duration = 3_600_000
+	}
+	properties := syncclient.TelemetryProperties{
+		Command: command, Success: commandErr == nil, DurationMS: duration,
+		CLIVersion: version, OS: runtime.GOOS, Arch: runtime.GOARCH,
+	}
+	if commandErr != nil {
+		properties.ErrorCategory = telemetryErrorCategory(commandErr)
+	}
+
+	telemetryContext, cancel := context.WithTimeout(context.Background(), 1500*time.Millisecond)
+	defer cancel()
+	_ = application.client.Track(telemetryContext, credential.AccessToken, syncclient.TelemetryEvent{
+		Event: "cli_command_completed", Properties: properties,
+	})
+}
+
+func telemetryErrorCategory(err error) string {
+	switch {
+	case errors.Is(err, context.Canceled):
+		return "cancelled"
+	case errors.Is(err, context.DeadlineExceeded):
+		return "timeout"
+	}
+
+	message := strings.ToLower(err.Error())
+	switch {
+	case strings.Contains(message, "credential"), strings.Contains(message, "unauthorized"), strings.Contains(message, "not connected"):
+		return "authentication"
+	case strings.Contains(message, "sqlite"), strings.Contains(message, "queue"), strings.Contains(message, "keychain"):
+		return "storage"
+	case strings.Contains(message, "connection"), strings.Contains(message, "network"), strings.Contains(message, "server"):
+		return "network"
+	case strings.Contains(message, "invalid"), strings.Contains(message, "requires"), strings.Contains(message, "unknown"):
+		return "validation"
+	default:
+		return "unknown"
 	}
 }
 
@@ -588,6 +647,17 @@ BACKGROUND COLLECTION — automatic
 
   The sync contract rejects unknown fields, so content cannot enter a batch
   even by accident. Adapters read harness-owned metadata files read-only.
+
+CLI telemetry — automatic, disable with AGENTPRINT_TELEMETRY_DISABLED=1
+
+  COLLECTED
+    • Command name, success, duration, CLI version, OS, and architecture
+    • A closed error category when a command fails
+
+  NEVER COLLECTED
+    • Command arguments or raw error messages
+    • Paths, hostnames, server URLs, device codes, or credentials
+    • Project names, session titles, prompts, responses, or tool output
 
 SESSION SHARING — only when you run agentprint share
 
