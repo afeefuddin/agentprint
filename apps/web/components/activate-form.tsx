@@ -7,7 +7,7 @@ import { buttonClass, formErrorClass } from "@/lib/ui";
 
 const CARD =
   "m-auto w-[min(100%,480px)] rounded-md border border-line-strong bg-panel p-[42px] text-center max-tablet:px-5 max-tablet:py-[30px]";
-const TITLE = "mb-1.5 mt-5 text-[27px] font-[weight:530] tracking-[-.03em]";
+const TITLE = "mb-1.5 mt-5 text-3xl font-medium tracking-[-.03em]";
 const BODY = "my-4 text-sm text-muted";
 
 export function ActivateForm({ initialCode = "" }: { initialCode?: string }) {
@@ -56,7 +56,7 @@ export function ActivateForm({ initialCode = "" }: { initialCode?: string }) {
       <label className="mb-4 mt-[30px] block text-left">
         <span className="mb-[7px] block text-xs font-medium text-faint">Device code</span>
         <input
-          className="h-[58px] w-full rounded-sm border border-line-strong bg-panel px-[13px] text-center text-[22px] font-[weight:520] tracking-[.1em] text-ink-strong outline-none focus:border-blue focus:shadow-[0_0_0_2px_color-mix(in_srgb,var(--color-blue)_12%,transparent)]"
+          className="h-[58px] w-full rounded-sm border border-line-strong bg-panel px-[13px] text-center text-xl font-medium tracking-[.1em] text-ink-strong outline-none focus:border-blue focus:shadow-[0_0_0_2px_color-mix(in_srgb,var(--color-blue)_12%,transparent)]"
           value={code}
           onChange={(event) => setCode(event.target.value.toUpperCase())}
           placeholder="A1B2C3-D4E5F6"

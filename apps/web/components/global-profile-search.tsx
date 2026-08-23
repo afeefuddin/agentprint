@@ -172,7 +172,7 @@ export function GlobalProfileSearch() {
             <span className="flex items-center gap-[7px]">
               <i className="size-[5px] rounded-full bg-green shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-green)_12%,transparent)]" /> Public profiles
             </span>
-            <small className="font-[inherit] text-[inherit]">{loading ? "Searching…" : `${results.length} found`}</small>
+            <small className="text-2xs">{loading ? "Searching…" : `${results.length} found`}</small>
           </div>
           {!loading && results.length === 0 && (
             <p className="m-0 px-4 py-[23px] text-center text-xs text-muted">No public profile matches “{normalized}”.</p>

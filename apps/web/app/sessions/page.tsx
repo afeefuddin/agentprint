@@ -19,10 +19,10 @@ export default async function SessionsPage() {
           <header className="mb-8 flex items-end justify-between gap-8 border-b border-line pb-7 max-tablet:items-start">
             <div>
               <span className={eyebrowClass}>Published work</span>
-              <h1 className="mt-2 text-[36px] font-[weight:560] tracking-[-.035em] text-ink-strong max-tablet:text-[30px]">Your shared sessions</h1>
+              <h1 className="mt-2 text-4xl font-semibold tracking-[-.035em] text-ink-strong max-tablet:text-3xl">Your shared sessions</h1>
             </div>
             <p className="shrink-0 text-right text-xs text-faint max-tablet:hidden">
-              <b className="block text-[28px] font-[weight:560] leading-none text-ink-strong [font-variant-numeric:tabular-nums]">{shares.length}</b>
+              <b className="block text-3xl font-semibold leading-none text-ink-strong [font-variant-numeric:tabular-nums]">{shares.length}</b>
               <span className="mt-1.5 block">{shares.length === 1 ? "session" : "sessions"} published</span>
             </p>
           </header>

@@ -72,7 +72,7 @@ export default async function SettingsPage() {
       <main id="main" className={appMainClass}>
         <div className="shell">
           <header className="mb-9">
-            <h1 className="mb-1.5 text-[32px] font-[weight:520] tracking-[-.04em] max-tablet:text-[27px]">Settings</h1>
+            <h1 className="mb-1.5 text-3xl font-medium tracking-[-.04em] max-tablet:text-3xl">Settings</h1>
             <p className="m-0 max-w-[62ch] text-base text-muted">
               What your profile discloses, the devices allowed to report, and the data you can take with you.
             </p>
@@ -89,21 +89,21 @@ export default async function SettingsPage() {
                 <i className="size-2 rounded-full bg-faint group-data-[tone=healthy]:bg-accent group-data-[tone=waiting]:bg-amber" />
               </span>
               <span>
-                <b className="block text-base font-[weight:540] text-ink-strong">{state.title}</b>
+                <b className="block text-base font-medium text-ink-strong">{state.title}</b>
                 <small className="mt-[3px] block text-xs text-muted">{state.detail}</small>
               </span>
             </div>
             <div className="flex min-h-[92px] flex-col justify-center gap-1.5 border-r border-line px-[22px] py-[18px] max-desktop:border-b max-desktop:border-r-0">
               <span className="text-xs text-faint">Devices</span>
-              <b className="text-[24px] font-[weight:560] leading-none text-ink-strong [font-variant-numeric:tabular-nums]">{active.length}</b>
+              <b className="text-2xl font-semibold leading-none text-ink-strong [font-variant-numeric:tabular-nums]">{active.length}</b>
             </div>
             <div className="flex min-h-[92px] flex-col justify-center gap-1.5 border-r border-line px-[22px] py-[18px] max-tablet:border-b">
               <span className="text-xs text-faint">Trailing tokens</span>
-              <b className="text-[24px] font-[weight:560] leading-none text-ink-strong [font-variant-numeric:tabular-nums]">{formatTokens(data.summary.totalTokens)}</b>
+              <b className="text-2xl font-semibold leading-none text-ink-strong [font-variant-numeric:tabular-nums]">{formatTokens(data.summary.totalTokens)}</b>
             </div>
             <div className="flex min-h-[92px] flex-col justify-center gap-1.5 px-[22px] py-[18px]">
               <span className="text-xs text-faint">Records accepted</span>
-              <b className="text-[24px] font-[weight:560] leading-none text-ink-strong [font-variant-numeric:tabular-nums]">
+              <b className="text-2xl font-semibold leading-none text-ink-strong [font-variant-numeric:tabular-nums]">
                 {data.activity.reduce((sum, day) => sum + day.events, 0).toLocaleString()}
               </b>
             </div>

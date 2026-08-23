@@ -6,6 +6,7 @@ import { SiteHeader } from "@/components/site-header";
 import { ProfileView } from "@/components/profile-view";
 import { PrivateProfileView } from "@/components/private-profile-view";
 import { ProfileFriendAction } from "@/components/profile-friend-action";
+import { absoluteUrl } from "@/lib/site";
 
 export async function generateMetadata({
   params
@@ -13,9 +14,27 @@ export async function generateMetadata({
   params: Promise<{ handle: string }>;
 }): Promise<Metadata> {
   const { handle } = await params;
+  const identity = await getProfileIdentity(handle);
+  if (!identity) {
+    return {
+      title: "Profile not found",
+      robots: { index: false, follow: false }
+    };
+  }
+  const title = `${identity.displayName} (@${identity.handle}) – Coding agent activity`;
+  const description = `${identity.displayName}'s coding agent activity profile on Agentprint.`;
   return {
-    title: `@${handle}`,
-    description: `${handle}'s agent contribution profile on Agentprint.`
+    title: { absolute: title },
+    description,
+    alternates: identity.isPublic ? { canonical: absoluteUrl(`/${identity.handle}`) } : undefined,
+    robots: identity.isPublic ? undefined : { index: false, follow: false },
+    openGraph: identity.isPublic ? {
+      type: "profile",
+      url: absoluteUrl(`/${identity.handle}`),
+      title,
+      description
+    } : undefined,
+    twitter: identity.isPublic ? { card: "summary_large_image", title, description } : undefined
   };
 }
 

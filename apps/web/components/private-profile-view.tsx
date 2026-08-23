@@ -18,7 +18,7 @@ export function PrivateProfileView({ identity, friendAction }: { identity: Profi
           <div className="flex items-center justify-center gap-[17px] max-tablet:justify-start">
             <div className={profileAvatarClass} aria-hidden="true">{initials(identity.displayName)}</div>
             <div>
-              <h1 className="m-0 text-[31px] font-[weight:540] leading-[1.05] text-ink-strong max-tablet:text-[27px]">
+              <h1 className="m-0 text-3xl font-medium leading-[1.05] text-ink-strong max-tablet:text-3xl">
                 {identity.displayName}
               </h1>
               <p className={`${handleClass} mb-0`}>@{identity.handle}</p>
@@ -39,7 +39,7 @@ export function PrivateProfileView({ identity, friendAction }: { identity: Profi
             </p>
             <h2
               id="private-profile-title"
-              className="m-0 text-[clamp(38px,5vw,54px)] font-[weight:520] leading-[1.02] text-ink-strong max-tablet:text-[39px]"
+              className="m-0 text-6xl font-medium leading-[1.02] text-ink-strong max-tablet:text-4xl"
             >
               This profile is private.
             </h2>

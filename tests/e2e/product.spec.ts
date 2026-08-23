@@ -132,6 +132,20 @@ test("landing keeps its live heatmap and ends with the session-to-heatmap card",
     { timeout: 3_500 }
   ).not.toEqual(initialLevels);
 
+  const install = page.getByRole("region", { name: "Install Agentprint" });
+  await expect(install).toContainText("curl -fsSL https://agentprint.tech/install.sh | sh");
+  await expect(install).not.toContainText("AGENTPRINT_DOWNLOAD_BASE");
+  await expect(install.getByRole("tab", { name: "macOS" })).toHaveAttribute("aria-selected", "true");
+  await install.getByRole("tab", { name: "Linux" }).click();
+  await expect(install.getByRole("tabpanel", { name: "Linux install command" })).toContainText(
+    "curl -fsSL https://agentprint.tech/install.sh | sh"
+  );
+  await install.getByRole("tab", { name: "Windows" }).click();
+  await expect(install.getByRole("tabpanel", { name: "Windows install command" })).toContainText(
+    "irm https://agentprint.tech/install.ps1 | iex"
+  );
+  await expect(install.getByRole("button", { name: "Copy Windows install command" })).toBeVisible();
+
   const finalCard = page.getByRole("region", { name: "Every session leaves a trace." });
   await expect(finalCard.getByRole("img", { name: "Coding-agent sessions flowing into an activity heatmap" })).toHaveAttribute("src", /sessions-to-heatmap\.webp/);
   await expect(finalCard.getByRole("link", { name: "Open your Agentprint" })).toBeVisible();
@@ -155,6 +169,9 @@ test("new account starts private and can be published", async ({ page }) => {
   await expect(page.getByLabel("Handle available")).toBeVisible();
   await page.getByRole("button", { name: "Claim profile and continue" }).click();
   await expect(page.getByRole("heading", { name: "Connect your machine." })).toBeVisible();
+  await expect(page.getByLabel("Login command", { exact: true })).toContainText(
+    "agentprint login --server http://localhost:3000"
+  );
   const windowsTab = page.getByRole("tab", { name: "Windows" });
   await windowsTab.click();
   await expect(windowsTab).toHaveAttribute("aria-selected", "true");

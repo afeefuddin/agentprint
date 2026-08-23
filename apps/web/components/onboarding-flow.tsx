@@ -6,13 +6,14 @@ import { FaApple, FaLinux, FaWindows } from "react-icons/fa";
 import { useEffect, useState, type FormEvent } from "react";
 import { buttonClass, cx, formErrorClass } from "@/lib/ui";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { installCommandsFor } from "@/lib/install-commands";
 
 const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
 
 const HEADING =
-  "m-0 text-center text-[clamp(42px,4.4vw,58px)] font-[weight:520] leading-[.98] tracking-[-.045em] text-ink-strong max-tablet:text-[40px]";
+  "m-0 text-center text-6xl font-medium leading-[.98] tracking-[-.045em] text-ink-strong max-tablet:text-4xl";
 const LEAD = "mx-auto mb-0 mt-4 max-w-[480px] text-center text-sm leading-[1.65] text-muted";
-const FIELD_LABEL = "mb-2 block text-xs font-[weight:560] text-muted";
+const FIELD_LABEL = "mb-2 block text-xs font-semibold text-muted";
 const FIELD_INPUT =
   "h-[58px] w-full rounded-md border border-line bg-panel-raised px-[18px] text-sm text-ink-strong shadow-[0_5px_16px_rgb(40_46_35_/_0.035)] outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-faint hover:border-line-strong focus:border-blue focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-blue)_10%,transparent)]";
 type HandleAvailability = "idle" | "checking" | "available" | "taken";
@@ -54,7 +55,7 @@ function CommandBlock({ label, command, name }: CommandBlockProps) {
           {copied ? <CheckCircle2 size={14} className="text-blue" /> : <Clipboard size={14} />}
         </button>
       </div>
-      <pre className="m-0 max-w-full whitespace-pre-wrap break-words px-4 py-4 text-left [overflow-wrap:anywhere]"><code className="font-[ui-monospace,SFMono-Regular,Menlo,monospace] text-xs leading-6 text-ink-strong"><span className="select-none text-blue" aria-hidden="true">$ </span>{command}</code></pre>
+      <pre className="m-0 max-w-full whitespace-pre-wrap break-words px-4 py-4 text-left [overflow-wrap:anywhere]"><code className="font-mono text-xs leading-6 text-ink-strong"><span className="select-none text-blue" aria-hidden="true">$ </span>{command}</code></pre>
     </div>
   );
 }
@@ -67,18 +68,7 @@ function currentOnboardingStep(profileComplete: boolean, hasDevice: boolean, has
 }
 
 export function OnboardingFlow({ handle, hasDevice, hasCompletedSync, profileComplete, appUrl }: OnboardingFlowProps) {
-  const local = appUrl.includes("localhost") || appUrl.includes("127.0.0.1");
-  const installCommands = {
-    macOS: local
-      ? `curl -fsSL ${appUrl}/install.sh | AGENTPRINT_DOWNLOAD_BASE=${appUrl}/releases/latest sh`
-      : `curl -fsSL ${appUrl}/install.sh | sh`,
-    Linux: local
-      ? `curl -fsSL ${appUrl}/install.sh | AGENTPRINT_DOWNLOAD_BASE=${appUrl}/releases/latest sh`
-      : `curl -fsSL ${appUrl}/install.sh | sh`,
-    Windows: local
-      ? `$env:AGENTPRINT_DOWNLOAD_BASE="${appUrl}/releases/latest"; irm ${appUrl}/install.ps1 | iex`
-      : `irm ${appUrl}/install.ps1 | iex`
-  };
+  const commands = installCommandsFor(appUrl);
   const [platform, setPlatform] = useState<Platform>("macOS");
   const [profileError, setProfileError] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
@@ -150,7 +140,7 @@ export function OnboardingFlow({ handle, hasDevice, hasCompletedSync, profileCom
     <div className="relative min-h-[760px] animate-[settle-in_500ms_both] max-tablet:grid max-tablet:min-h-0 max-tablet:grid-cols-[64px_minmax(0,1fr)] max-tablet:gap-4">
       <aside className="absolute left-0 top-1/2 w-[240px] -translate-y-1/2 max-tablet:relative max-tablet:left-auto max-tablet:top-auto max-tablet:w-auto max-tablet:translate-y-0 max-tablet:pt-14">
         <div className="hidden w-full border-b border-line-strong pb-6 text-center max-tablet:block">
-          <span className="text-md font-[weight:560] text-ink-strong">{currentStep + 1}/4</span>
+          <span className="text-md font-semibold text-ink-strong">{currentStep + 1}/4</span>
         </div>
         <ol aria-label="Setup progress" className="relative m-0 flex w-full list-none flex-col gap-3 p-0 before:absolute before:bottom-7 before:left-[22px] before:top-7 before:w-[2px] before:bg-line-strong before:content-[''] max-tablet:mt-7 max-tablet:items-center max-tablet:before:left-1/2 max-tablet:before:-translate-x-1/2">
           {steps.map((step, index) => (
@@ -160,10 +150,10 @@ export function OnboardingFlow({ handle, hasDevice, hasCompletedSync, profileCom
               data-current={!step.complete && index === currentStep}
               className="group relative z-[1] flex min-h-14 w-full items-center gap-4 rounded-sm px-1.5 text-sm text-faint data-[complete=true]:text-muted data-[current=true]:text-ink-strong max-tablet:size-12 max-tablet:justify-center max-tablet:px-0"
             >
-              <span className="grid size-8 shrink-0 place-items-center rounded-full border border-line-strong bg-panel-raised text-xs font-[weight:560] shadow-[0_2px_8px_rgb(40_46_35_/_0.06)] group-data-[complete=true]:border-blue group-data-[complete=true]:text-blue group-data-[current=true]:border-blue group-data-[current=true]:bg-blue group-data-[current=true]:text-white">
+              <span className="grid size-8 shrink-0 place-items-center rounded-full border border-line-strong bg-panel-raised text-xs font-semibold shadow-[0_2px_8px_rgb(40_46_35_/_0.06)] group-data-[complete=true]:border-blue group-data-[complete=true]:text-blue group-data-[current=true]:border-blue group-data-[current=true]:bg-blue group-data-[current=true]:text-white">
                 {step.complete ? <Check size={15} /> : index + 1}
               </span>
-              <b className="font-[weight:540] max-tablet:hidden">{step.label}</b>
+              <b className="font-medium max-tablet:hidden">{step.label}</b>
             </li>
           ))}
         </ol>
@@ -238,7 +228,7 @@ export function OnboardingFlow({ handle, hasDevice, hasCompletedSync, profileCom
                 ].map(({ icon: Icon, title, copy }) => (
                   <div key={title} className="flex items-start gap-3 rounded-sm border border-line bg-panel-raised p-3">
                     <span className="grid size-8 shrink-0 place-items-center rounded-sm border border-steel-1 bg-accent-soft text-blue"><Icon size={15} /></span>
-                    <span><b className="block text-xs font-[weight:560] text-ink-strong">{title}</b><small className="mt-0.5 block text-2xs text-muted">{copy}</small></span>
+                    <span><b className="block text-xs font-semibold text-ink-strong">{title}</b><small className="mt-0.5 block text-2xs text-muted">{copy}</small></span>
                   </div>
                 ))}
               </div>
@@ -254,11 +244,11 @@ export function OnboardingFlow({ handle, hasDevice, hasCompletedSync, profileCom
                 </TabsList>
                 {platformOptions.map(({ value }) => (
                   <TabsContent key={value} value={value} className="m-0">
-                    <CommandBlock label="Install command" command={installCommands[value]} name={`${value} install`} />
+                    <CommandBlock label="Install command" command={commands.install[value]} name={`${value} install`} />
                   </TabsContent>
                 ))}
                 <div className="grid gap-3 border-t border-line pt-5">
-                  <CommandBlock label="Then connect this machine" command="agentprint login" name="Login" />
+                  <CommandBlock label="Then connect this machine" command={commands.login} name="Login" />
                   <p className="m-0 flex items-center justify-end gap-2 pb-2.5 text-xs text-muted max-tablet:justify-start"><i className="size-1.5 rounded-full bg-blue shadow-[0_0_0_4px_color-mix(in_srgb,var(--color-blue)_9%,transparent)] animate-[status-pulse_1.8s_infinite]" /> Waiting for a device to connect…</p>
                 </div>
               </Tabs>
@@ -279,7 +269,7 @@ export function OnboardingFlow({ handle, hasDevice, hasCompletedSync, profileCom
         ) : (
           <div className="m-auto flex min-h-[720px] max-w-[620px] flex-col items-center justify-center px-6 py-16 text-center max-tablet:min-h-[620px]">
             <div className="grid size-[68px] place-items-center rounded-full border border-steel-2 bg-accent-soft text-blue shadow-[0_0_0_12px_color-mix(in_srgb,var(--color-blue)_5%,transparent)]"><Check size={28} /></div>
-            <span className="mb-3 mt-8 block text-xs font-[weight:560] text-blue">First sync complete</span>
+            <span className="mb-3 mt-8 block text-xs font-semibold text-blue">First sync complete</span>
             <h1 className={HEADING}>Your record is live.</h1>
             <p className="mt-5 max-w-[560px] text-base leading-[1.65] text-muted">Review your profile, choose what you want to share, and publish when it feels right.</p>
             <div className="mt-9 flex justify-center gap-2.5 max-tablet:w-full max-tablet:flex-col">

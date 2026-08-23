@@ -21,6 +21,7 @@ import { SiteHeader } from "@/components/site-header";
 import { ShareButton } from "@/components/share-button";
 import { TranscriptView } from "@/components/transcript-view";
 import { appMainClass } from "@/lib/ui";
+import { absoluteUrl } from "@/lib/site";
 
 const redactionCopy: Record<string, string> = {
   strict: "Prompts and replies only; tool arguments and output are hidden.",
@@ -60,12 +61,18 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   const share = await getSharedSession(slug, undefined, { offset: 0, limit: 1 });
-  if (!share) return { title: "Shared session" };
+  if (!share) return { title: "Shared session", robots: { index: false, follow: false } };
   const indexable = share.visibility === "public";
+  const harness = harnessLabels[share.harness_id] ?? share.harness_id;
+  const title = `${share.title} – ${harness} coding session`;
+  const description = `A ${harness} session deliberately shared by ${share.display_name} through Agentprint.`;
   return {
-    title: share.title,
-    description: `A ${harnessLabels[share.harness_id] ?? share.harness_id} session shared by ${share.display_name} on Agentprint.`,
-    robots: indexable ? undefined : { index: false, follow: false }
+    title: { absolute: title },
+    description,
+    alternates: indexable ? { canonical: absoluteUrl(`/s/${share.slug}`) } : undefined,
+    robots: indexable ? undefined : { index: false, follow: false },
+    openGraph: indexable ? { type: "article", url: absoluteUrl(`/s/${share.slug}`), title, description } : undefined,
+    twitter: indexable ? { card: "summary_large_image", title, description } : undefined
   };
 }
 
@@ -97,7 +104,7 @@ export default async function SharedSessionPage({
 
           <header className="pb-8">
             <div className="flex flex-wrap items-center gap-2.5 text-xs text-faint">
-              <span className="inline-flex items-center gap-[7px] font-[weight:560] text-ink-strong">
+              <span className="inline-flex items-center gap-[7px] font-semibold text-ink-strong">
                 <i className="size-2 rounded-full" style={{ background: brand.color }} aria-hidden="true" />
                 {harnessLabels[share.harness_id] ?? brand.label}
               </span>
@@ -111,13 +118,13 @@ export default async function SharedSessionPage({
 
             <div className="mt-5 flex items-start justify-between gap-8 max-tablet:flex-col max-tablet:gap-5">
               <div className="max-w-[780px]">
-                <h1 className="m-0 text-[42px] font-[weight:570] leading-[1.08] tracking-[-.04em] text-ink-strong max-tablet:text-[32px]">
+                <h1 className="m-0 text-4xl font-semibold leading-[1.08] tracking-[-.04em] text-ink-strong max-tablet:text-3xl">
                   {share.title}
                 </h1>
                 {share.summary ? <p className="mt-4 max-w-[720px] text-base leading-[1.6] text-muted">{share.summary}</p> : null}
                 <p className="mt-4 text-xs text-faint">
                   Shared by{" "}
-                  <Link className="font-[weight:560] text-ink-strong hover:text-accent" href={`/${share.handle}`}>
+                  <Link className="font-semibold text-ink-strong hover:text-accent" href={`/${share.handle}`}>
                     {share.display_name} <span className="text-faint">@{share.handle}</span>
                   </Link>
                 </p>
@@ -129,19 +136,19 @@ export default async function SharedSessionPage({
           <section className="grid grid-cols-4 overflow-hidden rounded-sm border border-line max-tablet:grid-cols-2" aria-label="Session summary">
             <div className="border-r border-line px-5 py-4 max-tablet:border-b">
               <span className="flex items-center gap-1.5 text-xs text-faint"><MessageSquareText size={13} /> Turns</span>
-              <strong className="mt-1.5 block text-md font-[weight:560] text-ink-strong [font-variant-numeric:tabular-nums]">{share.turn_count}</strong>
+              <strong className="mt-1.5 block text-md font-semibold text-ink-strong [font-variant-numeric:tabular-nums]">{share.turn_count}</strong>
             </div>
             <div className="border-r border-line px-5 py-4 max-tablet:border-b max-tablet:border-r-0">
               <span className="flex items-center gap-1.5 text-xs text-faint"><Coins size={13} /> Tokens</span>
-              <strong className="mt-1.5 block text-md font-[weight:560] text-ink-strong [font-variant-numeric:tabular-nums]">{formatTokens(Number(share.total_tokens))}</strong>
+              <strong className="mt-1.5 block text-md font-semibold text-ink-strong [font-variant-numeric:tabular-nums]">{formatTokens(Number(share.total_tokens))}</strong>
             </div>
             <div className="border-r border-line px-5 py-4">
               <span className="flex items-center gap-1.5 text-xs text-faint"><Clock3 size={13} /> Duration</span>
-              <strong className="mt-1.5 block text-md font-[weight:560] text-ink-strong [font-variant-numeric:tabular-nums]">{elapsed(share.started_at, share.ended_at)}</strong>
+              <strong className="mt-1.5 block text-md font-semibold text-ink-strong [font-variant-numeric:tabular-nums]">{elapsed(share.started_at, share.ended_at)}</strong>
             </div>
             <div className="px-5 py-4">
               <span className="text-xs text-faint">Model</span>
-              <strong className="mt-1.5 block truncate text-sm font-[weight:560] text-ink-strong">
+              <strong className="mt-1.5 block truncate text-sm font-semibold text-ink-strong">
                 {share.model_ids.join(", ") || "Not reported"}
               </strong>
             </div>
@@ -150,7 +157,7 @@ export default async function SharedSessionPage({
           <details className="group/privacy border-b border-line">
             <summary className="flex min-h-[54px] cursor-pointer list-none items-center gap-2.5 py-3 text-xs [&::-webkit-details-marker]:hidden">
               <ShieldCheck size={15} className="text-accent" aria-hidden="true" />
-              <b className="font-[weight:560] text-ink-strong">Redacted before upload</b>
+              <b className="font-semibold text-ink-strong">Redacted before upload</b>
               <span className="truncate text-muted">
                 {countLabel(share.redaction_stats.secrets_removed ?? 0, "credential value")} removed. {redactionCopy[share.redaction_level] ?? share.redaction_level}
               </span>

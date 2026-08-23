@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { buttonClass, cx, iconButtonDangerClass, quietActionClass } from "@/lib/ui";
 
-const MONO = "font-[ui-monospace,SFMono-Regular,Menlo,monospace]";
+const MONO = "font-mono";
 const emptyStateCommands = ["agentprint sessions", "agentprint share --dry-run"];
 
 const visibilityMeta: Record<ShareVisibility, { label: string; description: string }> = {
@@ -116,7 +116,7 @@ export function SharesWorkspace({
   if (shares.length === 0) {
     return (
       <section className="rounded-md border border-line bg-panel p-7 text-center max-tablet:p-[22px]">
-        <h2 className="m-0 text-lg font-[weight:560] text-ink-strong">No shared sessions yet</h2>
+        <h2 className="m-0 text-lg font-semibold text-ink-strong">No shared sessions yet</h2>
         <p className="mx-auto mt-2.5 max-w-[460px] text-sm text-muted">
           Sharing publishes one session at a time, and only when you ask for it. Your
           background sync never uploads transcript content.
@@ -162,7 +162,7 @@ export function SharesWorkspace({
           >
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2.5 text-xs text-faint">
-                <span className="inline-flex items-center gap-[7px] font-[weight:560] text-ink-strong">
+                <span className="inline-flex items-center gap-[7px] font-semibold text-ink-strong">
                   <i className="size-2 rounded-full" style={{ background: brand.color }} aria-hidden="true" />
                   {harnessLabels[share.harness_id] ?? brand.label}
                 </span>
@@ -174,7 +174,7 @@ export function SharesWorkspace({
                 <span>Published {publishedAt(share.published_at)}</span>
               </div>
 
-              <h2 className="mt-2.5 max-w-[820px] text-[22px] font-[weight:570] leading-[1.25] tracking-[-.02em] text-ink-strong max-tablet:text-lg">
+              <h2 className="mt-2.5 max-w-[820px] text-xl font-semibold leading-[1.25] tracking-[-.02em] text-ink-strong max-tablet:text-lg">
                 <Link className="inline-flex items-start gap-2 hover:text-accent" href={`/s/${share.slug}`}>
                   {share.title}<ArrowUpRight className="mt-1 shrink-0 opacity-0 transition-opacity group-hover:opacity-100" size={16} aria-hidden="true" />
                 </Link>
@@ -183,11 +183,11 @@ export function SharesWorkspace({
                 <p className="mt-2 max-w-[820px] text-sm leading-[1.55] text-muted">{share.summary}</p>
               ) : null}
               <div className="mt-3.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted [font-variant-numeric:tabular-nums]">
-                <span><b className="font-[weight:560] text-ink-strong">{share.turn_count}</b> turns</span>
+                <span><b className="font-semibold text-ink-strong">{share.turn_count}</b> turns</span>
                 <span className="text-line-strong" aria-hidden="true">·</span>
-                <span><b className="font-[weight:560] text-ink-strong">{formatTokens(Number(share.total_tokens))}</b> tokens</span>
+                <span><b className="font-semibold text-ink-strong">{formatTokens(Number(share.total_tokens))}</b> tokens</span>
                 <span className="text-line-strong" aria-hidden="true">·</span>
-                <span><b className="font-[weight:560] text-ink-strong">{duration(share.started_at, share.ended_at)}</b></span>
+                <span><b className="font-semibold text-ink-strong">{duration(share.started_at, share.ended_at)}</b></span>
               </div>
             </div>
 
@@ -210,7 +210,7 @@ export function SharesWorkspace({
                     sideOffset={8}
                     className="w-[320px] rounded-sm border-line-strong bg-panel-raised p-2.5 text-ink shadow-[0_12px_32px_rgb(23_25_20_/_0.12)]"
                   >
-                    <DropdownMenuLabel className="px-2 pb-2 pt-1 text-xs font-[weight:560] text-ink-strong">
+                    <DropdownMenuLabel className="px-2 pb-2 pt-1 text-xs font-semibold text-ink-strong">
                       Who can open this session?
                     </DropdownMenuLabel>
                     {(["unlisted", "friends", "public"] as const).map((option) => (
@@ -224,7 +224,7 @@ export function SharesWorkspace({
                           <VisibilityIcon visibility={option} size={14} />
                         </span>
                         <span className="min-w-0">
-                          <b className="block text-xs font-[weight:560] text-ink-strong">{visibilityMeta[option].label}</b>
+                          <b className="block text-xs font-semibold text-ink-strong">{visibilityMeta[option].label}</b>
                           <span className="mt-0.5 block text-2xs text-muted">{visibilityMeta[option].description}</span>
                         </span>
                         {share.visibility === option ? <Check size={14} className="text-accent" aria-label="Selected" /> : null}

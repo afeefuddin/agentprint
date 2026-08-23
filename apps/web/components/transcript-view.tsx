@@ -62,7 +62,7 @@ function ToolStep({ use, result }: { use: ToolUseBlock; result?: ToolResultBlock
     <details className="group/step border-b border-line last:border-b-0">
       <summary className="grid min-h-10 cursor-pointer list-none grid-cols-[16px_minmax(0,auto)_minmax(0,1fr)_auto_14px] items-center gap-2 py-2 text-left [&::-webkit-details-marker]:hidden">
         <Terminal size={14} className="text-faint" aria-hidden="true" />
-        <b className="text-xs font-[weight:560] text-ink-strong">{use.name}</b>
+        <b className="text-xs font-semibold text-ink-strong">{use.name}</b>
         <span className="truncate text-xs text-muted">{detail}</span>
         {result ? (
           <span className={cx("inline-flex items-center gap-1 text-2xs", result.ok ? "text-muted" : "text-red")}>
@@ -75,7 +75,7 @@ function ToolStep({ use, result }: { use: ToolUseBlock; result?: ToolResultBlock
       <div className="grid gap-2 pb-3 pl-6">
         <div>
           <span className="mb-1 block text-2xs text-faint">Arguments</span>
-          <pre className="m-0 max-h-[340px] overflow-auto whitespace-pre-wrap rounded-xs bg-canvas-deep px-3 py-2.5 font-[ui-monospace,SFMono-Regular,Menlo,monospace] text-2xs leading-[1.55] text-ink [overflow-wrap:anywhere]">
+          <pre className="m-0 max-h-[340px] overflow-auto whitespace-pre-wrap rounded-xs bg-canvas-deep px-3 py-2.5 font-mono text-2xs leading-[1.55] text-ink [overflow-wrap:anywhere]">
             {use.input || "(no arguments)"}
           </pre>
         </div>
@@ -83,7 +83,7 @@ function ToolStep({ use, result }: { use: ToolUseBlock; result?: ToolResultBlock
           <div>
             <span className="mb-1 block text-2xs text-faint">{result.ok ? "Result" : "Error"}{result.truncated ? " · truncated" : ""}</span>
             <pre className={cx(
-              "m-0 max-h-[340px] overflow-auto whitespace-pre-wrap rounded-xs px-3 py-2.5 font-[ui-monospace,SFMono-Regular,Menlo,monospace] text-2xs leading-[1.55] [overflow-wrap:anywhere]",
+              "m-0 max-h-[340px] overflow-auto whitespace-pre-wrap rounded-xs px-3 py-2.5 font-mono text-2xs leading-[1.55] [overflow-wrap:anywhere]",
               result.ok ? "bg-canvas-deep text-ink" : "bg-[color-mix(in_srgb,var(--color-red)_5%,var(--color-panel))] text-red"
             )}>
               {result.output || "(no output)"}
@@ -100,7 +100,7 @@ function ThinkingStep({ block }: { block: ThinkingBlock }) {
     <details className="group/step border-b border-line last:border-b-0">
       <summary className="grid min-h-10 cursor-pointer list-none grid-cols-[16px_auto_1fr_14px] items-center gap-2 py-2 [&::-webkit-details-marker]:hidden">
         <Brain size={14} className="text-faint" aria-hidden="true" />
-        <b className="text-xs font-[weight:560] text-ink-strong">Thinking</b>
+        <b className="text-xs font-semibold text-ink-strong">Thinking</b>
         <span className="truncate text-xs text-muted">Hidden until expanded</span>
         <ChevronRight size={13} className="text-faint transition-transform duration-150 group-open/step:rotate-90" aria-hidden="true" />
       </summary>
@@ -120,7 +120,7 @@ function ExecutionTrail({
   const toolCount = blocks.filter((block) => block.kind === "tool_use").length;
   return (
     <div className="mt-4 border-t border-line pt-2">
-      <p className="flex items-center gap-2 py-1 text-2xs font-[weight:560] text-faint">
+      <p className="flex items-center gap-2 py-1 text-2xs font-semibold text-faint">
         <Terminal size={13} aria-hidden="true" />
         Execution{toolCount ? ` · ${toolCount} ${toolCount === 1 ? "tool call" : "tool calls"}` : ""}
       </p>
@@ -183,7 +183,7 @@ export function TranscriptView({ turns }: { turns: TranscriptTurnView[] }) {
                 isPrompt ? "border-steel-1 bg-accent-soft" : isFinal ? "border-steel-2 bg-panel-raised" : "border-line bg-panel"
               )}>
                 <header className="mb-2.5 flex items-center gap-2 text-xs">
-                  <b className={cx("font-[weight:560]", isPrompt ? "text-accent-strong" : "text-ink-strong")}>
+                  <b className={cx("font-semibold", isPrompt ? "text-accent-strong" : "text-ink-strong")}>
                     {isPrompt ? "Prompt" : isFinal ? "Final answer" : turn.role === "system" ? "System" : "Agent"}
                   </b>
                   {turn.model_id && !isPrompt ? <span className="text-faint">{turn.model_id}</span> : null}

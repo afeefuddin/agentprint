@@ -120,7 +120,7 @@ export function ContributionField({
           <span className={eyebrowClass}>
             <span className="ml-[3px] mr-[5px] inline-block size-1.5 rounded-full bg-green shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-green)_14%,transparent)]" /> Past 12 months
           </span>
-          <h2 id="activity-title" className="mt-2.5 text-[25px] font-[weight:530] tracking-[-.025em] text-ink-strong">
+          <h2 id="activity-title" className="mt-2.5 text-2xl font-medium tracking-[-.025em] text-ink-strong">
             Agent contribution field
           </h2>
         </div>
@@ -218,14 +218,14 @@ export function ContributionField({
           return (
             <>
               <div>
-                <b className="block text-xs font-[weight:520]">
+                <b className="block text-xs font-medium">
                   {new Date(`${selected}T12:00:00Z`).toLocaleDateString("en", { month: "short", day: "numeric", year: "numeric" })}
                 </b>
                 <span className={TRACE_META}>{day ? `${day.events} accepted records` : "No synced activity"}</span>
               </div>
               {showTokens && (
                 <div className="border-l border-line pl-[18px]">
-                  <b className="text-base font-[weight:540]">{formatTokens(day?.tokens ?? 0)}</b>
+                  <b className="text-base font-medium">{formatTokens(day?.tokens ?? 0)}</b>
                   <span className={TRACE_META}>tokens</span>
                 </div>
               )}

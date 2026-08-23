@@ -84,7 +84,7 @@ export const modelChart = {
   root: "grid grid-flow-col auto-cols-[minmax(78px,1fr)] overflow-x-auto rounded-sm border border-line bg-panel px-4 pb-3.5 pt-[18px] [scrollbar-width:thin] max-tablet:auto-cols-[minmax(68px,1fr)] max-tablet:px-3 max-tablet:pb-3 max-tablet:pt-3.5",
   column:
     "group grid min-w-0 grid-rows-[auto_150px_auto_auto] content-start justify-items-center gap-2 max-tablet:grid-rows-[auto_110px_auto_auto]",
-  value: "text-xs font-[weight:550] text-ink-strong [font-variant-numeric:tabular-nums]",
+  value: "text-xs font-semibold text-ink-strong [font-variant-numeric:tabular-nums]",
   barWrap:
     "flex h-[150px] w-full items-end border-b border-line-strong px-[27%] max-tablet:h-[110px] max-tablet:px-[20%]",
   bar: "block w-full rounded-t-[4px] transition-opacity duration-150 group-hover:opacity-[.82]",
@@ -97,13 +97,13 @@ export const modelChart = {
 // Section heading used above profile breakdowns.
 export const sectionHeading = {
   root: "mb-7 flex items-end justify-between gap-7",
-  title: "mt-[7px] text-[24px] font-[weight:530] tracking-[-.025em] text-ink-strong",
+  title: "mt-[7px] text-2xl font-medium tracking-[-.025em] text-ink-strong",
   meta: "text-xs font-medium text-faint"
 } as const;
 
 // Circular initials avatar on a profile header.
 export const profileAvatarClass =
-  "grid size-[76px] place-items-center rounded-full border border-line-strong bg-transparent text-lg font-[weight:560] text-blue";
+  "grid size-[76px] place-items-center rounded-full border border-line-strong bg-transparent text-lg font-semibold text-blue";
 
 // @handle line under a profile name.
-export const handleClass = "mb-[5px] mt-[7px] text-xs font-[weight:520] text-blue";
+export const handleClass = "mb-[5px] mt-[7px] text-xs font-medium text-blue";

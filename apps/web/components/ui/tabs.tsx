@@ -32,7 +32,7 @@ function TabsTrigger({ className, ...props }: React.ComponentProps<typeof TabsPr
     <TabsPrimitive.Trigger
       data-slot="tabs-trigger"
       className={cx(
-        "inline-flex min-h-9 flex-1 cursor-pointer items-center justify-center gap-2 rounded-full border border-transparent px-4 text-xs font-[weight:560] text-muted transition-[color,background-color,border-color,box-shadow] duration-150 hover:text-ink-strong focus-visible:z-[1] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue disabled:pointer-events-none disabled:opacity-50 data-[state=active]:border-line data-[state=active]:bg-panel-raised data-[state=active]:text-ink-strong data-[state=active]:shadow-[0_2px_8px_rgb(40_46_35_/_0.08)] max-tablet:gap-1.5 max-tablet:px-2 [&_svg]:size-4 [&_svg]:shrink-0 data-[state=active]:[&_svg]:text-blue",
+        "inline-flex min-h-9 flex-1 cursor-pointer items-center justify-center gap-2 rounded-full border border-transparent px-4 text-xs font-semibold text-muted transition-[color,background-color,border-color,box-shadow] duration-150 hover:text-ink-strong focus-visible:z-[1] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue disabled:pointer-events-none disabled:opacity-50 data-[state=active]:border-line data-[state=active]:bg-panel-raised data-[state=active]:text-ink-strong data-[state=active]:shadow-[0_2px_8px_rgb(40_46_35_/_0.08)] max-tablet:gap-1.5 max-tablet:px-2 [&_svg]:size-4 [&_svg]:shrink-0 data-[state=active]:[&_svg]:text-blue",
         className
       )}
       {...props}

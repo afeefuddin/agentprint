@@ -2,18 +2,20 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { viewer } from "@/lib/auth";
 import { SiteHeader } from "@/components/site-header";
+import { absoluteUrl } from "@/lib/site";
 
 const SECTION =
   "grid gap-4 border-t border-line pt-9 first:border-t-0 first:pt-0";
 const SECTION_TITLE =
-  "m-0 text-[28px] font-[weight:500] leading-[1.15] tracking-[-.03em] text-ink-strong max-tablet:text-[24px]";
-const COPY = "m-0 text-base font-[weight:450] leading-[1.65] text-muted";
+  "m-0 text-3xl font-medium leading-[1.15] tracking-[-.03em] text-ink-strong max-tablet:text-2xl";
+const COPY = "m-0 text-base font-medium leading-[1.65] text-muted";
 const LIST =
-  "m-0 grid list-disc gap-2.5 pl-5 text-base font-[weight:450] leading-[1.65] text-muted marker:text-ink";
+  "m-0 grid list-disc gap-2.5 pl-5 text-base font-medium leading-[1.65] text-muted marker:text-ink";
 
 export const metadata: Metadata = {
-  title: "Privacy",
-  description: "How Agentprint collects, uses, and protects your information."
+  title: "Privacy-first coding agent tracking",
+  description: "See what Agentprint collects during background sync, what stays on your machine, and how session preview, redaction, visibility, and deletion work.",
+  alternates: { canonical: absoluteUrl("/privacy") }
 };
 
 export default async function PrivacyPage() {
@@ -25,10 +27,10 @@ export default async function PrivacyPage() {
       <main id="main" className="shell pb-[var(--page-bottom)] pt-[72px] max-tablet:pt-12">
         <article className="mx-auto max-w-[734px]">
           <header>
-            <h1 className="m-0 text-[60px] font-[weight:500] leading-[.95] tracking-[-.045em] text-ink-strong max-tablet:text-[44px]">
+            <h1 className="m-0 text-6xl font-medium leading-[.95] tracking-[-.045em] text-ink-strong max-tablet:text-5xl">
               Privacy policy
             </h1>
-            <div className="mt-6 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm font-[weight:450] text-faint">
+            <div className="mt-6 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm font-medium text-faint">
               <span>Last updated August 23, 2026</span>
               <span aria-hidden="true">·</span>
               <span>Legal</span>
@@ -81,7 +83,7 @@ export default async function PrivacyPage() {
             <section className={SECTION} aria-labelledby="control-title">
               <h2 id="control-title" className={SECTION_TITLE}>6. Your controls</h2>
               <p className={COPY}>You control whether your profile is public, which metrics appear, and whether friends can compare activity with you. You can also remove devices, export your data, delete shared sessions, or delete your account.</p>
-              <Link className="w-fit border-b border-line-strong text-base font-[weight:550] text-ink-strong transition-colors hover:border-blue hover:text-blue" href="/settings#visibility">
+              <Link className="w-fit border-b border-line-strong text-base font-semibold text-ink-strong transition-colors hover:border-blue hover:text-blue" href="/settings#visibility">
                 Review your privacy settings
               </Link>
             </section>
@@ -106,7 +108,7 @@ export default async function PrivacyPage() {
               <h2 id="contact-title" className={SECTION_TITLE}>10. Contact</h2>
               <p className={COPY}>
                 For privacy questions or requests, contact us through the{" "}
-                <a className="border-b border-line-strong font-[weight:550] text-ink-strong transition-colors hover:border-blue hover:text-blue" href="https://github.com/afeefuddin/agentprint/issues">
+                <a className="border-b border-line-strong font-semibold text-ink-strong transition-colors hover:border-blue hover:text-blue" href="https://github.com/afeefuddin/agentprint/issues">
                   Agentprint project
                 </a>.
               </p>

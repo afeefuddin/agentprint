@@ -29,7 +29,7 @@ import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover"
 
 const SECTION = "mt-10";
 const SECTION_HEADING = "mb-3 flex items-end justify-between gap-7";
-const SECTION_TITLE = "m-0 block text-base font-[weight:560] text-ink-strong";
+const SECTION_TITLE = "m-0 block text-base font-semibold text-ink-strong";
 const SECTION_SUB = "mt-1 block text-xs leading-[1.5] text-muted";
 const SECTION_COUNT = "pb-0.5 text-xs font-medium text-faint";
 const CARD = "rounded-md border border-line bg-panel shadow-[0_1px_2px_color-mix(in_srgb,var(--color-ink-strong)_5%,transparent)]";
@@ -203,8 +203,8 @@ export function FriendsWorkspace({
     <>
       <header className="mb-10">
         <div className="flex items-center gap-3">
-          <h1 className="m-0 text-[36px] font-[weight:540] leading-none tracking-[-.04em] text-ink-strong">Friends</h1>
-          <span className="inline-flex items-center gap-[5px] rounded-full border border-line bg-panel px-2.5 py-1 text-xs font-[weight:540] text-muted">
+          <h1 className="m-0 text-4xl font-medium leading-none tracking-[-.04em] text-ink-strong">Friends</h1>
+          <span className="inline-flex items-center gap-[5px] rounded-full border border-line bg-panel px-2.5 py-1 text-xs font-medium text-muted">
             <LockKeyhole size={12} /> Private
           </span>
         </div>
@@ -228,7 +228,7 @@ export function FriendsWorkspace({
               { value: friendships.outgoing.length, label: "Sent requests" }
             ].map((stat) => (
               <span key={stat.label} className="rounded-sm bg-canvas-deep px-4 py-3.5 max-tablet:px-3">
-                <b className="block text-[22px] font-[weight:560] leading-none text-ink-strong [font-variant-numeric:tabular-nums]">{stat.value}</b>
+                <b className="block text-xl font-semibold leading-none text-ink-strong [font-variant-numeric:tabular-nums]">{stat.value}</b>
                 <small className="mt-2 block text-xs text-muted">{stat.label}</small>
               </span>
             ))}
@@ -346,7 +346,7 @@ export function FriendsWorkspace({
             <div className={cx(CARD, "flex min-h-[104px] items-center gap-[13px] px-5 py-[18px] text-faint")}>
               <span className="grid size-10 shrink-0 place-items-center rounded-sm bg-canvas-deep"><Users size={18} /></span>
               <span>
-                <b className="block text-sm font-[weight:540] text-ink-strong">No friends yet</b>
+                <b className="block text-sm font-medium text-ink-strong">No friends yet</b>
                 <small className="mt-1 block text-xs">Add someone above to start comparing activity.</small>
               </span>
             </div>
@@ -530,7 +530,7 @@ function ConfirmDialog({ confirmation, onCancel, onConfirm }: { confirmation: Co
           className="grid size-11 place-items-center rounded-sm border border-steel-2 bg-accent-soft text-blue data-[danger]:border-[color-mix(in_srgb,var(--color-red)_42%,var(--color-line))] data-[danger]:bg-[color-mix(in_srgb,var(--color-red)_8%,var(--color-panel))] data-[danger]:text-red"
           data-danger={isBlock || undefined}
         >{isBlock ? <Ban size={19} /> : <Users size={19} />}</span>
-        <h2 id="confirm-title" className="mb-2 mt-5 text-[29px] font-medium text-ink-strong">{copy.title}</h2>
+        <h2 id="confirm-title" className="mb-2 mt-5 text-3xl font-medium text-ink-strong">{copy.title}</h2>
         <p id="confirm-description" className="m-0 text-sm leading-[1.6] text-muted">{copy.description}</p>
         <div className="mt-[26px] flex justify-end gap-2 max-tablet:flex-col-reverse max-tablet:items-stretch">
           <button ref={cancelButton} className={buttonClass({ variant: "secondary", size: "small" })} onClick={onCancel}>Keep connection</button>

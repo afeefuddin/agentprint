@@ -51,10 +51,10 @@ const fields: { key: FieldKey; label: string }[] = [
 
 const ROW = "mt-9 grid grid-cols-[248px_minmax(0,1fr)] gap-12 border-t border-line-strong pt-9 max-desktop:grid-cols-[1fr] max-desktop:gap-5";
 const RAIL = "sticky top-[calc(var(--header-h)+26px)] self-start max-desktop:static";
-const RAIL_TITLE = "mb-1.5 text-md font-[weight:560] tracking-[-.015em] text-ink-strong";
+const RAIL_TITLE = "mb-1.5 text-md font-semibold tracking-[-.015em] text-ink-strong";
 const RAIL_COPY = "m-0 text-xs leading-normal text-muted";
 const PANEL = "overflow-hidden rounded-sm border border-line bg-panel";
-const CELL_LABEL = "block text-base font-[weight:530] text-ink-strong";
+const CELL_LABEL = "block text-base font-medium text-ink-strong";
 const CELL_META = "mt-[3px] block text-xs text-faint";
 const NUMERIC = "text-right text-xs [font-variant-numeric:tabular-nums]";
 
@@ -133,7 +133,7 @@ export function SettingsControls({
                 <Globe size={17} />
               </span>
               <span>
-                <b className="block text-base font-[weight:540] text-ink-strong">{audience.label}</b>
+                <b className="block text-base font-medium text-ink-strong">{audience.label}</b>
                 <small className="mt-[3px] block text-xs text-muted">{audience.description}</small>
               </span>
               <button
@@ -185,9 +185,9 @@ export function SettingsControls({
                 data-on={privacy[field.key] || undefined}
                 key={field.key}
               >
-                <b className="text-base font-[weight:530] text-ink-strong">{field.label}</b>
+                <b className="text-base font-medium text-ink-strong">{field.label}</b>
                 <span
-                  className="text-right text-xs font-medium text-faint group-data-[on]:font-[weight:550] group-data-[on]:text-ink-strong max-tablet:hidden"
+                  className="text-right text-xs font-medium text-faint group-data-[on]:font-semibold group-data-[on]:text-ink-strong max-tablet:hidden"
                   aria-hidden="true"
                 >
                   {privacy[field.key] ? "Visible" : "Hidden"}
@@ -237,7 +237,7 @@ export function SettingsControls({
                         ? <Image src={harnessBrand(harness.id).logo!} alt="" width={18} height={18} className="size-[18px] object-contain" />
                         : <Terminal size={15} />}
                     </span>
-                    <b className="truncate text-base font-[weight:530] text-ink-strong group-data-[idle]:text-muted">
+                    <b className="truncate text-base font-medium text-ink-strong group-data-[idle]:text-muted">
                       {harnessLabels[harness.id] ?? harness.id}
                     </b>
                     {harness.version ? (
@@ -254,7 +254,7 @@ export function SettingsControls({
                       }}
                     />
                   </span>
-                  <span className={`${NUMERIC} font-[weight:550] text-ink-strong`}>{Math.round(harness.share * 100)}%</span>
+                  <span className={`${NUMERIC} font-semibold text-ink-strong`}>{Math.round(harness.share * 100)}%</span>
                   <span className={`${NUMERIC} text-ink-strong`}>{compactTokens(harness.tokens)}</span>
                   <span className={`${NUMERIC} text-faint max-tablet:hidden`}>
                     {harness.lastCollected ? stamp(harness.lastCollected) : "—"}
@@ -319,7 +319,7 @@ export function SettingsControls({
               <div className="flex items-center gap-4 px-[22px] py-[26px] text-faint">
                 <Laptop size={22} />
                 <span className="flex-1">
-                  <b className="block text-base font-[weight:530] text-ink-strong">No connected devices</b>
+                  <b className="block text-base font-medium text-ink-strong">No connected devices</b>
                   <small className="mt-[3px] block text-xs">Install the agent to start your first sync.</small>
                 </span>
                 <Link className="text-xs text-accent" href="/onboarding">Install agent</Link>
@@ -351,7 +351,7 @@ export function SettingsControls({
                 <span className="flex items-center gap-[9px] max-desktop:col-start-2 max-tablet:col-[1_/_-1]">
                   <i className="size-[7px] flex-[0_0_7px] rounded-full bg-accent group-data-[revoked=true]:bg-red" />
                   <span>
-                    <b className="block truncate text-xs font-[weight:540] text-ink-strong">
+                    <b className="block truncate text-xs font-medium text-ink-strong">
                       {device.revoked_at ? "Revoked" : "Healthy"}
                     </b>
                     <small className={CELL_META}>{device.revoked_at
@@ -391,7 +391,7 @@ export function SettingsControls({
         <div className="min-w-0">
           <div className="flex min-h-[84px] items-center justify-between gap-6 rounded-sm border border-line bg-panel px-[22px] py-[19px] max-tablet:flex-col max-tablet:items-start max-tablet:gap-4 max-tablet:p-5">
             <span>
-              <b className="block text-base font-[weight:540] text-ink-strong">Current session</b>
+              <b className="block text-base font-medium text-ink-strong">Current session</b>
               <small className="mt-1 flex items-center gap-1.5 text-xs text-muted">Sign out of Agentprint on this browser.</small>
             </span>
             <form action="/api/auth/logout" method="post" className="flex-none max-tablet:w-full">
@@ -405,7 +405,7 @@ export function SettingsControls({
           </div>
           <div className="mt-2.5 flex min-h-[84px] items-center justify-between gap-6 rounded-sm border border-line bg-panel px-[22px] py-[19px] max-tablet:flex-col max-tablet:items-start max-tablet:gap-4 max-tablet:p-5">
             <span>
-              <b className="block text-base font-[weight:540] text-ink-strong">Export personal data</b>
+              <b className="block text-base font-medium text-ink-strong">Export personal data</b>
               <small className="mt-1 flex items-center gap-1.5 text-xs text-muted">JSON · normalized records and settings</small>
             </span>
             <a
@@ -418,7 +418,7 @@ export function SettingsControls({
           </div>
           <div className="mt-2.5 flex min-h-[84px] items-center justify-between gap-6 rounded-sm border border-line bg-panel px-[22px] py-[19px] max-tablet:flex-col max-tablet:items-start max-tablet:gap-4 max-tablet:p-5">
             <span>
-              <b className="block text-base font-[weight:540] text-ink-strong">Delete account</b>
+              <b className="block text-base font-medium text-ink-strong">Delete account</b>
               <small className="mt-1 flex items-center gap-1.5 text-xs text-muted">
                 <AlertTriangle size={14} className="shrink-0 text-red" /> Permanent and immediate. Removes every server-side record.
               </small>

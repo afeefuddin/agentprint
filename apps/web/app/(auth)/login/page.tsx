@@ -24,7 +24,7 @@ export default async function LoginPage({
         </header>
 
         <div className="mx-auto w-full max-w-[440px]">
-          <h1 className="text-[36px] font-normal leading-tight text-ink-strong">Sign in</h1>
+          <h1 className="text-4xl font-normal leading-tight text-ink-strong">Sign in</h1>
           <OAuthButtons nextPath={nextPath} oauthError={error} />
         </div>
       </section>

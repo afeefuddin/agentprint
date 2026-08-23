@@ -1,0 +1,43 @@
+import type { Metadata } from "next";
+import { SeoContentPage } from "@/components/seo-content-page";
+import { absoluteUrl } from "@/lib/site";
+
+export const metadata: Metadata = {
+  title: "Codex usage dashboard and activity tracker",
+  description: "Track historical Codex token activity from local logs, build a privacy-first public profile, and deliberately share redacted sessions.",
+  alternates: { canonical: absoluteUrl("/integrations/codex") }
+};
+
+export default function CodexIntegrationPage() {
+  return <SeoContentPage
+    eyebrow="Codex integration"
+    title="Your Codex activity, across days—not buried in terminals."
+    intro="Agentprint collects numeric activity from local Codex logs and turns it into an inspectable history, model mix, streaks, and a public proof-of-work profile."
+    qualifier="Agentprint is a historical activity dashboard, not an OpenAI quota, rate-limit, or billing monitor."
+    agent="codex"
+    mode="tracking"
+    outcomeTitle="A durable trace of agent-assisted work."
+    outcomeBody="Individual sessions disappear into terminal history. Agentprint keeps the numeric pattern visible while leaving the substance of your work on your machine by default."
+    steps={[
+      { title: "Authorize one machine", body: "Sign in through the browser device flow. The CLI stores its device credential locally.", command: "agentprint login" },
+      { title: "Detect and sync Codex", body: "The collector discovers Codex, reads supported local records, and uploads schema-validated numeric usage events.", command: "agentprint sources && agentprint sync" },
+      { title: "Read the longer arc", body: "Use the activity field, harness mix, model ranking, and streaks to see patterns that no single session shows." }
+    ]}
+    principles={[
+      { title: "Metadata by default", body: "Dates, token counts, harness, and model can sync. Prompts, replies, code, repository names, and paths cannot." },
+      { title: "One cross-agent profile", body: "Codex activity can sit beside Claude Code, OpenCode, and Kimi Code instead of living in another isolated dashboard." },
+      { title: "Public only by choice", body: "Keep the whole profile private or expose only the metric groups that help tell your story." }
+    ]}
+    faqs={[
+      { question: "Does Agentprint show my remaining Codex quota?", answer: "No. Agentprint records historical local activity. It does not report remaining quota, reset time, subscription allowance, or billing." },
+      { question: "What Codex data is uploaded during normal sync?", answer: "Only numeric usage metadata allowed by the sync contract: event identity, date, token counts, harness and version, provider, and model information." },
+      { question: "Can Agentprint publish my Codex conversations automatically?", answer: "No. Transcript content uses a separate one-session-at-a-time sharing command with local preview and confirmation." },
+      { question: "Can I remove a connected device?", answer: "Yes. Devices can be revoked from settings, and the local collector can be paused, resumed, or uninstalled." }
+    ]}
+    related={[
+      { href: "/guides/share-codex-session", label: "Share a Codex session", detail: "Create a redacted, revocable link." },
+      { href: "/integrations/claude-code", label: "Claude Code integration", detail: "Add another supported local activity source." },
+      { href: "/docs/getting-started", label: "Getting started", detail: "Install the collector and create your profile." }
+    ]}
+  />;
+}

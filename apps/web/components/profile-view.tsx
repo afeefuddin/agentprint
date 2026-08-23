@@ -15,7 +15,7 @@ const METRIC_CARD =
   "group relative col-span-2 min-h-[226px] overflow-hidden rounded-md border border-line bg-panel px-[25px] py-[27px] isolate after:absolute after:-right-8 after:-bottom-[54px] after:-z-[1] after:aspect-square after:w-[210px] after:rounded-full after:bg-[color-mix(in_srgb,var(--color-panel-raised)_56%,transparent)] after:content-[''] max-desktop:col-auto max-desktop:min-h-[210px] max-tablet:min-h-[174px] max-tablet:px-5 max-tablet:py-[22px]";
 const METRIC_LABEL = "block text-sm font-medium text-faint";
 const METRIC_VALUE =
-  "mb-2 mt-[18px] block text-[46px] font-[weight:540] leading-none text-ink-strong [font-variant-numeric:tabular-nums] max-desktop:text-[40px] max-tablet:mb-1.5 max-tablet:mt-3.5 max-tablet:text-[36px]";
+  "mb-2 mt-[18px] block text-5xl font-medium leading-none text-ink-strong [font-variant-numeric:tabular-nums] max-desktop:text-4xl max-tablet:mb-1.5 max-tablet:mt-3.5 max-tablet:text-4xl";
 const METRIC_ART =
   "pointer-events-none absolute h-auto select-none object-contain opacity-[.48] transition-opacity duration-[140ms] group-hover:opacity-100";
 const MIX_ROW =
@@ -73,10 +73,10 @@ export function ProfileView({
           <div className={profileAvatarClass} aria-hidden="true">{initials(profile.display_name)}</div>
           <div>
             <div className="flex items-center gap-3 max-tablet:flex-col max-tablet:items-start max-tablet:gap-[5px]">
-              <h1 className="m-0 text-[36px] font-[weight:540] leading-none tracking-[-.04em] text-ink-strong">
+              <h1 className="m-0 text-4xl font-medium leading-none tracking-[-.04em] text-ink-strong">
                 {profile.display_name}
               </h1>
-              <span className="inline-flex items-center gap-[5px] text-xs font-[weight:560] text-blue">
+              <span className="inline-flex items-center gap-[5px] text-xs font-semibold text-blue">
                 <CheckCircle2 size={13} /> Synced profile
               </span>
             </div>
@@ -181,7 +181,7 @@ export function ProfileView({
                           : <em className="size-[9px] rounded-full" style={{ background: brand.color }} />}
                       </span>
                       <div className="min-w-0">
-                        <b className="block truncate text-xs font-[weight:520]">{harnessLabels[name] ?? name}</b>
+                        <b className="block truncate text-xs font-medium">{harnessLabels[name] ?? name}</b>
                         <span className="block truncate text-xs text-faint">{formatTokens(tokens)} tokens</span>
                       </div>
                       <div className="h-2 overflow-hidden rounded-full bg-canvas-deep max-tablet:hidden">
@@ -265,7 +265,7 @@ export function ProfileView({
                   <span className="text-xs text-faint">
                     {harnessLabels[session.harness_id] ?? session.harness_id}
                   </span>
-                  <b className="mt-1 block text-sm font-[weight:560] text-ink-strong">{session.title}</b>
+                  <b className="mt-1 block text-sm font-semibold text-ink-strong">{session.title}</b>
                   <span className="mt-[5px] block text-xs text-muted">
                     {session.turn_count} turns · {formatTokens(Number(session.total_tokens))} tokens ·{" "}
                     {new Date(session.published_at).toLocaleDateString("en", {

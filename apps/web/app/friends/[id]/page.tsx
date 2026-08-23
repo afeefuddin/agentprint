@@ -20,7 +20,7 @@ const HEADING_ROW = "flex items-center justify-between gap-5 pb-5";
 const METRIC_GRID =
   "grid grid-cols-[1fr_minmax(150px,.55fr)_1fr] items-center max-tablet:grid-cols-[1fr_92px_1fr]";
 const METRIC_VALUE =
-  "px-[18px] text-[24px] font-[weight:560] text-ink-strong [font-variant-numeric:tabular-nums] max-tablet:px-2 max-tablet:text-base";
+  "px-[18px] text-2xl font-semibold text-ink-strong [font-variant-numeric:tabular-nums] max-tablet:px-2 max-tablet:text-base";
 const MUTED_NOTE = "text-xs text-faint";
 
 export default async function FriendComparisonPage({
@@ -59,7 +59,7 @@ function ComparisonReady({ comparison }: { comparison: NonNullable<Awaited<Retur
       <header className="mt-9 flex items-end justify-between gap-10 max-desktop:flex-col max-desktop:items-start">
         <div>
           <span className={cx(eyebrowClass, "flex items-center gap-1.5")}><Users size={13} /> Mutual comparison</span>
-          <h1 className="mb-2.5 mt-3 text-[clamp(42px,5.5vw,64px)] font-[weight:480] leading-[.96] text-ink-strong max-tablet:text-[42px]">
+          <h1 className="mb-2.5 mt-3 text-6xl font-medium leading-[.96] text-ink-strong max-tablet:text-4xl">
             Two traces.<br /><em className="font-display text-blue">One window.</em>
           </h1>
           <p className="m-0 max-w-[610px] text-sm leading-[1.65] text-muted">
@@ -181,7 +181,7 @@ function ComparisonMix({
 }) {
   return (
     <div className="grid grid-cols-[150px_1fr] gap-[26px] border-b border-line py-5 last:border-0 last:pb-0 max-desktop:grid-cols-[1fr] max-desktop:gap-3.5">
-      <h3 className="m-0 text-sm font-[weight:540]">{title}</h3>
+      <h3 className="m-0 text-sm font-medium">{title}</h3>
       {!visible ? <p className={MUTED_NOTE}>Hidden by one or both friends.</p> : (
         <div className="grid grid-cols-2 gap-7 max-tablet:gap-3.5">
           <MixList name={left.displayName} values={left[field]} side="left" />

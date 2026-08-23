@@ -1065,6 +1065,26 @@ export async function searchPublicProfiles(query: string, limit = 6) {
   return result.rows;
 }
 
+export async function listIndexablePages() {
+  const [profiles, shares] = await Promise.all([
+    pool.query<{ handle: string; updated_at: Date }>(
+      `SELECT handle, updated_at
+       FROM profiles
+       WHERE onboarding_complete = true AND is_public = true
+       ORDER BY updated_at DESC`
+    ),
+    pool.query<{ slug: string; updated_at: Date }>(
+      `SELECT slug, updated_at
+       FROM shared_sessions
+       WHERE visibility = 'public'
+         AND (expires_at IS NULL OR expires_at > now())
+       ORDER BY updated_at DESC`
+    )
+  ]);
+
+  return { profiles: profiles.rows, shares: shares.rows };
+}
+
 export async function usageExport(userId: string) {
   const user = await one<{ email: string; created_at: Date }>(
     "SELECT email, created_at FROM users WHERE id = $1",

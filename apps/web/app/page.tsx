@@ -4,8 +4,18 @@ import { ArrowRight, Check, Code2, Globe2, Link2, MessagesSquare, RefreshCw, Shi
 import { viewer } from "@/lib/auth";
 import { SiteHeader } from "@/components/site-header";
 import { LandingPreview } from "@/components/landing-preview";
+import { LandingInstallCommand } from "@/components/landing-install-command";
 import { ShareGlobe } from "@/components/share-globe";
+import { SiteFooter } from "@/components/site-footer";
 import { cx, eyebrowClass } from "@/lib/ui";
+import type { Metadata } from "next";
+import { absoluteUrl, SITE_DESCRIPTION } from "@/lib/site";
+
+export const metadata: Metadata = {
+  title: { absolute: "Agentprint – Coding agent activity tracker" },
+  description: SITE_DESCRIPTION,
+  alternates: { canonical: absoluteUrl("/") }
+};
 
 function sampleActivityLevel(index: number) {
   let value = Math.imul(index + 23, 0x45d9f3b);
@@ -17,7 +27,7 @@ const FEATURE_CARD =
   "relative min-h-[470px] overflow-hidden rounded-md border border-line-strong bg-[#f1f2ee] text-ink shadow-[inset_0_1px_rgb(255_255_255_/_0.8),0_18px_50px_rgb(39_49_38_/_0.045)] after:pointer-events-none after:absolute after:inset-x-0 after:bottom-[-20%] after:top-auto after:h-[65%] after:rounded-[50%] after:bg-[radial-gradient(ellipse_at_center,rgb(81_112_210_/_0.16),rgb(81_112_210_/_0)_72%)] after:content-[''] max-tablet:min-h-[430px]";
 const FEATURE_CARD_WIDE = "col-span-full min-h-[510px] max-tablet:col-auto max-tablet:min-h-[430px]";
 const FEATURE_COPY = "relative z-[4] px-[30px] pt-7 max-tablet:px-[22px] max-tablet:pt-[23px]";
-const FEATURE_TITLE = "mb-[7px] text-[24px] font-[weight:650] tracking-[-.045em] text-ink-strong max-tablet:text-[21px]";
+const FEATURE_TITLE = "mb-[7px] text-2xl font-bold tracking-[-.045em] text-ink-strong max-tablet:text-xl";
 const FEATURE_LEAD = "m-0 max-w-[540px] text-xs leading-[1.55] text-muted";
 const WINDOW_BAR = "flex h-[37px] items-center gap-[5px] border-b border-line px-3 text-faint";
 const WINDOW_DOT = "size-[7px] rounded-full bg-line-strong";
@@ -73,16 +83,16 @@ export default async function Home() {
             {Array.from({ length: 42 }, (_, index) => <i key={index} data-level={sampleActivityLevel(index + 89)} />)}
           </div>
           <div className="hero-copy">
-            <h1>Your agent work,<br /><em>made visible.</em></h1>
-            <p>One public profile for the work you do with coding agents—measured locally, shared on your terms.</p>
+            <h1 className="text-7xl font-medium max-desktop:text-6xl max-tablet:text-5xl">Your agent work,<br /><em>made visible.</em></h1>
+            <p className="text-base font-medium max-tablet:text-sm">One public profile for the work you do with coding agents—measured locally, shared on your terms.</p>
           </div>
           <div className="hero-conversion">
             <div className="hero-actions">
-              <Link className="button hero-cta" href={current?.onboarding_complete ? `/${current.handle}` : current ? "/onboarding" : "/login"}>
+              <Link className="button hero-cta text-sm font-bold" href={current?.onboarding_complete ? `/${current.handle}` : current ? "/onboarding" : "/login"}>
                 {current ? "Open your profile" : "Create your activity field"} <ArrowRight size={16} />
               </Link>
             </div>
-            <div className="hero-proof">
+            <div className="hero-proof text-xs font-bold">
               <span><Check size={14} /> Free in beta</span>
               <span><Check size={14} /> 60-second setup</span>
               <span><Check size={14} /> Metadata by default</span>
@@ -91,31 +101,37 @@ export default async function Home() {
           <LandingPreview />
         </section>
 
-        <section className="border-y border-line bg-white/45" aria-label="Supported agent harnesses">
-          <div className="shell grid min-h-[126px] grid-cols-[172px_1fr_auto] items-center gap-10 max-desktop:min-h-[112px] max-desktop:grid-cols-[144px_1fr] max-desktop:gap-[30px] max-tablet:block max-tablet:py-8">
-            <span className="border-r border-line-strong pr-10 text-base font-bold text-muted max-tablet:mb-[26px] max-tablet:block max-tablet:border-0 max-tablet:p-0 max-tablet:text-sm">
-              Works with
-            </span>
-            <div className="flex items-center gap-[clamp(24px,3.1vw,46px)] max-tablet:grid max-tablet:grid-cols-2 max-tablet:gap-x-3 max-tablet:gap-y-4">
-              {harnesses.map((harness) => (
-                <div
-                  key={harness.label}
-                  className="flex items-center gap-[13px] text-ink-strong max-tablet:flex-col max-tablet:items-start max-tablet:gap-2"
-                >
-                  <Image
-                    className="size-[34px] flex-[0_0_34px] object-contain max-tablet:size-[30px]"
-                    src={harness.src}
-                    alt=""
-                    width={29}
-                    height={29}
-                  />
-                  <b className="text-base font-[weight:690] max-tablet:text-sm">{harness.label}</b>
-                </div>
-              ))}
+        <section className="relative overflow-hidden border-y border-white/10 bg-[#131512] text-white" aria-label="Install Agentprint">
+          <div className="pointer-events-none absolute inset-0 opacity-40 [background-image:radial-gradient(rgb(255_255_255_/_0.09)_1px,transparent_1px)] [background-size:18px_18px] [mask-image:linear-gradient(to_bottom,black,transparent_68%)]" aria-hidden="true" />
+          <div className="shell relative py-16 max-tablet:py-12">
+            <LandingInstallCommand />
+            <div className="mt-14 border-t border-white/10 pt-8 max-tablet:mt-11 max-tablet:pt-7">
+              <div className="mb-7 flex items-center justify-between gap-4 max-tablet:mb-5">
+                <span className="text-sm font-semibold text-white/60">Works with</span>
+                <span className="inline-flex items-center gap-1.5 text-xs text-white/35">
+                  More adapters are on the way <ArrowRight size={13} />
+                </span>
+              </div>
+              <div className="grid grid-cols-4 gap-2 max-tablet:grid-cols-2">
+                {harnesses.map((harness) => (
+                  <div
+                    key={harness.label}
+                    className="flex min-h-[74px] items-center justify-center gap-3 rounded-sm border border-white/[.09] bg-white/[.035] px-4 text-white/80 transition-colors hover:border-white/[.16] hover:bg-white/[.055] max-tablet:min-h-[66px] max-tablet:justify-start max-tablet:px-3"
+                  >
+                    <span className="grid size-9 flex-[0_0_36px] place-items-center rounded-sm bg-white shadow-[inset_0_0_0_1px_rgb(255_255_255_/_0.75)] max-tablet:size-8 max-tablet:flex-basis-[32px]">
+                      <Image
+                        className="size-[24px] object-contain max-tablet:size-[22px]"
+                        src={harness.src}
+                        alt=""
+                        width={29}
+                        height={29}
+                      />
+                    </span>
+                    <b className="text-sm font-semibold">{harness.label}</b>
+                  </div>
+                ))}
+              </div>
             </div>
-            <span className="inline-flex items-center gap-1.5 text-sm text-faint max-desktop:hidden">
-              More adapters are on the way <ArrowRight size={13} />
-            </span>
           </div>
         </section>
 
@@ -135,7 +151,7 @@ export default async function Home() {
                 <div className="absolute bottom-[62px] left-1/2 z-[2] w-[min(62%,610px)] min-w-[500px] -translate-x-1/2 overflow-hidden rounded-md border border-line-strong bg-[rgb(255_255_253_/_0.96)] shadow-[0_28px_75px_rgb(47_55_43_/_0.14)] max-tablet:bottom-[60px] max-tablet:w-[calc(100%-32px)] max-tablet:min-w-0">
                   <div className={WINDOW_BAR}>
                     <span className={WINDOW_DOT} /><span className={WINDOW_DOT} /><span className={WINDOW_DOT} />
-                    <b className="ml-[7px] text-xs font-[weight:550]">agentprint collector</b>
+                    <b className="ml-[7px] text-xs font-semibold">agentprint collector</b>
                     <RefreshCw size={12} className="ml-auto" />
                   </div>
                   <code className="m-[17px] block rounded-sm border border-line bg-canvas px-3.5 py-3 text-xs text-ink">
@@ -149,7 +165,7 @@ export default async function Home() {
                       <span className="flex items-center gap-2">
                         <i className="size-1.5 rounded-full bg-green shadow-[0_0_8px_rgb(40_104_246_/_0.3)]" /> {harness.label}
                       </span>
-                      <b className="text-xs font-[weight:550] text-green">connected</b>
+                      <b className="text-xs font-semibold text-green">connected</b>
                     </div>
                   ))}
                 </div>
@@ -157,12 +173,12 @@ export default async function Home() {
                   {collectorSources.map((source) => (
                     <span
                       key={source.label}
-                      className="flex items-center gap-[7px] rounded-full border border-line-strong bg-[rgb(255_255_253_/_0.92)] py-[7px] pl-[7px] pr-2.5 text-xs text-muted shadow-[0_7px_18px_rgb(47_55_43_/_0.08)] max-tablet:pr-[7px] max-tablet:text-[0px]"
+                      className="flex items-center gap-[7px] rounded-full border border-line-strong bg-[rgb(255_255_253_/_0.92)] py-[7px] pl-[7px] pr-2.5 text-xs text-muted shadow-[0_7px_18px_rgb(47_55_43_/_0.08)] max-tablet:pr-[7px]"
                     >
-                      <b className="grid size-[22px] place-items-center rounded-[7px] bg-canvas-deep text-xs font-[weight:650] text-ink">
+                      <b className="grid size-[22px] place-items-center rounded-[7px] bg-canvas-deep text-xs font-bold text-ink">
                         <Image src={source.src} alt="" width={14} height={14} className="size-3.5 object-contain" />
                       </b>
-                      {source.label}
+                      <span className="max-tablet:hidden">{source.label}</span>
                     </span>
                   ))}
                 </div>
@@ -177,7 +193,7 @@ export default async function Home() {
               <div className={cx(FLOATING_PANEL, "bottom-[-16px] overflow-hidden")} aria-hidden="true">
                 <div className={WINDOW_BAR}>
                   <span className={WINDOW_DOT} /><span className={WINDOW_DOT} /><span className={WINDOW_DOT} />
-                  <b className="ml-[7px] text-xs font-[weight:550]">collection boundary</b>
+                  <b className="ml-[7px] text-xs font-semibold">collection boundary</b>
                   <ShieldCheck size={12} className="ml-auto" />
                 </div>
                 {boundaryRows.map((row) => (
@@ -186,7 +202,7 @@ export default async function Home() {
                     className="flex min-h-[43px] items-center justify-between border-t border-line px-[15px] text-xs text-muted first-of-type:border-t-0"
                   >
                     <span>{row.label}</span>
-                    <b className={cx("text-xs font-[weight:650]", row.safe ? "text-green" : "text-red")}>{row.verdict}</b>
+                    <b className={cx("text-xs font-bold", row.safe ? "text-green" : "text-red")}>{row.verdict}</b>
                   </div>
                 ))}
               </div>
@@ -199,7 +215,7 @@ export default async function Home() {
               </div>
               <div className={cx(FLOATING_PANEL, "bottom-[-20px] min-h-[280px] p-5")} aria-hidden="true">
                 <div className="flex justify-between text-xs text-faint">
-                  <span>12 month trace</span><b className="font-[weight:550] text-ink">1.28B tokens</b>
+                  <span>12 month trace</span><b className="font-semibold text-ink">1.28B tokens</b>
                 </div>
                 <div className="mt-6 grid grid-flow-col grid-rows-[repeat(7,1fr)] grid-cols-[repeat(14,1fr)] gap-[5px] max-tablet:gap-[3px]">
                   {Array.from({ length: 98 }, (_, index) => (
@@ -208,10 +224,10 @@ export default async function Home() {
                 </div>
                 <div className="mt-5 grid grid-cols-2 gap-2">
                   <span className="rounded-sm border border-line p-3 text-xs text-faint">
-                    <b className="mb-[5px] block text-base font-[weight:550] text-ink-strong">212</b>active days
+                    <b className="mb-[5px] block text-base font-semibold text-ink-strong">212</b>active days
                   </span>
                   <span className="rounded-sm border border-line p-3 text-xs text-faint">
-                    <b className="mb-[5px] block text-base font-[weight:550] text-ink-strong">38</b>day streak
+                    <b className="mb-[5px] block text-base font-semibold text-ink-strong">38</b>day streak
                   </span>
                 </div>
               </div>
@@ -228,14 +244,14 @@ export default async function Home() {
                 <div className="absolute bottom-[-20px] left-1/2 z-[2] w-[min(72%,720px)] min-w-[560px] -translate-x-1/2 overflow-hidden rounded-t-md border border-line-strong bg-[rgb(255_255_253_/_0.97)] shadow-[0_24px_55px_rgb(47_55_43_/_0.13)] max-tablet:w-[calc(100%-32px)] max-tablet:min-w-0 max-tablet:[&>div:nth-child(n+6)]:hidden">
                   <div className={WINDOW_BAR}>
                     <span className={WINDOW_DOT} /><span className={WINDOW_DOT} /><span className={WINDOW_DOT} />
-                    <b className="ml-[7px] text-xs font-[weight:550]">agentprint share --dry-run</b>
+                    <b className="ml-[7px] text-xs font-semibold">agentprint share --dry-run</b>
                     <MessagesSquare size={12} className="ml-auto" />
                   </div>
                   {/* Audit sits directly under the bar so the bottom bleed never clips it. */}
                   <div className="flex min-h-[44px] items-center gap-4 border-t border-line bg-canvas px-[17px] text-xs text-faint max-tablet:gap-3 max-tablet:px-3.5">
                     <span className="flex items-center gap-1.5"><ShieldCheck size={12} className="text-accent" /> 2 secrets removed</span>
                     <span className="flex items-center gap-1.5">7 paths rewritten</span>
-                    <b className="ml-auto font-[weight:550] text-ink max-tablet:hidden">Nothing uploaded yet</b>
+                    <b className="ml-auto font-semibold text-ink max-tablet:hidden">Nothing uploaded yet</b>
                   </div>
                   {sessionTurns.map((turn, index) => (
                     <div
@@ -263,7 +279,7 @@ export default async function Home() {
             <span className={eyebrowClass}>Made to travel</span>
             <h2
               id="global-title"
-              className="mb-[18px] mt-[19px] text-[clamp(50px,6vw,78px)] font-[weight:680] leading-[.94] tracking-[-.068em] text-ink-strong max-tablet:text-[clamp(44px,13vw,58px)]"
+              className="mb-[18px] mt-[19px] text-7xl font-bold leading-[.94] tracking-[-.068em] text-ink-strong max-tablet:text-6xl"
             >
               Your Agentprint.<br /><em className="tracking-[-.06em] text-ink-strong">Out in the world.</em>
             </h2>
@@ -319,10 +335,10 @@ export default async function Home() {
               <Image src="/brands/github.svg" alt="" width={42} height={42} className="size-[42px] max-tablet:size-[30px]" />
             </div>
             <div>
-              <span className="mb-2 block text-xs font-[weight:650] text-[#b7bdb1]">Built in the open</span>
+              <span className="mb-2 block text-xs font-bold text-[#b7bdb1]">Built in the open</span>
               <h2
                 id="open-source-title"
-                className="m-0 text-[clamp(28px,3.2vw,42px)] font-[weight:680] tracking-[-.05em] text-white max-tablet:text-[27px]"
+                className="m-0 text-5xl font-bold tracking-[-.05em] text-white max-tablet:text-3xl"
               >
                 Agentprint is open source.
               </h2>
@@ -361,7 +377,7 @@ export default async function Home() {
                   <span className="text-xs font-semibold text-accent">Sessions become signal</span>
                   <h2
                     id="final-cta-title"
-                    className="mb-0 mt-5 text-[clamp(40px,4vw,56px)] font-[weight:580] leading-[1.01] tracking-[-.055em] text-ink-strong max-tablet:text-[38px]"
+                    className="mb-0 mt-5 text-6xl font-semibold leading-[1.01] tracking-[-.055em] text-ink-strong max-tablet:text-4xl"
                   >
                     Every session leaves a trace.
                   </h2>
@@ -381,32 +397,7 @@ export default async function Home() {
           </div>
         </section>
       </main>
-      <footer className="border-t border-line bg-canvas text-ink-strong">
-        <div className="shell flex min-h-[112px] items-center justify-between gap-10 py-7 max-tablet:flex-col max-tablet:items-start max-tablet:gap-6">
-          <Link href="/" aria-label="Agentprint home" className="inline-flex">
-            <Image
-              src="/brand/agentprint-lockup.svg"
-              alt="Agentprint"
-              width={360}
-              height={80}
-              className="h-8 w-auto"
-              loading="eager"
-              unoptimized
-            />
-          </Link>
-
-          <div className="flex items-center gap-8 max-tablet:w-full max-tablet:flex-wrap max-tablet:gap-x-6 max-tablet:gap-y-4">
-            <nav aria-label="Footer" className="flex items-center gap-8 text-sm font-semibold text-muted max-tablet:gap-6">
-              <Link className="transition-colors duration-[140ms] hover:text-accent-strong" href="/privacy">Privacy</Link>
-              <a className="transition-colors duration-[140ms] hover:text-accent-strong" href="https://github.com/afeefuddin/agentprint" target="_blank" rel="noreferrer">GitHub</a>
-              <Link className="transition-colors duration-[140ms] hover:text-accent-strong" href={current?.onboarding_complete ? `/${current.handle}` : current ? "/onboarding" : "/login"}>
-                {current ? "Your profile" : "Sign in"}
-              </Link>
-            </nav>
-            <span className="text-sm text-faint max-tablet:basis-full">© 2026 Agentprint</span>
-          </div>
-        </div>
-      </footer>
+      <SiteFooter current={current} />
     </>
   );
 }
