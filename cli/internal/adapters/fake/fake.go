@@ -16,7 +16,7 @@ type Adapter struct {
 
 func (adapter *Adapter) ID() string { return "synthetic" }
 func (adapter *Adapter) Capabilities() adapters.CapabilitySet {
-	return adapters.CapabilitySet{Tokens: true, Model: true, Cost: true}
+	return adapters.CapabilitySet{Tokens: true, Model: true}
 }
 func (adapter *Adapter) Detect(context.Context) adapters.DetectionResult {
 	_, err := os.Stat(adapter.Path)

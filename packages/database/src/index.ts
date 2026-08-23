@@ -174,7 +174,6 @@ export type Viewer = {
   timezone: string;
   is_public: boolean;
   show_tokens: boolean;
-  show_cost: boolean;
   show_harnesses: boolean;
   show_models: boolean;
   show_streaks: boolean;
@@ -186,7 +185,7 @@ export async function getViewer(token?: string) {
   if (!token) return null;
   return one<Viewer>(
     `SELECT u.id, u.email, u.created_at, p.handle, p.display_name, p.bio,
-            p.timezone, p.is_public, p.show_tokens, p.show_cost,
+            p.timezone, p.is_public, p.show_tokens,
             p.show_harnesses, p.show_models, p.show_streaks,
             p.onboarding_complete
      FROM sessions s
@@ -371,9 +370,9 @@ export async function ingestBatch(
           user_id, device_id, event_id, schema_version, occurred_at, local_date,
           harness_id, harness_version, provider_id, model_id, input_tokens,
           output_tokens, cached_input_tokens, reasoning_tokens, total_tokens,
-          estimated_cost_micros, cost_basis, source_fingerprint
+          source_fingerprint
         ) VALUES (
-          $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18
+          $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16
         ) ON CONFLICT (user_id, event_id) DO NOTHING RETURNING id`,
         [
           device.user_id, device.id, record.event_id, record.schema_version,
@@ -381,8 +380,7 @@ export async function ingestBatch(
           record.harness_version ?? null, record.provider_id ?? null,
           record.model_id ?? null, record.input_tokens, record.output_tokens,
           record.cached_input_tokens ?? null, record.reasoning_tokens ?? null,
-          record.total_tokens, record.estimated_cost_micros ?? null,
-          record.cost_basis ?? null, record.source_fingerprint
+          record.total_tokens, record.source_fingerprint
         ],
         client
       );
@@ -395,14 +393,12 @@ export async function ingestBatch(
             input_tokens: string;
             output_tokens: string;
             total_tokens: string;
-            estimated_cost_micros: string | null;
           }>(
             `UPDATE usage_events
              SET model_id = $3
              WHERE user_id = $1 AND event_id = $2 AND model_id IS NULL
              RETURNING local_date::text, harness_id, input_tokens::text,
-                       output_tokens::text, total_tokens::text,
-                       estimated_cost_micros::text`,
+                       output_tokens::text, total_tokens::text`,
             [device.user_id, record.event_id, record.model_id],
             client
           );
@@ -412,14 +408,12 @@ export async function ingestBatch(
                SET input_tokens = input_tokens - $4,
                    output_tokens = output_tokens - $5,
                    total_tokens = total_tokens - $6,
-                   estimated_cost_micros = estimated_cost_micros - $7,
                    event_count = event_count - 1
                WHERE user_id = $1 AND local_date = $2 AND harness_id = $3
                  AND model_id = 'unknown'`,
               [
                 device.user_id, enriched.local_date, enriched.harness_id,
-                enriched.input_tokens, enriched.output_tokens, enriched.total_tokens,
-                enriched.estimated_cost_micros ?? 0
+                enriched.input_tokens, enriched.output_tokens, enriched.total_tokens
               ]
             );
             if (decremented.rowCount !== 1) {
@@ -434,18 +428,16 @@ export async function ingestBatch(
             await client.query(
               `INSERT INTO daily_usage (
                 user_id, local_date, harness_id, model_id, input_tokens, output_tokens,
-                total_tokens, estimated_cost_micros, event_count
-              ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,1)
+                total_tokens, event_count
+              ) VALUES ($1,$2,$3,$4,$5,$6,$7,1)
               ON CONFLICT (user_id, local_date, harness_id, model_id) DO UPDATE SET
                 input_tokens = daily_usage.input_tokens + excluded.input_tokens,
                 output_tokens = daily_usage.output_tokens + excluded.output_tokens,
                 total_tokens = daily_usage.total_tokens + excluded.total_tokens,
-                estimated_cost_micros = daily_usage.estimated_cost_micros + excluded.estimated_cost_micros,
                 event_count = daily_usage.event_count + 1`,
               [
                 device.user_id, enriched.local_date, enriched.harness_id, record.model_id,
-                enriched.input_tokens, enriched.output_tokens, enriched.total_tokens,
-                enriched.estimated_cost_micros ?? 0
+                enriched.input_tokens, enriched.output_tokens, enriched.total_tokens
               ]
             );
           }
@@ -456,18 +448,17 @@ export async function ingestBatch(
       await client.query(
         `INSERT INTO daily_usage (
           user_id, local_date, harness_id, model_id, input_tokens, output_tokens,
-          total_tokens, estimated_cost_micros, event_count
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,1)
+          total_tokens, event_count
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,1)
         ON CONFLICT (user_id, local_date, harness_id, model_id) DO UPDATE SET
           input_tokens = daily_usage.input_tokens + excluded.input_tokens,
           output_tokens = daily_usage.output_tokens + excluded.output_tokens,
           total_tokens = daily_usage.total_tokens + excluded.total_tokens,
-          estimated_cost_micros = daily_usage.estimated_cost_micros + excluded.estimated_cost_micros,
           event_count = daily_usage.event_count + 1`,
         [
           device.user_id, record.local_date, record.harness_id,
           record.model_id ?? "unknown", record.input_tokens, record.output_tokens,
-          record.total_tokens, record.estimated_cost_micros ?? 0
+          record.total_tokens
         ]
       );
     }
@@ -542,7 +533,9 @@ export async function revokeDevice(userId: string, deviceId: string) {
 }
 
 export async function updateProfile(userId: string, patch: ProfilePatch) {
-  const entries = Object.entries(patch);
+  // Older web bundles may still submit this retired preference briefly after
+  // deployment. Accept it at the wire boundary, but do not persist it.
+  const entries = Object.entries(patch).filter(([key]) => key !== "show_cost");
   if (!entries.length) return;
   const columns = entries.map(
     ([key], index) => `${key} = $${index + 2}`
@@ -918,7 +911,7 @@ function buildComparisonPerson(
 export async function getProfile(handle: string, viewerId?: string) {
   const profile = await one<Viewer>(
     `SELECT u.id, u.email, u.created_at, p.handle, p.display_name, p.bio,
-            p.timezone, p.is_public, p.show_tokens, p.show_cost,
+            p.timezone, p.is_public, p.show_tokens,
             p.show_harnesses, p.show_models, p.show_streaks, p.onboarding_complete
      FROM profiles p JOIN users u ON u.id = p.user_id
      WHERE p.handle = $1 AND (p.is_public OR p.user_id = $2)`,
@@ -931,11 +924,10 @@ export async function getProfile(handle: string, viewerId?: string) {
     harness_id: string;
     model_id: string;
     total_tokens: string;
-    estimated_cost_micros: string;
     event_count: number;
   }>(
     `SELECT local_date::text, harness_id, model_id,
-            total_tokens::text, estimated_cost_micros::text, event_count
+            total_tokens::text, event_count
      FROM daily_usage
      WHERE user_id = $1 AND local_date >= current_date - interval '1 year'
      ORDER BY local_date`,
@@ -945,7 +937,6 @@ export async function getProfile(handle: string, viewerId?: string) {
   const byDate = new Map<string, {
     date: string;
     tokens: number;
-    costMicros: number;
     events: number;
     harnesses: Record<string, number>;
   }>();
@@ -956,12 +947,10 @@ export async function getProfile(handle: string, viewerId?: string) {
     const day = byDate.get(row.local_date) ?? {
       date: row.local_date,
       tokens: 0,
-      costMicros: 0,
       events: 0,
       harnesses: {}
     };
     day.tokens += tokens;
-    day.costMicros += Number(row.estimated_cost_micros);
     day.events += row.event_count;
     day.harnesses[row.harness_id] = (day.harnesses[row.harness_id] ?? 0) + tokens;
     byDate.set(row.local_date, day);
@@ -970,7 +959,6 @@ export async function getProfile(handle: string, viewerId?: string) {
   }
   const activity = [...byDate.values()];
   const totalTokens = activity.reduce((sum, day) => sum + day.tokens, 0);
-  const estimatedCostMicros = activity.reduce((sum, day) => sum + day.costMicros, 0);
   const today = new Intl.DateTimeFormat("en-CA", {
     timeZone: profile.timezone,
     year: "numeric",
@@ -983,14 +971,12 @@ export async function getProfile(handle: string, viewerId?: string) {
   );
   const summary: {
     totalTokens: number;
-    estimatedCostMicros: number;
     activeDays: number;
     currentStreak: number;
     longestStreak: number;
     mostUsedHarness: string | null;
   } = {
     totalTokens,
-    estimatedCostMicros,
     activeDays: activity.length,
     currentStreak: streaks.current,
     longestStreak: streaks.longest,
@@ -1024,10 +1010,6 @@ export async function getProfile(handle: string, viewerId?: string) {
       }));
       result.thresholds = [1, 2, 3, 4];
       result.summary.totalTokens = 0;
-    }
-    if (!profile.show_cost) {
-      result.activity = result.activity.map((day) => ({ ...day, costMicros: 0 }));
-      result.summary.estimatedCostMicros = 0;
     }
     if (!profile.show_harnesses) {
       result.harnesses = {};
@@ -1089,7 +1071,10 @@ export async function usageExport(userId: string) {
     [userId]
   );
   const profile = await one<Record<string, unknown>>(
-    "SELECT * FROM profiles WHERE user_id = $1",
+    `SELECT user_id, handle, display_name, bio, timezone, is_public,
+            show_tokens, show_harnesses, show_models, show_streaks,
+            onboarding_complete, published_at, updated_at
+     FROM profiles WHERE user_id = $1`,
     [userId]
   );
   const devices = await listDevices(userId);
@@ -1098,8 +1083,7 @@ export async function usageExport(userId: string) {
     `SELECT event_id, schema_version, occurred_at, local_date, harness_id,
             harness_version, provider_id, model_id, input_tokens::text,
             output_tokens::text, cached_input_tokens::text,
-            reasoning_tokens::text, total_tokens::text,
-            estimated_cost_micros::text, cost_basis, source_fingerprint
+            reasoning_tokens::text, total_tokens::text, source_fingerprint
      FROM usage_events WHERE user_id = $1 ORDER BY occurred_at`,
     [userId]
   );
@@ -1133,7 +1117,6 @@ export type ShareSummary = {
   redaction_stats: Record<string, number>;
   turn_count: number;
   total_tokens: string;
-  estimated_cost_micros: string | null;
   model_ids: string[];
   started_at: Date;
   ended_at: Date;
@@ -1146,7 +1129,7 @@ export type ShareSummary = {
 const shareFields = [
   "id", "slug", "harness_id", "harness_version", "title", "summary", "visibility",
   "redaction_level", "redaction_stats", "turn_count", "total_tokens::text",
-  "estimated_cost_micros::text", "model_ids", "started_at", "ended_at",
+  "model_ids", "started_at", "ended_at",
   "published_at", "updated_at", "expires_at", "view_count::text"
 ];
 const shareColumns = shareFields.join(", ");
@@ -1191,8 +1174,6 @@ export async function publishShare(
       share.totals.input_tokens,
       share.totals.output_tokens,
       share.totals.total_tokens,
-      share.totals.estimated_cost_micros ?? null,
-      share.totals.cost_basis ?? null,
       share.model_ids,
       share.started_at,
       share.ended_at,
@@ -1205,10 +1186,9 @@ export async function publishShare(
            device_id = $2, harness_id = $3, harness_version = $4, title = $5,
            summary = $6, visibility = $7, redaction_level = $8,
            redaction_stats = $9::jsonb, turn_count = $10, input_tokens = $11,
-           output_tokens = $12, total_tokens = $13, estimated_cost_micros = $14,
-           cost_basis = $15, model_ids = $16, started_at = $17, ended_at = $18,
-           expires_at = $19, updated_at = now()
-         WHERE user_id = $1 AND session_fingerprint = $20
+           output_tokens = $12, total_tokens = $13, model_ids = $14,
+           started_at = $15, ended_at = $16, expires_at = $17, updated_at = now()
+         WHERE user_id = $1 AND session_fingerprint = $18
          RETURNING id, slug`,
         [...values, share.session_fingerprint],
         client
@@ -1219,11 +1199,11 @@ export async function publishShare(
         `INSERT INTO shared_sessions (
            user_id, device_id, harness_id, harness_version, title, summary,
            visibility, redaction_level, redaction_stats, turn_count,
-           input_tokens, output_tokens, total_tokens, estimated_cost_micros,
-           cost_basis, model_ids, started_at, ended_at, expires_at,
+           input_tokens, output_tokens, total_tokens, model_ids,
+           started_at, ended_at, expires_at,
            session_fingerprint, slug
          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11, $12,
-                   $13, $14, $15, $16, $17, $18, $19, $20, $21)
+                   $13, $14, $15, $16, $17, $18, $19)
          RETURNING id, slug`,
         [...values, share.session_fingerprint, shareSlug()],
         client

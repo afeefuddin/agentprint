@@ -42,7 +42,7 @@ describe("privacy-safe usage contract", () => {
     expect(usageRecordSchema.safeParse({ ...validRecord, total_tokens: 10 }).success).toBe(false);
   });
 
-  test("requires cost provenance", () => {
+  test("accepts legacy cost only with provenance", () => {
     expect(usageRecordSchema.safeParse({ ...validRecord, estimated_cost_micros: 20 }).success).toBe(false);
   });
 });
@@ -168,7 +168,7 @@ describe("session share contract", () => {
     }).success).toBe(false);
   });
 
-  test("requires cost basis whenever a cost is reported", () => {
+  test("accepts legacy session cost only with provenance", () => {
     expect(sessionShareSchema.safeParse({
       ...share,
       totals: { ...share.totals, estimated_cost_micros: 1200 }

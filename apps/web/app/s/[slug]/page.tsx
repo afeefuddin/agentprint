@@ -49,11 +49,6 @@ function elapsed(from: Date | string, to: Date | string) {
   return `${days} ${days === 1 ? "day" : "days"}`;
 }
 
-function cost(value: string | null) {
-  if (!value) return null;
-  return new Intl.NumberFormat("en", { style: "currency", currency: "USD", maximumFractionDigits: 2 }).format(Number(value) / 1_000_000);
-}
-
 function countLabel(value: number, singular: string, plural = `${singular}s`) {
   return `${value} ${value === 1 ? singular : plural}`;
 }
@@ -87,8 +82,6 @@ export default async function SharedSessionPage({
 
   const brand = harnessBrand(share.harness_id);
   const hasMore = share.turns.length < share.turn_count;
-  const sessionCost = cost(share.estimated_cost_micros);
-
   return (
     <>
       <SiteHeader current={current} variant="marketing" search />
@@ -147,9 +140,9 @@ export default async function SharedSessionPage({
               <strong className="mt-1.5 block text-md font-[weight:560] text-ink-strong [font-variant-numeric:tabular-nums]">{elapsed(share.started_at, share.ended_at)}</strong>
             </div>
             <div className="px-5 py-4">
-              <span className="text-xs text-faint">{sessionCost ? "Estimated spend" : "Model"}</span>
+              <span className="text-xs text-faint">Model</span>
               <strong className="mt-1.5 block truncate text-sm font-[weight:560] text-ink-strong">
-                {(sessionCost ?? share.model_ids.join(", ")) || "Not reported"}
+                {share.model_ids.join(", ") || "Not reported"}
               </strong>
             </div>
           </section>

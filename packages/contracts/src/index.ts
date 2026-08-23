@@ -1,6 +1,8 @@
 import { z } from "zod";
 
 export const harnessIds = ["codex", "claude-code", "opencode", "kimi-code", "synthetic"] as const;
+// Retained only so already-installed collectors can finish syncing old queued
+// records. Active clients no longer send cost data and the server ignores it.
 export const costBases = ["reported", "price-table", "unavailable"] as const;
 export const reservedHandles = [
   "about",
@@ -98,6 +100,7 @@ export const profilePatchSchema = z.object({
   timezone: z.string().min(1).max(100).optional(),
   is_public: z.boolean().optional(),
   show_tokens: z.boolean().optional(),
+  // Deprecated compatibility input from pre-removal web bundles.
   show_cost: z.boolean().optional(),
   show_harnesses: z.boolean().optional(),
   show_models: z.boolean().optional(),

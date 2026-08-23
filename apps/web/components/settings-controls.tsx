@@ -31,13 +31,12 @@ type Device = {
 type Privacy = {
   is_public: boolean;
   show_tokens: boolean;
-  show_cost: boolean;
   show_harnesses: boolean;
   show_models: boolean;
   show_streaks: boolean;
 };
 
-type FieldKey = "show_tokens" | "show_cost" | "show_harnesses" | "show_models" | "show_streaks";
+type FieldKey = "show_tokens" | "show_harnesses" | "show_models" | "show_streaks";
 
 const audiences: { key: "is_public"; label: string; description: string }[] = [
   { key: "is_public", label: "Public profile", description: "Anyone holding your profile address can open it." }
@@ -45,7 +44,6 @@ const audiences: { key: "is_public"; label: string; description: string }[] = [
 
 const fields: { key: FieldKey; label: string }[] = [
   { key: "show_tokens", label: "Token totals" },
-  { key: "show_cost", label: "Estimated spend" },
   { key: "show_harnesses", label: "Harness mix" },
   { key: "show_models", label: "Model mix" },
   { key: "show_streaks", label: "Streaks" }

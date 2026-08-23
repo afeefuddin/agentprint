@@ -333,8 +333,8 @@ components:
         cached_input_tokens: { type: integer, minimum: 0 }
         reasoning_tokens: { type: integer, minimum: 0 }
         total_tokens: { type: integer, minimum: 0 }
-        estimated_cost_micros: { type: integer, minimum: 0 }
-        cost_basis: { enum: [reported, price-table, unavailable] }
+        estimated_cost_micros: { type: integer, minimum: 0, deprecated: true, description: Legacy compatibility field; ignored by the server. }
+        cost_basis: { enum: [reported, price-table, unavailable], deprecated: true, description: Legacy compatibility field; ignored by the server. }
         source_fingerprint: { type: string, minLength: 16, maxLength: 128 }
     SyncBatch:
       type: object
@@ -446,8 +446,8 @@ components:
             cached_input_tokens: { type: integer, minimum: 0 }
             reasoning_tokens: { type: integer, minimum: 0 }
             total_tokens: { type: integer, minimum: 0 }
-            estimated_cost_micros: { type: integer, minimum: 0 }
-            cost_basis: { enum: [reported, price-table, unavailable] }
+            estimated_cost_micros: { type: integer, minimum: 0, deprecated: true, description: Legacy compatibility field; ignored by the server. }
+            cost_basis: { enum: [reported, price-table, unavailable], deprecated: true, description: Legacy compatibility field; ignored by the server. }
         turns:
           type: array
           minItems: 1

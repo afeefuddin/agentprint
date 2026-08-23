@@ -20,7 +20,6 @@ await pool.query(
   `UPDATE profiles SET
     bio = 'Building reliable systems with agents, one trace at a time.',
     is_public = true,
-    show_cost = true,
     published_at = COALESCE(published_at, now())
    WHERE user_id = $1`,
   [userId]
@@ -80,8 +79,6 @@ if (count.rows[0].count === 0) {
       input_tokens: Math.floor(total * 0.72),
       output_tokens: Math.floor(total * 0.28),
       total_tokens: total,
-      estimated_cost_micros: Math.floor(total * 9.4),
-      cost_basis: "price-table" as const,
       source_fingerprint: createHash("sha256").update(`demo:${harness}`).digest("hex")
     });
   }
@@ -118,9 +115,7 @@ await publishShare(
       input_tokens: 184_320,
       output_tokens: 12_940,
       cached_input_tokens: 96_400,
-      total_tokens: 293_660,
-      estimated_cost_micros: 2_760_000,
-      cost_basis: "price-table"
+      total_tokens: 293_660
     },
     turns: [
       {

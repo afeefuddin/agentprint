@@ -22,7 +22,7 @@ func New(home string, location *time.Location) *Adapter {
 }
 func (adapter *Adapter) ID() string { return "opencode" }
 func (adapter *Adapter) Capabilities() adapters.CapabilitySet {
-	return adapters.CapabilitySet{Tokens: true, Model: true, Cost: true}
+	return adapters.CapabilitySet{Tokens: true, Model: true}
 }
 func (adapter *Adapter) Detect(context.Context) adapters.DetectionResult {
 	info, err := os.Stat(adapter.Root)
@@ -34,11 +34,10 @@ func (adapter *Adapter) Validate(ctx context.Context) adapters.HealthResult {
 }
 
 type message struct {
-	ID         string  `json:"id"`
-	Role       string  `json:"role"`
-	ProviderID string  `json:"providerID"`
-	ModelID    string  `json:"modelID"`
-	Cost       float64 `json:"cost"`
+	ID         string `json:"id"`
+	Role       string `json:"role"`
+	ProviderID string `json:"providerID"`
+	ModelID    string `json:"modelID"`
 	Time       struct {
 		Created   int64 `json:"created"`
 		Completed int64 `json:"completed"`
@@ -92,20 +91,12 @@ func (adapter *Adapter) Collect(ctx context.Context, cursor string) ([]adapters.
 		if total == 0 {
 			return nil
 		}
-		var cost *int64
-		costBasis := ""
-		if item.Cost >= 0 {
-			value := int64(item.Cost * 1_000_000)
-			cost = &value
-			costBasis = "reported"
-		}
 		records = append(records, adapters.UsageRecord{
 			EventID: adapters.StableID("opencode", item.ID), SchemaVersion: 1,
 			OccurredAt: timestamp.UTC().Format(time.RFC3339Nano), LocalDate: adapters.LocalDate(timestamp, adapter.Location),
 			HarnessID: "opencode", ProviderID: item.ProviderID, ModelID: item.ModelID,
 			InputTokens: item.Tokens.Input, OutputTokens: item.Tokens.Output,
 			CachedInputTokens: &cached, ReasoningTokens: &reasoning, TotalTokens: total,
-			EstimatedCostMicros: cost, CostBasis: costBasis,
 			SourceFingerprint: adapters.Fingerprint(adapter.Root, "opencode"),
 		})
 		return nil

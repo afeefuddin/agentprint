@@ -188,11 +188,16 @@ describe("ingestion and public profile boundaries", () => {
     await updateProfile(userId, {
       is_public: true,
       show_tokens: false,
-      show_cost: false,
+      show_cost: true,
       show_harnesses: false,
       show_models: false,
       show_streaks: false
     });
+    const retiredPreference = await pool.query(
+      "SELECT show_cost FROM profiles WHERE user_id = $1",
+      [userId]
+    );
+    expect(retiredPreference.rows[0].show_cost).toBe(false);
 
     const code = await createDeviceCode("integration test");
     expect(await approveDeviceCode(code.userCode, userId)).toBe(true);
@@ -241,14 +246,22 @@ describe("ingestion and public profile boundaries", () => {
     expect(duplicate.duplicate).toBe(1);
 
     const aggregate = await pool.query(
-      "SELECT total_tokens::int AS total FROM daily_usage WHERE user_id = $1",
+      `SELECT total_tokens::int AS total, estimated_cost_micros::int AS legacy_cost
+       FROM daily_usage WHERE user_id = $1`,
       [userId]
     );
     expect(aggregate.rows[0].total).toBe(125);
+    expect(aggregate.rows[0].legacy_cost).toBe(0);
+
+    const stored = await pool.query(
+      `SELECT estimated_cost_micros, cost_basis
+       FROM usage_events WHERE user_id = $1 AND event_id = $2`,
+      [userId, eventId]
+    );
+    expect(stored.rows[0]).toEqual({ estimated_cost_micros: null, cost_basis: null });
 
     const publicProfile = await getProfile(handle);
     expect(publicProfile?.summary.totalTokens).toBe(0);
-    expect(publicProfile?.summary.estimatedCostMicros).toBe(0);
     expect(publicProfile?.summary.currentStreak).toBe(0);
     expect(publicProfile?.harnesses).toEqual({});
     expect(publicProfile?.models).toEqual({});
@@ -421,9 +434,26 @@ describe("session sharing", () => {
     });
     shareUserIds.push(stranger.id);
 
-    const published = await publishShare({ userId: owner.id }, transcript());
+    const published = await publishShare(
+      { userId: owner.id },
+      transcript({
+        totals: {
+          input_tokens: 120,
+          output_tokens: 40,
+          total_tokens: 170,
+          estimated_cost_micros: 1200,
+          cost_basis: "reported"
+        }
+      })
+    );
     expect(published.replaced).toBe(false);
     expect(published.slug).toMatch(/^[A-Za-z0-9]{16,32}$/);
+    const retiredCost = await pool.query(
+      `SELECT estimated_cost_micros, cost_basis
+       FROM shared_sessions WHERE id = $1`,
+      [published.id]
+    );
+    expect(retiredCost.rows[0]).toEqual({ estimated_cost_micros: null, cost_basis: null });
 
     const view = await getSharedSession(published.slug, undefined);
     expect(view?.title).toBe("Fix the failing build");

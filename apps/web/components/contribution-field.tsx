@@ -20,7 +20,6 @@ const BAR_TONES = ["bg-steel-4", "bg-steel-3", "bg-amber"];
 export type ActivityDay = {
   date: string;
   tokens: number;
-  costMicros: number;
   events: number;
   harnesses: Record<string, number>;
 };
@@ -29,7 +28,6 @@ type Props = {
   activity: ActivityDay[];
   thresholds: readonly number[];
   showTokens?: boolean;
-  showCost?: boolean;
   showHarnesses?: boolean;
 };
 
@@ -69,7 +67,6 @@ export function ContributionField({
   activity,
   thresholds,
   showTokens = true,
-  showCost = true,
   showHarnesses = true
 }: Props) {
   const [harness, setHarness] = useState("all");
@@ -230,12 +227,6 @@ export function ContributionField({
                 <div className="border-l border-line pl-[18px]">
                   <b className="text-base font-[weight:540]">{formatTokens(day?.tokens ?? 0)}</b>
                   <span className={TRACE_META}>tokens</span>
-                </div>
-              )}
-              {showCost && (
-                <div className="border-l border-line pl-[18px]">
-                  <b className="text-base font-[weight:540]">${((day?.costMicros ?? 0) / 1_000_000).toFixed(2)}</b>
-                  <span className={TRACE_META}>estimated</span>
                 </div>
               )}
               <div className="flex h-[5px] overflow-hidden bg-line max-tablet:col-span-full" aria-label="Harness composition">

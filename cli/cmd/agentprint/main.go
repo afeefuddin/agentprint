@@ -451,7 +451,7 @@ func (application *app) sources(ctx context.Context, args []string) error {
 		}
 		fmt.Printf("\n%s  %s\n", item.ID, state)
 		fmt.Printf("  %s\n", item.Detection.Detail)
-		fmt.Printf("  tokens=%t model=%t cost=%t\n", item.Capabilities.Tokens, item.Capabilities.Model, item.Capabilities.Cost)
+		fmt.Printf("  tokens=%t model=%t\n", item.Capabilities.Tokens, item.Capabilities.Model)
 	}
 	return nil
 }

@@ -48,7 +48,7 @@ export default async function PrivacyPage() {
               <p className={COPY}>We collect only the information needed to operate Agentprint:</p>
               <ul className={LIST}>
                 <li>Account information such as your name, handle, email from your sign-in provider, timezone, and profile settings.</li>
-                <li>Usage details such as dates, token counts, estimated cost, and the coding agent or model involved.</li>
+                <li>Usage details such as dates, token counts, and the coding agent or model involved.</li>
                 <li>Device and source details needed to sync reliably and prevent duplicate activity.</li>
               </ul>
             </section>

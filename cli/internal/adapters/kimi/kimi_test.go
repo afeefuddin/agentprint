@@ -55,9 +55,6 @@ func TestMapsKimiTurnUsage(t *testing.T) {
 	if record.LocalDate != "2026-08-04" {
 		t.Fatalf("unexpected local date: %s", record.LocalDate)
 	}
-	if record.EstimatedCostMicros != nil || record.CostBasis != "" {
-		t.Fatalf("kimi reports no cost, got %+v", record)
-	}
 	if cursor == "" || cursor == "0" {
 		t.Fatalf("expected a modification cursor, got %q", cursor)
 	}
@@ -269,7 +266,7 @@ func TestDetectAndLocalDateUseConfiguredZone(t *testing.T) {
 		t.Fatalf("unexpected id %s", adapter.ID())
 	}
 	capabilities := adapter.Capabilities()
-	if !capabilities.Tokens || !capabilities.Model || capabilities.Cost {
+	if !capabilities.Tokens || !capabilities.Model {
 		t.Fatalf("unexpected capabilities: %+v", capabilities)
 	}
 

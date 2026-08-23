@@ -30,7 +30,6 @@ function MetricCard({
   label,
   value,
   note,
-  noteTone,
   art,
   artClass,
   cardClass
@@ -38,7 +37,6 @@ function MetricCard({
   label: string;
   value: ReactNode;
   note: string;
-  noteTone?: string;
   art: string;
   artClass: string;
   cardClass?: string;
@@ -48,7 +46,7 @@ function MetricCard({
       <div className="relative z-[1] w-[58%] max-tablet:w-[60%]">
         <span className={METRIC_LABEL}>{label}</span>
         <strong className={METRIC_VALUE}>{value}</strong>
-        <small className={cx(METRIC_LABEL, noteTone)}>{note}</small>
+        <small className={METRIC_LABEL}>{note}</small>
       </div>
       <Image className={cx(METRIC_ART, artClass)} src={art} alt="" width={512} height={512} aria-hidden="true" />
     </div>
@@ -67,12 +65,7 @@ export function ProfileView({
   const { profile, activity, thresholds, summary, harnesses, models } = data;
   const harnessTotal = Object.values(harnesses).reduce((sum, value) => sum + value, 0);
   const modelTotal = Object.values(models).reduce((sum, value) => sum + value, 0);
-  const topMetricCount = Number(profile.show_tokens) + Number(profile.show_cost) + 1;
-  const topMetricCardClass = topMetricCount === 1
-    ? "col-span-full"
-    : topMetricCount === 2
-      ? "col-span-3"
-      : undefined;
+  const topMetricCardClass = profile.show_tokens ? "col-span-3" : "col-span-full";
   return (
     <main id="main" data-profile-main className="overflow-x-clip pb-[var(--page-bottom)]">
       <div className="shell pt-[var(--page-top)]">
@@ -115,7 +108,6 @@ export function ProfileView({
           activity={activity}
           thresholds={thresholds}
           showTokens={profile.show_tokens}
-          showCost={profile.show_cost}
           showHarnesses={profile.show_harnesses}
         />
 
@@ -129,17 +121,6 @@ export function ProfileView({
               value={formatTokens(summary.totalTokens)}
               note="input + output"
               art="/metrics/generated/lifetime-tokens.png"
-              cardClass={topMetricCardClass}
-              artClass="-right-[21px] -bottom-[30px] w-[56%] max-w-[250px] max-tablet:-right-[9px] max-tablet:-bottom-[35px] max-tablet:w-[47%]"
-            />
-          )}
-          {profile.show_cost && (
-            <MetricCard
-              label="Estimated spend"
-              value={`$${(summary.estimatedCostMicros / 1_000_000).toLocaleString("en", { maximumFractionDigits: 0 })}`}
-              note="price-table estimate"
-              noteTone="text-amber"
-              art="/metrics/generated/estimated-spend.png"
               cardClass={topMetricCardClass}
               artClass="-right-[21px] -bottom-[30px] w-[56%] max-w-[250px] max-tablet:-right-[9px] max-tablet:-bottom-[35px] max-tablet:w-[47%]"
             />

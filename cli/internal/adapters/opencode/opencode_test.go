@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-func TestMapsOpenCodeUsageAndReportedCost(t *testing.T) {
+func TestMapsOpenCodeUsage(t *testing.T) {
 	root := t.TempDir()
 	directory := filepath.Join(root, "session")
 	if err := os.MkdirAll(directory, 0o700); err != nil {
@@ -27,10 +27,7 @@ func TestMapsOpenCodeUsageAndReportedCost(t *testing.T) {
 		t.Fatalf("expected 1 record, got %d", len(records))
 	}
 	record := records[0]
-	if record.TotalTokens != 142 || record.EstimatedCostMicros == nil || *record.EstimatedCostMicros != 420000 {
+	if record.TotalTokens != 142 {
 		t.Fatalf("unexpected mapping: %+v", record)
-	}
-	if record.CostBasis != "reported" {
-		t.Fatalf("expected reported cost basis")
 	}
 }

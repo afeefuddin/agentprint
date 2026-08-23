@@ -10,22 +10,20 @@ import (
 )
 
 type UsageRecord struct {
-	EventID             string `json:"event_id"`
-	SchemaVersion       int    `json:"schema_version"`
-	OccurredAt          string `json:"occurred_at"`
-	LocalDate           string `json:"local_date"`
-	HarnessID           string `json:"harness_id"`
-	HarnessVersion      string `json:"harness_version,omitempty"`
-	ProviderID          string `json:"provider_id,omitempty"`
-	ModelID             string `json:"model_id,omitempty"`
-	InputTokens         int64  `json:"input_tokens"`
-	OutputTokens        int64  `json:"output_tokens"`
-	CachedInputTokens   *int64 `json:"cached_input_tokens,omitempty"`
-	ReasoningTokens     *int64 `json:"reasoning_tokens,omitempty"`
-	TotalTokens         int64  `json:"total_tokens"`
-	EstimatedCostMicros *int64 `json:"estimated_cost_micros,omitempty"`
-	CostBasis           string `json:"cost_basis,omitempty"`
-	SourceFingerprint   string `json:"source_fingerprint"`
+	EventID           string `json:"event_id"`
+	SchemaVersion     int    `json:"schema_version"`
+	OccurredAt        string `json:"occurred_at"`
+	LocalDate         string `json:"local_date"`
+	HarnessID         string `json:"harness_id"`
+	HarnessVersion    string `json:"harness_version,omitempty"`
+	ProviderID        string `json:"provider_id,omitempty"`
+	ModelID           string `json:"model_id,omitempty"`
+	InputTokens       int64  `json:"input_tokens"`
+	OutputTokens      int64  `json:"output_tokens"`
+	CachedInputTokens *int64 `json:"cached_input_tokens,omitempty"`
+	ReasoningTokens   *int64 `json:"reasoning_tokens,omitempty"`
+	TotalTokens       int64  `json:"total_tokens"`
+	SourceFingerprint string `json:"source_fingerprint"`
 }
 
 type DetectionResult struct {
@@ -42,7 +40,6 @@ type HealthResult struct {
 
 type CapabilitySet struct {
 	Tokens bool `json:"tokens"`
-	Cost   bool `json:"cost"`
 	Model  bool `json:"model"`
 }
 
@@ -134,13 +131,11 @@ type Turn struct {
 }
 
 type Totals struct {
-	InputTokens         int64  `json:"input_tokens"`
-	OutputTokens        int64  `json:"output_tokens"`
-	CachedInputTokens   *int64 `json:"cached_input_tokens,omitempty"`
-	ReasoningTokens     *int64 `json:"reasoning_tokens,omitempty"`
-	TotalTokens         int64  `json:"total_tokens"`
-	EstimatedCostMicros *int64 `json:"estimated_cost_micros,omitempty"`
-	CostBasis           string `json:"cost_basis,omitempty"`
+	InputTokens       int64  `json:"input_tokens"`
+	OutputTokens      int64  `json:"output_tokens"`
+	CachedInputTokens *int64 `json:"cached_input_tokens,omitempty"`
+	ReasoningTokens   *int64 `json:"reasoning_tokens,omitempty"`
+	TotalTokens       int64  `json:"total_tokens"`
 }
 
 // SessionSummary is the listing entry. It deliberately carries no message

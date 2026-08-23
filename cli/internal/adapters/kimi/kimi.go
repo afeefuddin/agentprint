@@ -27,7 +27,7 @@ func New(home string, location *time.Location) *Adapter {
 
 func (adapter *Adapter) ID() string { return "kimi-code" }
 func (adapter *Adapter) Capabilities() adapters.CapabilitySet {
-	return adapters.CapabilitySet{Tokens: true, Model: true, Cost: false}
+	return adapters.CapabilitySet{Tokens: true, Model: true}
 }
 func (adapter *Adapter) Detect(context.Context) adapters.DetectionResult {
 	info, err := os.Stat(adapter.Root)

@@ -112,7 +112,6 @@ export default async function SettingsPage() {
             initialPrivacy={{
               is_public: current.is_public,
               show_tokens: current.show_tokens,
-              show_cost: current.show_cost,
               show_harnesses: current.show_harnesses,
               show_models: current.show_models,
               show_streaks: current.show_streaks
