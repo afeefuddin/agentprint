@@ -345,12 +345,13 @@ test("a public shared session is readable, collapsible, and linked from the prof
   // The redaction summary is the page's core claim; it must always be present.
   await expect(page.getByText(/credential values? removed/)).toBeVisible();
 
-  // Tool calls and their results share one compact disclosure instead of
-  // becoming full transcript cards.
+  // Reasoning and tool details stay compact and independently expandable.
+  const reasoning = page.locator("details").filter({ hasText: "One run in four suggests" }).first();
+  await expect(reasoning).not.toHaveAttribute("open", "");
+  await expect(reasoning.locator("summary")).toContainText("Reasoning");
   const step = page.locator("details").filter({ hasText: "<project>/tests/checkout.spec.ts" }).first();
   await expect(step).not.toHaveAttribute("open", "");
   await step.locator("summary").click();
-  await expect(step).toHaveAttribute("open", "");
   await expect(step.getByText("seedCart")).toBeVisible();
   await expect(page.getByText("Tool result")).toHaveCount(0);
   await expect(page.getByText("Final answer", { exact: true })).toBeVisible();
