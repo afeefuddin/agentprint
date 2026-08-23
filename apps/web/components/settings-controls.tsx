@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { AlertTriangle, Check, Copy, Download, ExternalLink, Globe, Laptop, LogOut, Terminal, Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { AlertTriangle, Camera, Check, Copy, Download, ExternalLink, Globe, Laptop, LogOut, Terminal, Trash2 } from "lucide-react";
 import { compactTokens, harnessBrand, harnessLabels, modelBrand } from "@/lib/brands";
 import { buttonClass, iconButtonDangerClass, modelChart, switchClass, switchKnobClass } from "@/lib/ui";
-import { useState } from "react";
+import { ProfileAvatar } from "@/components/profile-avatar";
+import { useRef, useState } from "react";
 
 type Model = { id: string; tokens: number };
 
@@ -38,6 +40,12 @@ type Privacy = {
 
 type FieldKey = "show_tokens" | "show_harnesses" | "show_models" | "show_streaks";
 
+type Identity = {
+  handle: string;
+  displayName: string;
+  avatarUpdatedAt: string | null;
+};
+
 const audiences: { key: "is_public"; label: string; description: string }[] = [
   { key: "is_public", label: "Public profile", description: "Anyone holding your profile address can open it." }
 ];
@@ -68,22 +76,94 @@ function audienceNote(privacy: Privacy) {
 }
 
 export function SettingsControls({
+  identity,
   initialPrivacy,
   initialDevices,
   harnesses,
   models,
   profileUrl
 }: {
+  identity: Identity;
   initialPrivacy: Privacy;
   initialDevices: Device[];
   harnesses: Harness[];
   models: Model[];
   profileUrl: string;
 }) {
+  const router = useRouter();
+  const avatarInput = useRef<HTMLInputElement>(null);
   const [privacy, setPrivacy] = useState(initialPrivacy);
   const [devices, setDevices] = useState(initialDevices);
   const [saved, setSaved] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [displayName, setDisplayName] = useState(identity.displayName);
+  const [savedDisplayName, setSavedDisplayName] = useState(identity.displayName);
+  const [avatarUpdatedAt, setAvatarUpdatedAt] = useState(identity.avatarUpdatedAt);
+  const [identityState, setIdentityState] = useState<"idle" | "saving" | "saved">("idle");
+  const [identityError, setIdentityError] = useState("");
+
+  async function saveName(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const nextName = displayName.trim();
+    if (!nextName || nextName === savedDisplayName) return;
+
+    setIdentityError("");
+    setIdentityState("saving");
+    const response = await fetch("/v1/me/profile", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ display_name: nextName })
+    });
+    if (!response.ok) {
+      setIdentityError("Your name could not be saved. Try again.");
+      setIdentityState("idle");
+      return;
+    }
+    setDisplayName(nextName);
+    setSavedDisplayName(nextName);
+    setIdentityState("saved");
+    router.refresh();
+    setTimeout(() => setIdentityState("idle"), 1400);
+  }
+
+  async function uploadAvatar(file: File) {
+    setIdentityError("");
+    if (file.size > 1_048_576) {
+      setIdentityError("Choose an image smaller than 1 MB.");
+      return;
+    }
+
+    setIdentityState("saving");
+    const form = new FormData();
+    form.set("avatar", file);
+    const response = await fetch("/v1/me/avatar", { method: "POST", body: form });
+    const result = await response.json().catch(() => ({})) as { message?: string; updated_at?: string };
+    if (!response.ok || !result.updated_at) {
+      setIdentityError(result.message ?? "Your profile picture could not be saved. Try again.");
+      setIdentityState("idle");
+      return;
+    }
+    setAvatarUpdatedAt(result.updated_at);
+    setIdentityState("saved");
+    router.refresh();
+    setTimeout(() => setIdentityState("idle"), 1400);
+  }
+
+  async function removeAvatar() {
+    setIdentityError("");
+    setIdentityState("saving");
+    const response = await fetch("/v1/me/avatar", { method: "DELETE" });
+    if (!response.ok) {
+      setIdentityError("Your profile picture could not be removed. Try again.");
+      setIdentityState("idle");
+      return;
+    }
+    setAvatarUpdatedAt(null);
+    if (avatarInput.current) avatarInput.current.value = "";
+    setIdentityState("saved");
+    router.refresh();
+    setTimeout(() => setIdentityState("idle"), 1400);
+  }
 
   async function toggle(key: keyof Privacy) {
     const next = { ...privacy, [key]: !privacy[key] };
@@ -117,6 +197,90 @@ export function SettingsControls({
 
   return (
     <>
+      <section className={ROW} id="identity">
+        <div className={RAIL}>
+          <h2 className={RAIL_TITLE}>Identity</h2>
+          <p className={RAIL_COPY}>Your public name and picture on Agentprint.</p>
+        </div>
+        <div className={PANEL}>
+          <div className="flex items-center gap-5 px-[22px] py-5 max-tablet:items-start max-tablet:px-[18px]">
+            <ProfileAvatar
+              handle={identity.handle}
+              name={displayName}
+              updatedAt={avatarUpdatedAt}
+              className="size-20 flex-[0_0_80px]"
+            />
+            <div className="min-w-0 flex-1">
+              <b className={CELL_LABEL}>Profile picture</b>
+              <small className={CELL_META}>JPEG, PNG, or WebP up to 1 MB.</small>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <input
+                  ref={avatarInput}
+                  className="sr-only"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  aria-label="Profile picture file"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    event.target.value = "";
+                    if (file) void uploadAvatar(file);
+                  }}
+                />
+                <button
+                  className={buttonClass({ variant: "secondary", size: "small" })}
+                  type="button"
+                  disabled={identityState === "saving"}
+                  onClick={() => avatarInput.current?.click()}
+                >
+                  <Camera size={15} /> {avatarUpdatedAt ? "Change image" : "Choose image"}
+                </button>
+                {avatarUpdatedAt ? (
+                  <button
+                    className={buttonClass({ variant: "secondary", size: "small" })}
+                    type="button"
+                    disabled={identityState === "saving"}
+                    onClick={() => void removeAvatar()}
+                  >
+                    <Trash2 size={15} /> Remove
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          </div>
+          <form
+            className="flex items-end gap-3 border-t border-line px-[22px] py-5 max-tablet:flex-col max-tablet:items-stretch max-tablet:px-[18px]"
+            onSubmit={saveName}
+          >
+            <label className="min-w-0 flex-1 text-xs font-medium text-muted">
+              Display name
+              <input
+                className="mt-2 block min-h-[43px] w-full rounded-sm border border-line-strong bg-canvas-deep px-3.5 text-base text-ink-strong outline-none transition-[border-color,box-shadow] placeholder:text-faint focus:border-accent focus:shadow-[0_0_0_3px_var(--color-accent-soft)]"
+                name="display_name"
+                autoComplete="name"
+                maxLength={80}
+                required
+                value={displayName}
+                onChange={(event) => setDisplayName(event.target.value)}
+              />
+            </label>
+            <button
+              className={buttonClass({ size: "small", className: "flex-none max-tablet:w-full" })}
+              type="submit"
+              disabled={identityState === "saving" || !displayName.trim() || displayName.trim() === savedDisplayName}
+            >
+              {identityState === "saving" ? "Saving…" : "Save name"}
+            </button>
+          </form>
+          <p
+            className="m-0 min-h-0 px-[22px] text-xs data-[visible=true]:border-t data-[visible=true]:border-line data-[visible=true]:py-3 max-tablet:px-[18px]"
+            data-visible={Boolean(identityError || identityState === "saved")}
+            role="status"
+          >
+            {identityError ? <span className="text-red">{identityError}</span> : identityState === "saved" ? <span className="text-accent">Saved</span> : null}
+          </p>
+        </div>
+      </section>
+
       <section className={ROW} id="visibility">
         <div className={RAIL}>
           <h2 className={RAIL_TITLE}>Audience</h2>

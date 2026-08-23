@@ -192,12 +192,35 @@ test("new account starts private and can be published", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Your record is live." })).toBeVisible();
 
   await page.goto("/settings");
+  await expect(page.getByRole("heading", { name: "Identity" })).toBeVisible();
+  const displayName = page.getByLabel("Display name");
+  await displayName.fill("Browser Test Updated");
+  await page.getByRole("button", { name: "Save name" }).click();
+  await expect(page.getByRole("status")).toHaveText("Saved");
+
+  await page.getByLabel("Profile picture file").setInputFiles({
+    name: "avatar.png",
+    mimeType: "image/png",
+    buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=", "base64")
+  });
+  await expect(page.getByRole("button", { name: "Change image" })).toBeVisible();
+  const avatarResponse = await page.request.get(`/v1/profiles/${handle}/avatar`);
+  expect(avatarResponse.ok()).toBeTruthy();
+  expect(avatarResponse.headers()["content-type"]).toBe("image/png");
+
   const publicSwitch = page.getByRole("switch", { name: "Public profile" });
   await expect(publicSwitch).not.toBeChecked();
   await publicSwitch.click();
   await expect(publicSwitch).toBeChecked();
   const response = await page.request.get(`/v1/profiles/${handle}`);
   expect(response.ok()).toBeTruthy();
+  await page.goto(`/${handle}`);
+  await expect(page.getByRole("heading", { name: "Browser Test Updated" })).toBeVisible();
+  await expect(page.locator('[data-profile-main] img[src*="/avatar"]')).toBeVisible();
+  await page.goto("/settings");
+  await page.getByRole("button", { name: "Remove" }).click();
+  await expect(page.getByRole("button", { name: "Choose image" })).toBeVisible();
+  expect((await page.request.get(`/v1/profiles/${handle}/avatar`)).status()).toBe(404);
   await page.getByRole("button", { name: "Log out" }).click();
   await expect(page).toHaveURL(/\/$/);
   await page.goto("/settings");

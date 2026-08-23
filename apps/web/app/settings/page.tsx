@@ -109,6 +109,11 @@ export default async function SettingsPage() {
             </div>
           </section>
           <SettingsControls
+            identity={{
+              handle: current.handle,
+              displayName: current.display_name,
+              avatarUpdatedAt: current.avatar_updated_at?.toISOString() ?? null
+            }}
             initialPrivacy={{
               is_public: current.is_public,
               show_tokens: current.show_tokens,
