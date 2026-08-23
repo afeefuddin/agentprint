@@ -64,45 +64,55 @@ func rankSessionsForDirectory(
 	workingDirectory, home string,
 ) []adapters.SessionSummary {
 	currentRoot := projectRoot(workingDirectory, home)
-	currentProject := filepath.Base(currentRoot)
-	type contextualSession struct {
+	type rankedSession struct {
 		summary adapters.SessionSummary
 		rank    int
 	}
-	contextual := make([]contextualSession, 0, len(sessions))
+	ranked := make([]rankedSession, 0, len(sessions))
 	for _, session := range sessions {
 		root := projectRoot(session.WorkingDirectory, home)
 		session.ProjectRoot = root
-		projectAgnostic := root == "" && (session.WorkingDirectory != "" || session.Project == "")
-		rank := 1
-		if currentRoot != "" {
-			rank = 3
-			switch {
-			case root != "" && root == currentRoot:
-				rank = 0
-			case projectAgnostic:
-				rank = 1
-			case root == "" && session.Project == currentProject:
-				// Some harnesses expose only a project label. It is safe to use
-				// that as a ranking hint because selection still requires consent.
-				rank = 2
-			}
-		} else if projectAgnostic {
-			rank = 0
-		}
-		contextual = append(contextual, contextualSession{summary: session, rank: rank})
+		ranked = append(ranked, rankedSession{
+			summary: session,
+			rank:    sessionProjectRank(session, root, currentRoot),
+		})
 	}
-	sort.SliceStable(contextual, func(first, second int) bool {
-		if contextual[first].rank != contextual[second].rank {
-			return contextual[first].rank < contextual[second].rank
+	sort.SliceStable(ranked, func(first, second int) bool {
+		if ranked[first].rank != ranked[second].rank {
+			return ranked[first].rank < ranked[second].rank
 		}
-		return contextual[first].summary.EndedAt.After(contextual[second].summary.EndedAt)
+		return ranked[first].summary.EndedAt.After(ranked[second].summary.EndedAt)
 	})
-	result := make([]adapters.SessionSummary, len(contextual))
-	for index, session := range contextual {
+	result := make([]adapters.SessionSummary, len(ranked))
+	for index, session := range ranked {
 		result[index] = session.summary
 	}
 	return result
+}
+
+func sessionProjectRank(
+	session adapters.SessionSummary,
+	root, currentRoot string,
+) int {
+	projectAgnostic := root == "" && (session.WorkingDirectory != "" || session.Project == "")
+	if currentRoot == "" {
+		if projectAgnostic {
+			return 0
+		}
+		return 1
+	}
+	if root == currentRoot {
+		return 0
+	}
+	if projectAgnostic {
+		return 1
+	}
+	// Some harnesses expose only a project label. It is safe to use that as a
+	// ranking hint because selection still requires consent.
+	if root == "" && session.Project == projectName(currentRoot) {
+		return 2
+	}
+	return 3
 }
 
 // projectRoot resolves Git worktrees and ordinary project directories without
@@ -110,28 +120,12 @@ func rankSessionsForDirectory(
 // is project-agnostic, which matches how coding agents behave when launched
 // without a project.
 func projectRoot(path, home string) string {
-	if path == "" {
+	absolute := canonicalPath(path)
+	if absolute == "" {
 		return ""
 	}
-	absolute, err := filepath.Abs(path)
-	if err != nil {
+	if cleanHome := canonicalPath(home); cleanHome != "" && absolute == cleanHome {
 		return ""
-	}
-	absolute = filepath.Clean(absolute)
-	if resolved, err := filepath.EvalSymlinks(absolute); err == nil {
-		absolute = resolved
-	}
-	if home != "" {
-		cleanHome, err := filepath.Abs(home)
-		if err == nil {
-			cleanHome = filepath.Clean(cleanHome)
-			if resolved, err := filepath.EvalSymlinks(cleanHome); err == nil {
-				cleanHome = resolved
-			}
-			if absolute == cleanHome {
-				return ""
-			}
-		}
 	}
 	for directory := absolute; ; directory = filepath.Dir(directory) {
 		if _, err := os.Stat(filepath.Join(directory, ".git")); err == nil {
@@ -148,17 +142,37 @@ func projectRoot(path, home string) string {
 	return absolute
 }
 
-func projectLabel(session adapters.SessionSummary) string {
-	if session.WorkingDirectory != "" {
-		if session.ProjectRoot == "" {
-			return "No project"
-		}
-		return filepath.Base(session.ProjectRoot)
+func canonicalPath(path string) string {
+	if path == "" {
+		return ""
 	}
-	if session.Project == "" {
+	absolute, err := filepath.Abs(path)
+	if err != nil {
+		return ""
+	}
+	absolute = filepath.Clean(absolute)
+	if resolved, err := filepath.EvalSymlinks(absolute); err == nil {
+		return resolved
+	}
+	return absolute
+}
+
+func projectName(root string) string {
+	if root == "" {
+		return ""
+	}
+	return filepath.Base(root)
+}
+
+func projectLabel(session adapters.SessionSummary) string {
+	project := session.Project
+	if session.WorkingDirectory != "" {
+		project = projectName(session.ProjectRoot)
+	}
+	if project == "" {
 		return "No project"
 	}
-	return session.Project
+	return project
 }
 
 func (application *app) sessions(ctx context.Context, args []string) error {
