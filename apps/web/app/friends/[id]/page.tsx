@@ -115,11 +115,11 @@ function ComparisonReady({ comparison }: { comparison: NonNullable<Awaited<Retur
         <div className={cx(HEADING_ROW, "border-b border-line")}>
           <span>
             <h2 id="routing-title" className={PANEL_TITLE}>Routing fingerprints</h2>
-            <small className={PANEL_SUB}>How each trace moved across harnesses and models.</small>
+            <small className={PANEL_SUB}>How each activity history moved across coding tools and models.</small>
           </span>
           <ArrowRight size={16} className="text-faint" />
         </div>
-        <ComparisonMix title="Harness routing" left={mine} right={friend} field="harnesses" visible={comparison.visibility.harnesses} />
+        <ComparisonMix title="Coding-tool mix" left={mine} right={friend} field="harnesses" visible={comparison.visibility.harnesses} />
         <ComparisonMix title="Model routing" left={mine} right={friend} field="models" visible={comparison.visibility.models} />
       </section>
 

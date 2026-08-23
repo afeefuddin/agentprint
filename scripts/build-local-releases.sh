@@ -7,6 +7,13 @@ temporary="$(mktemp -d)"
 trap 'rm -rf "$temporary"' EXIT
 mkdir -p "$output_dir"
 
+posthog_token="${POSTHOG_PROJECT_TOKEN:-${NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN:-}}"
+posthog_host="${POSTHOG_HOST:-${NEXT_PUBLIC_POSTHOG_HOST:-https://us.i.posthog.com}}"
+telemetry_ldflags=""
+if [ -n "$posthog_token" ]; then
+  telemetry_ldflags="-X github.com/agentprint/agentprint/cli/internal/telemetry.PostHogProjectToken=$posthog_token -X github.com/agentprint/agentprint/cli/internal/telemetry.PostHogEndpoint=$posthog_host"
+fi
+
 build_tarball() {
   target_os="$1"
   target_arch="$2"
@@ -14,7 +21,7 @@ build_tarball() {
   mkdir -p "$build_dir"
   (
     cd "$project_root/cli"
-    CGO_ENABLED=0 GOOS="$target_os" GOARCH="$target_arch" go build -trimpath -ldflags="-s -w" -o "$build_dir/agentprint" ./cmd/agentprint
+    CGO_ENABLED=0 GOOS="$target_os" GOARCH="$target_arch" go build -trimpath -ldflags="-s -w $telemetry_ldflags" -o "$build_dir/agentprint" ./cmd/agentprint
   )
   tar -czf "$output_dir/agentprint-${target_os}-${target_arch}.tar.gz" -C "$build_dir" agentprint
 }
@@ -25,7 +32,7 @@ build_zip() {
   mkdir -p "$build_dir"
   (
     cd "$project_root/cli"
-    CGO_ENABLED=0 GOOS=windows GOARCH="$target_arch" go build -trimpath -ldflags="-s -w" -o "$build_dir/agentprint.exe" ./cmd/agentprint
+    CGO_ENABLED=0 GOOS=windows GOARCH="$target_arch" go build -trimpath -ldflags="-s -w $telemetry_ldflags" -o "$build_dir/agentprint.exe" ./cmd/agentprint
   )
   (
     cd "$build_dir"

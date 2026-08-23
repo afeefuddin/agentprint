@@ -162,7 +162,7 @@ export function ProfileView({
               aria-labelledby="harness-title"
             >
               <div className={sectionHeading.root}>
-                <div><h2 id="harness-title" className={sectionHeading.title}>Connected harnesses</h2></div>
+                <div><h2 id="harness-title" className={sectionHeading.title}>Connected coding tools</h2></div>
                 <span className={sectionHeading.meta}>{Object.keys(harnesses).length} detected</span>
               </div>
               <div className="rounded-sm border border-line bg-panel px-[18px] py-1.5">
@@ -287,9 +287,9 @@ export function ProfileView({
             <span className="h-2.5 w-[3px] bg-blue" />
           </div>
           <div>
-            <b className="text-xs">Synced from {Object.keys(harnesses).length} connected harnesses</b>
+            <b className="text-xs">Updated from {Object.keys(harnesses).length} connected coding tools</b>
             <p className="mt-[3px] text-xs text-faint">
-              The numbers above are metadata only—never prompts, responses, source code,
+              The numbers above are activity totals only—never prompts, responses, source code,
               repository names, or file paths.
               {data.sharedSessions.length > 0
                 ? " Shared sessions are separate: each one was published deliberately, one session at a time, after local redaction."

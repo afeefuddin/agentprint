@@ -1,9 +1,10 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { auditShareForCredentials, sessionShareSchema } from "@agentprint/contracts";
 import { consumeRateLimit, listShares, publishShare } from "@agentprint/database";
 import { apiViewer } from "@/lib/auth";
 import { contractFailure, readSignedDeviceRequest, resolveOwner } from "@/lib/device-request";
 import { requestUrl, tooManyRequests, unauthorized } from "@/lib/http";
+import { capturePostHogEvent } from "@/lib/posthog-server";
 
 export async function GET(request: Request) {
   const owner = await resolveOwner(request, apiViewer);
@@ -46,6 +47,17 @@ export async function POST(request: Request) {
     { userId: device.user_id, deviceId: device.id },
     share
   );
+  after(() => capturePostHogEvent({
+    distinctId: device.handle,
+    event: "session_share_published",
+    properties: {
+      visibility: share.visibility,
+      redaction_level: share.redaction_level,
+      replaced: result.replaced,
+      turn_count: share.turns.length,
+      model_count: share.model_ids.length
+    }
+  }));
   return NextResponse.json(
     {
       id: result.id,

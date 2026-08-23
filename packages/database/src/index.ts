@@ -62,8 +62,9 @@ export async function createAccount(input: {
       client
     );
     await client.query(
-      `INSERT INTO profiles (user_id, handle, display_name, timezone)
-       VALUES ($1, $2, $3, $4)`,
+      `INSERT INTO profiles (
+         user_id, handle, display_name, timezone, onboarding_completed_at
+       ) VALUES ($1, $2, $3, $4, now())`,
       [user!.id, input.handle, input.displayName, input.timezone]
     );
     await client.query("COMMIT");
@@ -276,9 +277,16 @@ export async function registerDevice(input: {
   try {
     await client.query("BEGIN");
     const sessionHash = hashSecret(`device-registration:${input.registrationToken}`);
-    const registration = await one<{ id: string; user_id: string }>(
-      `SELECT id, user_id FROM sessions
-       WHERE token_hash = $1 AND expires_at > now() FOR UPDATE`,
+    const registration = await one<{
+      id: string;
+      user_id: string;
+      handle: string;
+      onboarding_complete: boolean;
+    }>(
+      `SELECT s.id, s.user_id, p.handle, p.onboarding_complete
+       FROM sessions s
+       JOIN profiles p ON p.user_id = s.user_id
+       WHERE s.token_hash = $1 AND s.expires_at > now() FOR UPDATE OF s`,
       [sessionHash],
       client
     );
@@ -306,7 +314,12 @@ export async function registerDevice(input: {
     }
     await client.query("DELETE FROM sessions WHERE id = $1", [registration.id]);
     await client.query("COMMIT");
-    return { deviceId: device!.id, credential };
+    return {
+      deviceId: device!.id,
+      credential,
+      handle: registration.handle,
+      onboardingComplete: registration.onboarding_complete
+    };
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;
@@ -317,10 +330,11 @@ export async function registerDevice(input: {
 
 export async function authenticateDevice(authorization?: string | null) {
   if (!authorization?.startsWith("Bearer ")) return null;
-  return one<{ id: string; user_id: string; paused: boolean; signing_public_key: string | null }>(
-    `SELECT d.id, d.user_id, d.paused, c.signing_public_key
+  return one<{ id: string; user_id: string; handle: string; paused: boolean; signing_public_key: string | null }>(
+    `SELECT d.id, d.user_id, p.handle, d.paused, c.signing_public_key
      FROM device_credentials c
      JOIN devices d ON d.id = c.device_id
+     JOIN profiles p ON p.user_id = d.user_id
      WHERE c.credential_hash = $1 AND d.revoked_at IS NULL`,
     [hashSecret(authorization.slice(7))]
   );
@@ -552,7 +566,9 @@ export async function completeOnboardingProfile(userId: string, profile: Onboard
   const result = await pool.query(
     `UPDATE profiles
      SET handle = $2, display_name = $3, timezone = $4,
-         onboarding_complete = true, updated_at = now()
+         onboarding_complete = true,
+         onboarding_completed_at = COALESCE(onboarding_completed_at, now()),
+         updated_at = now()
      WHERE user_id = $1 AND onboarding_complete = false`,
     [userId, profile.handle, profile.display_name, profile.timezone]
   );
@@ -1093,7 +1109,7 @@ export async function usageExport(userId: string) {
   const profile = await one<Record<string, unknown>>(
     `SELECT user_id, handle, display_name, bio, timezone, is_public,
             show_tokens, show_harnesses, show_models, show_streaks,
-            onboarding_complete, published_at, updated_at
+            onboarding_complete, onboarding_completed_at, published_at, updated_at
      FROM profiles WHERE user_id = $1`,
     [userId]
   );

@@ -38,7 +38,7 @@ export function ActivateForm({ initialCode = "" }: { initialCode?: string }) {
       <div className={CARD} role="status">
         <CheckCircle2 size={31} className="mx-auto text-green" />
         <h2 className={TITLE}>Device connected</h2>
-        <p className={BODY}>You can close this tab. The CLI is discovering local harnesses and preparing the first private sync.</p>
+        <p className={BODY}>You can close this tab. Agentprint is finding your coding tools and preparing your private profile.</p>
         <Link className={buttonClass({ className: "mt-5" })} href="/onboarding">
           Continue onboarding <ArrowRight size={16} />
         </Link>
@@ -56,7 +56,7 @@ export function ActivateForm({ initialCode = "" }: { initialCode?: string }) {
       <label className="mb-4 mt-[30px] block text-left">
         <span className="mb-[7px] block text-xs font-medium text-faint">Device code</span>
         <input
-          className="h-[58px] w-full rounded-sm border border-line-strong bg-panel px-[13px] text-center text-xl font-medium tracking-[.1em] text-ink-strong outline-none focus:border-blue focus:shadow-[0_0_0_2px_color-mix(in_srgb,var(--color-blue)_12%,transparent)]"
+          className="ph-mask h-[58px] w-full rounded-sm border border-line-strong bg-panel px-[13px] text-center text-xl font-medium tracking-[.1em] text-ink-strong outline-none focus:border-blue focus:shadow-[0_0_0_2px_color-mix(in_srgb,var(--color-blue)_12%,transparent)]"
           value={code}
           onChange={(event) => setCode(event.target.value.toUpperCase())}
           placeholder="A1B2C3-D4E5F6"
@@ -73,7 +73,7 @@ export function ActivateForm({ initialCode = "" }: { initialCode?: string }) {
       <div className="mt-[22px] flex gap-2.5 border-t border-line pt-5 text-left text-xs text-faint">
         <ShieldCheck size={15} className="shrink-0 text-green" />
         <span>
-          This gives the agent permission to upload numeric usage metadata. It cannot upload prompts, code, paths, or credentials.
+          This connects your device so Agentprint can add its activity totals. Your prompts, code, paths, and credentials stay private.
         </span>
       </div>
     </form>

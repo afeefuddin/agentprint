@@ -128,13 +128,13 @@ export function ContributionField({
           {showHarnesses && (
             <label className="relative flex h-[35px] items-center rounded-sm border border-line bg-canvas pl-2.5 text-faint">
               <Layers3 size={14} />
-              <span className="sr-only">Filter harness</span>
+              <span className="sr-only">Filter coding tool</span>
               <select
                 className="h-[31px] cursor-pointer appearance-none border-0 bg-transparent pl-[7px] pr-7 text-xs font-medium text-ink outline-0"
                 value={harness}
                 onChange={(event) => setHarness(event.target.value)}
               >
-                <option value="all">All harnesses</option>
+                <option value="all">All coding tools</option>
                 {harnesses.map((value) => (
                   <option value={value} key={value}>{harnessLabels[value] ?? value}</option>
                 ))}
