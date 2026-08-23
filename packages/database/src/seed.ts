@@ -93,6 +93,168 @@ if (count.rows[0].count === 0) {
   );
 }
 
+// Friendly local comparison fixtures. These are deliberately distinct routing
+// profiles so the comparison page has real shapes, brand colours, and logos to
+// inspect instead of two nearly identical traces.
+const localFriends = [
+  {
+    email: "ada@agentprint.dev",
+    handle: "ada-automates",
+    displayName: "Ada Byte ⚡",
+    timezone: "Europe/London",
+    bio: "Automating the boring parts and measuring what remains.",
+    routes: [
+      ["codex", "gpt-5.6-sol"],
+      ["codex", "gpt-5.6-sol"],
+      ["codex", "gpt-5.5"],
+      ["claude-code", "claude-opus-4.1"],
+      ["opencode", "qwen3-coder"]
+    ]
+  },
+  {
+    email: "noor@agentprint.dev",
+    handle: "noor-ships",
+    displayName: "Noor Ships 🚀",
+    timezone: "Asia/Dubai",
+    bio: "Fast feedback loops, small diffs, reliable releases.",
+    routes: [
+      ["claude-code", "claude-opus-4.1"],
+      ["claude-code", "claude-opus-4.1"],
+      ["claude-code", "claude-sonnet-4.5"],
+      ["kimi-code", "kimi-k2.5"],
+      ["codex", "gpt-5.4"]
+    ]
+  },
+  {
+    email: "priya@agentprint.dev",
+    handle: "priya-pixels",
+    displayName: "Priya Pixels ✨",
+    timezone: "Asia/Kolkata",
+    bio: "Polishing product edges with a small fleet of agents.",
+    routes: [
+      ["opencode", "qwen3-coder"],
+      ["opencode", "qwen3-coder"],
+      ["opencode", "glm-4.5"],
+      ["codex", "gpt-5.5"],
+      ["claude-code", "claude-sonnet-4.5"]
+    ]
+  }
+] as const;
+
+const localFriendIds: string[] = [];
+for (const [friendIndex, friend] of localFriends.entries()) {
+  const existingFriend = await pool.query<{ id: string }>(
+    "SELECT id FROM users WHERE email = $1",
+    [friend.email]
+  );
+  const friendId = existingFriend.rows[0]?.id ?? (await createAccount({
+    email: friend.email,
+    password: "agentprint-demo",
+    handle: friend.handle,
+    displayName: friend.displayName,
+    timezone: friend.timezone
+  })).id;
+  localFriendIds.push(friendId);
+
+  await pool.query(
+    `UPDATE profiles SET bio = $2, is_public = true,
+       published_at = COALESCE(published_at, now())
+     WHERE user_id = $1`,
+    [friendId, friend.bio]
+  );
+
+  const usage = await pool.query<{ count: number }>(
+    "SELECT count(*)::int AS count FROM daily_usage WHERE user_id = $1",
+    [friendId]
+  );
+  if (usage.rows[0].count === 0) {
+    for (let ago = 89; ago >= 0; ago -= 1) {
+      if ((ago * 11 + friendIndex * 7) % 10 < 3) continue;
+      const date = new Date();
+      date.setUTCDate(date.getUTCDate() - ago);
+      const [harness, model] = friend.routes[(ago * (friendIndex + 2) + friendIndex) % friend.routes.length];
+      const total = 42_000 + ((ago * 71_113 + friendIndex * 193_337) % 620_000);
+      await pool.query(
+        `INSERT INTO daily_usage (
+           user_id, local_date, harness_id, model_id, input_tokens,
+           output_tokens, total_tokens, event_count
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, 1)
+         ON CONFLICT (user_id, local_date, harness_id, model_id) DO NOTHING`,
+        [
+          friendId,
+          date.toISOString().slice(0, 10),
+          harness,
+          model,
+          Math.floor(total * 0.74),
+          Math.floor(total * 0.26),
+          total
+        ]
+      );
+    }
+  }
+}
+
+const localUser = await pool.query<{ user_id: string }>(
+  "SELECT user_id FROM profiles WHERE handle = 'cool'"
+);
+if (localUser.rows[0]) {
+  const usage = await pool.query<{ count: number }>(
+    "SELECT count(*)::int AS count FROM daily_usage WHERE user_id = $1",
+    [localUser.rows[0].user_id]
+  );
+  if (usage.rows[0].count === 0) {
+    const routes = [
+      ["codex", "gpt-5.6-sol"],
+      ["codex", "gpt-5.5"],
+      ["claude-code", "claude-opus-4.1"],
+      ["kimi-code", "kimi-k2.5"],
+      ["opencode", "qwen3-coder"]
+    ] as const;
+    for (let ago = 89; ago >= 0; ago -= 1) {
+      if ((ago * 13 + 5) % 11 < 3) continue;
+      const date = new Date();
+      date.setUTCDate(date.getUTCDate() - ago);
+      const [harness, model] = routes[(ago * 3 + 1) % routes.length];
+      const total = 58_000 + ((ago * 91_127 + 287_411) % 740_000);
+      await pool.query(
+        `INSERT INTO daily_usage (
+           user_id, local_date, harness_id, model_id, input_tokens,
+           output_tokens, total_tokens, event_count
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, 1)
+         ON CONFLICT (user_id, local_date, harness_id, model_id) DO NOTHING`,
+        [
+          localUser.rows[0].user_id,
+          date.toISOString().slice(0, 10),
+          harness,
+          model,
+          Math.floor(total * 0.7),
+          Math.floor(total * 0.3),
+          total
+        ]
+      );
+    }
+  }
+}
+
+// Attach the fixtures to every real local profile, including the original Maya
+// demo. Re-running the seed is safe and newly-created local accounts pick them
+// up the next time the seed runs.
+const localProfiles = await pool.query<{ user_id: string }>(
+  `SELECT user_id FROM profiles
+   WHERE onboarding_complete AND NOT (user_id = ANY($1::uuid[]))`,
+  [localFriendIds]
+);
+for (const profile of localProfiles.rows) {
+  for (const friendId of localFriendIds) {
+    await pool.query(
+      `INSERT INTO friendships (requester_id, addressee_id, status, responded_at)
+       VALUES ($1, $2, 'accepted', now())
+       ON CONFLICT DO NOTHING`,
+      [profile.user_id, friendId]
+    );
+  }
+}
+
 // One published session, so the shared-session viewer and the profile listing
 // have something real to render locally. Its transcript is written the way the
 // collector would emit it: already redacted, with the markers left visible.
@@ -228,4 +390,4 @@ await publishShare(
 );
 
 await pool.end();
-console.log("Seeded demo@agentprint.dev / agentprint-demo");
+console.log("Seeded demo@agentprint.dev plus 3 local comparison friends");

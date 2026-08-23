@@ -283,15 +283,31 @@ test("friends can connect and compare paired traces", async ({ page, browser }, 
       await expect(secondPage.getByRole("switch", { name: "Friend comparisons" })).toHaveCount(0);
       await expect(secondPage.getByText("Requests for you")).toBeVisible();
       await secondPage.getByRole("button", { name: "Accept", exact: true }).click();
-      await expect(secondPage.getByText("Ready to compare")).toBeVisible();
+      await expect(secondPage.getByText("Ready to compare")).toHaveCount(0);
       await secondPage.getByRole("link", { name: "Compare traces" }).click();
 
-      await expect(secondPage.getByRole("heading", { name: "Two traces. One window." })).toBeVisible();
+      const comparisonCard = secondPage.getByRole("region", { name: "Activity comparison" });
+      await expect(comparisonCard).toBeVisible();
+      await expect(comparisonCard).toHaveClass(/bg-panel/);
+      await expect(comparisonCard.getByLabel("Friends being compared")).toBeVisible();
+      await expect(comparisonCard.getByRole("navigation", { name: "Comparison window" })).toBeVisible();
+      await expect(secondPage.getByText("Two traces.")).toHaveCount(0);
       await expect(secondPage.getByRole("heading", { name: "Shared date rail" })).toBeVisible();
       await expect(secondPage.getByLabel("Morgan Trace daily activity")).toBeVisible();
       await expect(secondPage.getByLabel("Avery Trace daily activity")).toBeVisible();
       await expect(secondPage.getByText("30-day tokens")).toBeVisible();
       await expect(secondPage.getByText("Only metrics enabled by both friends appear here.")).toBeVisible();
+      const toolRouting = secondPage.getByRole("table", { name: "Coding tool routing comparison" });
+      await expect(toolRouting).toBeVisible();
+      await expect(toolRouting.getByRole("row")).toHaveCount(3);
+      await expect(toolRouting.getByText("0%", { exact: true })).toHaveCount(2);
+      await expect(toolRouting.locator("img")).toHaveCount(2);
+      const codexFill = toolRouting.getByRole("row").filter({ hasText: "Codex" }).locator('em[style*="width: 100%"]');
+      const claudeFill = toolRouting.getByRole("row").filter({ hasText: "Claude Code" }).locator('em[style*="width: 100%"]');
+      await expect(codexFill).not.toHaveCSS(
+        "background-color",
+        await claudeFill.evaluate((element) => getComputedStyle(element).backgroundColor)
+      );
       const traceDay = secondPage.getByRole("button", { name: /Morgan Trace .* tokens/ }).first();
       await traceDay.focus();
       await expect(traceDay).toBeFocused();
