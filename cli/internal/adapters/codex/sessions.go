@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/agentprint/agentprint/cli/internal/adapters"
@@ -70,10 +71,39 @@ type sessionPayload struct {
 	Model string `json:"model"`
 }
 
+// sessionSummaryEnvelope deliberately omits tool arguments, tool output, and
+// encrypted reasoning. encoding/json can then scan past those large fields
+// without allocating copies while listing sessions.
+type sessionSummaryEnvelope struct {
+	Timestamp string                `json:"timestamp"`
+	Type      string                `json:"type"`
+	Payload   sessionSummaryPayload `json:"payload"`
+}
+
+type sessionSummaryPayload struct {
+	Type    string          `json:"type"`
+	ID      string          `json:"id"`
+	CWD     string          `json:"cwd"`
+	Role    string          `json:"role"`
+	Content json.RawMessage `json:"content"`
+	Summary []struct {
+		Text string `json:"text"`
+	} `json:"summary"`
+	Info *struct {
+		TotalTokenUsage struct {
+			InputTokens  int64 `json:"input_tokens"`
+			OutputTokens int64 `json:"output_tokens"`
+			TotalTokens  int64 `json:"total_tokens"`
+		} `json:"total_token_usage"`
+	} `json:"info"`
+}
+
 type contentPart struct {
 	Type string `json:"type"`
 	Text string `json:"text"`
 }
+
+const sessionSummaryWorkers = 16
 
 func (adapter *Adapter) rolloutFiles() ([]string, error) {
 	var files []string
@@ -109,36 +139,155 @@ func (adapter *Adapter) ListSessions(ctx context.Context, since time.Time) ([]ad
 		return nil, err
 	}
 	var summaries []adapters.SessionSummary
+	var summariesMu sync.Mutex
+	var workers sync.WaitGroup
+	semaphore := make(chan struct{}, sessionSummaryWorkers)
 	for _, path := range files {
 		if ctx.Err() != nil {
-			return summaries, ctx.Err()
+			break
 		}
 		info, err := os.Stat(path)
 		if err != nil || (!since.IsZero() && info.ModTime().Before(since)) {
 			continue
 		}
-		transcript, err := adapter.readFile(ctx, path)
-		if err != nil || len(transcript.Turns) == 0 {
-			continue
-		}
-		started, _ := time.Parse(time.RFC3339, transcript.StartedAt)
-		ended, _ := time.Parse(time.RFC3339, transcript.EndedAt)
-		summaries = append(summaries, adapters.SessionSummary{
-			HarnessID:        adapter.ID(),
-			Key:              transcript.Key,
-			Title:            transcript.Title,
-			StartedAt:        started,
-			EndedAt:          ended,
-			Turns:            len(transcript.Turns),
-			Tokens:           transcript.Totals.TotalTokens,
-			Project:          filepath.Base(transcript.WorkingDirectory),
-			WorkingDirectory: transcript.WorkingDirectory,
-		})
+		workers.Add(1)
+		go func() {
+			defer workers.Done()
+			semaphore <- struct{}{}
+			defer func() { <-semaphore }()
+			summary, err := adapter.summarizeFile(ctx, path)
+			if err != nil || summary.Turns == 0 {
+				return
+			}
+			summariesMu.Lock()
+			summaries = append(summaries, summary)
+			summariesMu.Unlock()
+		}()
+	}
+	workers.Wait()
+	if ctx.Err() != nil {
+		return summaries, ctx.Err()
 	}
 	sort.Slice(summaries, func(first, second int) bool {
 		return summaries[first].EndedAt.After(summaries[second].EndedAt)
 	})
 	return summaries, nil
+}
+
+// summarizeFile extracts only the fields shown by `agentprint sessions`.
+// Unlike readFile, it never retains transcript blocks or tool output.
+func (adapter *Adapter) summarizeFile(ctx context.Context, path string) (adapters.SessionSummary, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return adapters.SessionSummary{}, err
+	}
+	defer file.Close()
+
+	summary := adapters.SessionSummary{HarnessID: adapter.ID()}
+	var metaID, firstPrompt string
+	var startedAt, endedAt time.Time
+	scanner := bufio.NewScanner(file)
+	scanner.Buffer(make([]byte, 64*1024), 16*1024*1024)
+	for scanner.Scan() {
+		if ctx.Err() != nil {
+			return summary, ctx.Err()
+		}
+		var envelope sessionSummaryEnvelope
+		if json.Unmarshal(scanner.Bytes(), &envelope) != nil {
+			continue
+		}
+		payload := envelope.Payload
+		switch envelope.Type {
+		case "session_meta":
+			metaID = payload.ID
+			summary.WorkingDirectory = payload.CWD
+			summary.Project = filepath.Base(payload.CWD)
+			continue
+		case "event_msg":
+			if payload.Type == "token_count" && payload.Info != nil {
+				usage := payload.Info.TotalTokenUsage
+				summary.Tokens = usage.TotalTokens
+				if summary.Tokens == 0 {
+					summary.Tokens = usage.InputTokens + usage.OutputTokens
+				}
+			}
+			continue
+		case "response_item":
+		default:
+			continue
+		}
+
+		prompt, visible := responseSummary(payload)
+		if !visible {
+			continue
+		}
+		when, timeErr := time.Parse(time.RFC3339Nano, envelope.Timestamp)
+		if timeErr == nil {
+			if startedAt.IsZero() {
+				startedAt = when
+			}
+			endedAt = when
+		}
+		if firstPrompt == "" && prompt != "" {
+			firstPrompt = prompt
+		}
+		summary.Turns++
+	}
+	if err := scanner.Err(); err != nil {
+		return adapters.SessionSummary{}, err
+	}
+	summary.Key = sessionKey(path, metaID)
+	summary.Title = titleFrom(firstPrompt, summary.Key)
+	if startedAt.IsZero() {
+		startedAt = time.Now().UTC()
+	}
+	if endedAt.IsZero() || endedAt.Before(startedAt) {
+		endedAt = startedAt
+	}
+	summary.StartedAt = startedAt
+	summary.EndedAt = endedAt
+	return summary, nil
+}
+
+func responseSummary(payload sessionSummaryPayload) (string, bool) {
+	switch payload.Type {
+	case "message":
+		if payload.Role == "developer" || payload.Role == "system" {
+			return "", false
+		}
+		var parts []contentPart
+		if json.Unmarshal(payload.Content, &parts) != nil {
+			return "", false
+		}
+		visible := false
+		firstText := ""
+		for _, part := range parts {
+			if part.Type == "input_image" || part.Type == "output_image" {
+				visible = true
+				continue
+			}
+			if strings.TrimSpace(part.Text) == "" || isScaffolding(part.Text) {
+				continue
+			}
+			visible = true
+			if firstText == "" {
+				firstText = part.Text
+			}
+		}
+		if payload.Role == "user" {
+			return firstText, visible
+		}
+		return "", visible
+	case "function_call", "custom_tool_call", "function_call_output", "custom_tool_call_output":
+		return "", true
+	case "reasoning":
+		for _, item := range payload.Summary {
+			if strings.TrimSpace(item.Text) != "" {
+				return "", true
+			}
+		}
+	}
+	return "", false
 }
 
 func (adapter *Adapter) ReadSession(ctx context.Context, key string) (adapters.Transcript, error) {

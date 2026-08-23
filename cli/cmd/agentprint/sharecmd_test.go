@@ -183,3 +183,22 @@ func TestLatestSessionForDirectoryRequiresCurrentProjectMatch(t *testing.T) {
 		t.Fatalf("expected current-project error, got %v", err)
 	}
 }
+
+func TestSessionPageReturnsRequestedSlice(t *testing.T) {
+	sessions := []adapters.SessionSummary{
+		{Key: "one"}, {Key: "two"}, {Key: "three"}, {Key: "four"}, {Key: "five"},
+	}
+
+	page, hasMore := sessionPage(sessions, 2, 2)
+	if len(page) != 2 || page[0].Key != "three" || page[1].Key != "four" {
+		t.Fatalf("unexpected second page: %+v", page)
+	}
+	if !hasMore {
+		t.Fatal("expected another page")
+	}
+
+	last, hasMore := sessionPage(sessions, 3, 2)
+	if len(last) != 1 || last[0].Key != "five" || hasMore {
+		t.Fatalf("unexpected last page: %+v, hasMore=%t", last, hasMore)
+	}
+}
