@@ -13,6 +13,7 @@ export default function robots(): MetadataRoute.Robots {
         "/register",
         "/activate",
         "/onboarding",
+        "/add-device",
         "/settings",
         "/friends",
         "/sessions"

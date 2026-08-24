@@ -34,6 +34,12 @@ client with `http://localhost:3000/api/auth/google/callback` as an authorized
 redirect URI, then set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`. Use your
 deployed origin for both callback URLs outside local development.
 
+Profile avatars are stored with UploadThing as public profile assets. Create an
+UploadThing app, enable per-request ACL overrides, then set its v7
+`UPLOADTHING_TOKEN` in `.env` and in the deployed web app. Avatar access
+continues to go through Agentprint's profile avatar endpoint, which redirects
+to the UploadThing CDN.
+
 To enable PostHog, set `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN` and
 `NEXT_PUBLIC_POSTHOG_HOST` for the browser, then set the matching
 `POSTHOG_PROJECT_TOKEN` and `POSTHOG_HOST` values for server events and before

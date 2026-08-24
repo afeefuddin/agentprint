@@ -82,7 +82,7 @@ export function ProfileView({
               </span>
             </div>
             <p className={handleClass}>@{profile.handle}</p>
-            <p className="m-0 text-sm text-muted">{profile.bio || "Building with agents, one trace at a time."}</p>
+            {profile.bio ? <p className="m-0 text-sm text-muted">{profile.bio}</p> : null}
             <div className="mt-[11px] flex gap-[18px] text-xs text-faint max-tablet:flex-col max-tablet:gap-1">
               <span className="flex items-center gap-[5px]"><MapPin size={13} /> {profile.timezone.replaceAll("_", " ")}</span>
               <span className="flex items-center gap-[5px]">

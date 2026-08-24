@@ -8,6 +8,7 @@ export const reservedHandles = [
   "about",
   "account",
   "activate",
+  "add-device",
   "admin",
   "agentprint",
   "api",

@@ -18,8 +18,6 @@ import (
 )
 
 func TestNewDefaultsToProductionDownloadBase(t *testing.T) {
-	t.Setenv("AGENTPRINT_DOWNLOAD_BASE", "")
-
 	client := New(filepath.Join(t.TempDir(), "update-check.json"))
 	if client.BaseURL != "https://agentprint.tech/releases/latest" {
 		t.Fatalf("default download base = %q, want https://agentprint.tech/releases/latest", client.BaseURL)

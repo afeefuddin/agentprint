@@ -14,6 +14,7 @@ import {
   getFriendComparison,
   getProfile,
   getProfileAvatar,
+  getProfileAvatarForUser,
   getProfileIdentity,
   getSharedSession,
   ingestBatch,
@@ -189,11 +190,13 @@ describe("ingestion and public profile boundaries", () => {
       timezone: "UTC"
     });
     userId = user.id;
-    const avatarBytes = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
-    await updateProfileAvatar(userId, "image/png", avatarBytes);
+    const objectKey = `uploadthing-${suffix}-avatar-key`;
+    await updateProfileAvatar(userId, "image/png", objectKey);
     const avatar = await getProfileAvatar(handle);
     expect(avatar?.content_type).toBe("image/png");
-    expect(avatar?.image_data).toEqual(avatarBytes);
+    expect(avatar?.object_key).toBe(objectKey);
+    expect(avatar?.image_data).toBeNull();
+    expect(await getProfileAvatarForUser(userId)).toEqual({ object_key: objectKey });
     expect((await getProfile(handle, userId))?.profile.avatar_updated_at).toBeInstanceOf(Date);
     expect(await deleteProfileAvatar(userId)).toBe(true);
     expect(await getProfileAvatar(handle)).toBeNull();

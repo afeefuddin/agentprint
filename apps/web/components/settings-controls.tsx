@@ -1,24 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Camera, Check, Copy, Download, ExternalLink, Globe, Laptop, LogOut, Terminal, Trash2 } from "lucide-react";
-import { compactTokens, harnessBrand, harnessLabels, modelBrand } from "@/lib/brands";
-import { buttonClass, iconButtonDangerClass, modelChart, switchClass, switchKnobClass } from "@/lib/ui";
+import { AlertTriangle, Camera, Check, Copy, ExternalLink, Globe, Laptop, LogOut, Trash2 } from "lucide-react";
+import { buttonClass, iconButtonDangerClass, spinnerClass, switchClass, switchKnobClass } from "@/lib/ui";
 import { ProfileAvatar } from "@/components/profile-avatar";
 import { useRef, useState } from "react";
-
-type Model = { id: string; tokens: number };
-
-type Harness = {
-  id: string;
-  tokens: number;
-  share: number;
-  version: string | null;
-  lastCollected: string | null;
-  live: boolean;
-};
 
 type Device = {
   id: string;
@@ -46,9 +33,7 @@ type Identity = {
   avatarUpdatedAt: string | null;
 };
 
-const audiences: { key: "is_public"; label: string; description: string }[] = [
-  { key: "is_public", label: "Public profile", description: "Anyone holding your profile address can open it." }
-];
+type IdentityState = "idle" | "saving-name" | "uploading-avatar" | "removing-avatar" | "saved";
 
 const fields: { key: FieldKey; label: string }[] = [
   { key: "show_tokens", label: "Token totals" },
@@ -64,8 +49,6 @@ const RAIL_COPY = "m-0 text-xs leading-normal text-muted";
 const PANEL = "overflow-hidden rounded-sm border border-line bg-panel";
 const CELL_LABEL = "block text-base font-medium text-ink-strong";
 const CELL_META = "mt-[3px] block text-xs text-faint";
-const NUMERIC = "text-right text-xs [font-variant-numeric:tabular-nums]";
-
 function stamp(value: string) {
   return new Date(value).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
@@ -75,19 +58,30 @@ function audienceNote(privacy: Privacy) {
   return "Your public profile is private. Accepted friends can still compare the fields marked visible.";
 }
 
+function identityStatusMessage(identityState: IdentityState, error: string) {
+  if (error) return error;
+  if (identityState === "uploading-avatar") return "Uploading your profile picture…";
+  if (identityState === "removing-avatar") return "Removing your profile picture…";
+  if (identityState === "saving-name") return "Saving your display name…";
+  if (identityState === "saved") return "Saved";
+  return "";
+}
+
+function identityStatusClass(identityState: IdentityState, error: string) {
+  if (error) return "text-red";
+  if (identityState === "saved") return "text-accent";
+  return undefined;
+}
+
 export function SettingsControls({
   identity,
   initialPrivacy,
   initialDevices,
-  harnesses,
-  models,
   profileUrl
 }: {
   identity: Identity;
   initialPrivacy: Privacy;
   initialDevices: Device[];
-  harnesses: Harness[];
-  models: Model[];
   profileUrl: string;
 }) {
   const router = useRouter();
@@ -99,8 +93,13 @@ export function SettingsControls({
   const [displayName, setDisplayName] = useState(identity.displayName);
   const [savedDisplayName, setSavedDisplayName] = useState(identity.displayName);
   const [avatarUpdatedAt, setAvatarUpdatedAt] = useState(identity.avatarUpdatedAt);
-  const [identityState, setIdentityState] = useState<"idle" | "saving" | "saved">("idle");
+  const [identityState, setIdentityState] = useState<IdentityState>("idle");
   const [identityError, setIdentityError] = useState("");
+  const identityBusy = identityState === "saving-name"
+    || identityState === "uploading-avatar"
+    || identityState === "removing-avatar";
+  const identityStatus = identityStatusMessage(identityState, identityError);
+  const identityStatusTone = identityStatusClass(identityState, identityError);
 
   async function saveName(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -108,13 +107,15 @@ export function SettingsControls({
     if (!nextName || nextName === savedDisplayName) return;
 
     setIdentityError("");
-    setIdentityState("saving");
-    const response = await fetch("/v1/me/profile", {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ display_name: nextName })
-    });
-    if (!response.ok) {
+    setIdentityState("saving-name");
+    try {
+      const response = await fetch("/v1/me/profile", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ display_name: nextName })
+      });
+      if (!response.ok) throw new Error("save failed");
+    } catch {
       setIdentityError("Your name could not be saved. Try again.");
       setIdentityState("idle");
       return;
@@ -128,22 +129,30 @@ export function SettingsControls({
 
   async function uploadAvatar(file: File) {
     setIdentityError("");
-    if (file.size > 1_048_576) {
-      setIdentityError("Choose an image smaller than 1 MB.");
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setIdentityError("Choose a JPEG, PNG, or WebP image.");
+      return;
+    }
+    if (file.size > 5_242_880) {
+      setIdentityError("Choose an image up to 5 MB.");
       return;
     }
 
-    setIdentityState("saving");
-    const form = new FormData();
-    form.set("avatar", file);
-    const response = await fetch("/v1/me/avatar", { method: "POST", body: form });
-    const result = await response.json().catch(() => ({})) as { message?: string; updated_at?: string };
-    if (!response.ok || !result.updated_at) {
-      setIdentityError(result.message ?? "Your profile picture could not be saved. Try again.");
+    setIdentityState("uploading-avatar");
+    try {
+      const form = new FormData();
+      form.set("avatar", file);
+      const response = await fetch("/v1/me/avatar", { method: "POST", body: form });
+      const result = await response.json().catch(() => ({})) as { message?: string; updated_at?: string };
+      if (!response.ok || !result.updated_at) {
+        throw new Error(result.message ?? "Your profile picture could not be saved. Try again.");
+      }
+      setAvatarUpdatedAt(result.updated_at);
+    } catch (error) {
+      setIdentityError(error instanceof Error ? error.message : "Your profile picture could not be saved. Try again.");
       setIdentityState("idle");
       return;
     }
-    setAvatarUpdatedAt(result.updated_at);
     setIdentityState("saved");
     router.refresh();
     setTimeout(() => setIdentityState("idle"), 1400);
@@ -151,9 +160,11 @@ export function SettingsControls({
 
   async function removeAvatar() {
     setIdentityError("");
-    setIdentityState("saving");
-    const response = await fetch("/v1/me/avatar", { method: "DELETE" });
-    if (!response.ok) {
+    setIdentityState("removing-avatar");
+    try {
+      const response = await fetch("/v1/me/avatar", { method: "DELETE" });
+      if (!response.ok) throw new Error("remove failed");
+    } catch {
       setIdentityError("Your profile picture could not be removed. Try again.");
       setIdentityState("idle");
       return;
@@ -199,10 +210,14 @@ export function SettingsControls({
     <>
       <section className={ROW} id="identity">
         <div className={RAIL}>
-          <h2 className={RAIL_TITLE}>Identity</h2>
-          <p className={RAIL_COPY}>Your public name and picture on Agentprint.</p>
+          <h2 className={RAIL_TITLE}>Profile</h2>
+          <p className={RAIL_COPY}>Your public identity and what people are allowed to see.</p>
         </div>
-        <div className={PANEL}>
+        <div className={PANEL} data-testid="profile-settings-card">
+          <div className="px-[22px] py-4 max-tablet:px-[18px]">
+            <h3 className="m-0 text-base font-semibold text-ink-strong">Identity</h3>
+            <p className="mb-0 mt-1 text-xs text-muted">Your public name and picture on Agentprint.</p>
+          </div>
           <div className="flex items-center gap-5 px-[22px] py-5 max-tablet:items-start max-tablet:px-[18px]">
             <ProfileAvatar
               handle={identity.handle}
@@ -212,7 +227,7 @@ export function SettingsControls({
             />
             <div className="min-w-0 flex-1">
               <b className={CELL_LABEL}>Profile picture</b>
-              <small className={CELL_META}>JPEG, PNG, or WebP up to 1 MB.</small>
+              <small className={CELL_META}>JPEG, PNG, or WebP up to 5 MB.</small>
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 <input
                   ref={avatarInput}
@@ -229,19 +244,21 @@ export function SettingsControls({
                 <button
                   className={buttonClass({ variant: "secondary", size: "small" })}
                   type="button"
-                  disabled={identityState === "saving"}
+                  disabled={identityBusy}
                   onClick={() => avatarInput.current?.click()}
                 >
-                  <Camera size={15} /> {avatarUpdatedAt ? "Change image" : "Choose image"}
+                  {identityState === "uploading-avatar" ? <i className={spinnerClass} aria-hidden="true" /> : <Camera size={15} />}
+                  {identityState === "uploading-avatar" ? "Uploading…" : avatarUpdatedAt ? "Change image" : "Choose image"}
                 </button>
                 {avatarUpdatedAt ? (
                   <button
                     className={buttonClass({ variant: "secondary", size: "small" })}
                     type="button"
-                    disabled={identityState === "saving"}
+                    disabled={identityBusy}
                     onClick={() => void removeAvatar()}
                   >
-                    <Trash2 size={15} /> Remove
+                    {identityState === "removing-avatar" ? <i className={spinnerClass} aria-hidden="true" /> : <Trash2 size={15} />}
+                    {identityState === "removing-avatar" ? "Removing…" : "Remove"}
                   </button>
                 ) : null}
               </div>
@@ -266,65 +283,59 @@ export function SettingsControls({
             <button
               className={buttonClass({ size: "small", className: "flex-none max-tablet:w-full" })}
               type="submit"
-              disabled={identityState === "saving" || !displayName.trim() || displayName.trim() === savedDisplayName}
+              disabled={identityBusy || !displayName.trim() || displayName.trim() === savedDisplayName}
             >
-              {identityState === "saving" ? "Saving…" : "Save name"}
+              {identityState === "saving-name" ? <i className={spinnerClass} aria-hidden="true" /> : null}
+              {identityState === "saving-name" ? "Saving…" : "Save name"}
             </button>
           </form>
           <p
             className="m-0 min-h-0 px-[22px] text-xs data-[visible=true]:border-t data-[visible=true]:border-line data-[visible=true]:py-3 max-tablet:px-[18px]"
-            data-visible={Boolean(identityError || identityState === "saved")}
+            data-visible={Boolean(identityError || identityState !== "idle")}
             role="status"
+            aria-live="polite"
           >
-            {identityError ? <span className="text-red">{identityError}</span> : identityState === "saved" ? <span className="text-accent">Saved</span> : null}
+            <span className={identityStatusTone}>
+              {identityStatus}
+            </span>
           </p>
-        </div>
-      </section>
-
-      <section className={ROW} id="visibility">
-        <div className={RAIL}>
-          <h2 className={RAIL_TITLE}>Audience</h2>
-          <p className={RAIL_COPY}>Who is allowed to see your trace at all.</p>
-        </div>
-        <div className="min-w-0">
-          {audiences.map((audience) => (
+          <div className="border-t border-line" id="visibility">
             <div
-              className="group grid grid-cols-[42px_minmax(0,1fr)_auto] items-center gap-[15px] rounded-sm border border-line bg-panel px-[19px] py-[17px] transition-[border-color,background-color] duration-[160ms] not-first:mt-2.5 data-[on]:border-steel-2 data-[on]:bg-[color-mix(in_srgb,var(--color-accent-soft)_45%,var(--color-panel))] max-tablet:grid-cols-[minmax(0,1fr)_auto]"
-              data-on={privacy[audience.key] || undefined}
-              key={audience.key}
+              className="group grid grid-cols-[42px_minmax(0,1fr)_auto] items-center gap-[15px] border-line px-[19px] py-[17px] max-tablet:grid-cols-[minmax(0,1fr)_auto]"
+              data-on={privacy.is_public || undefined}
             >
-              <span className="grid size-[42px] place-items-center rounded-sm border border-line bg-canvas text-faint group-data-[on]:border-steel-2 group-data-[on]:bg-panel-raised group-data-[on]:text-accent max-tablet:hidden">
+              <span className="grid size-[42px] place-items-center rounded-sm border border-line text-faint group-data-[on]:border-steel-2 group-data-[on]:text-accent max-tablet:hidden">
                 <Globe size={17} />
               </span>
               <span>
-                <b className="block text-base font-medium text-ink-strong">{audience.label}</b>
-                <small className="mt-[3px] block text-xs text-muted">{audience.description}</small>
+                <b className="block text-base font-medium text-ink-strong">Public profile</b>
+                <small className="mt-[3px] block text-xs text-muted">Anyone with your profile address can open it.</small>
               </span>
               <button
                 className={switchClass}
                 role="switch"
-                aria-checked={privacy[audience.key]}
-                aria-label={audience.label}
-                onClick={() => toggle(audience.key)}
+                aria-checked={privacy.is_public}
+                aria-label="Public profile"
+                onClick={() => toggle("is_public")}
               ><i className={switchKnobClass} /></button>
             </div>
-          ))}
-          <div className="mt-3 flex items-center overflow-hidden rounded-sm border border-line bg-canvas-deep max-tablet:flex-wrap">
-            <span className="min-w-0 flex-1 truncate px-4 py-3 text-xs text-muted max-tablet:basis-full max-tablet:border-b max-tablet:border-line">
-              {profileUrl}
-            </span>
-            <button
-              className="flex cursor-pointer items-center gap-[7px] self-stretch border-y-0 border-l border-r-0 border-line bg-transparent px-[15px] text-xs text-muted transition-[background-color,color] duration-150 hover:bg-panel hover:text-ink-strong max-tablet:min-h-[38px] max-tablet:border-l-0 max-tablet:border-r"
-              onClick={copyProfile}
-            >
-              {copied ? <Check size={15} /> : <Copy size={15} />}{copied ? "Copied" : "Copy"}
-            </button>
-            <a
-              className="flex items-center gap-[7px] self-stretch border-y-0 border-l border-r-0 border-line bg-transparent px-[15px] text-xs text-muted transition-[background-color,color] duration-150 hover:bg-panel hover:text-ink-strong max-tablet:min-h-[38px] max-tablet:border-l-0 max-tablet:border-r"
-              href={profileUrl}
-            >
-              <ExternalLink size={15} /> Preview
-            </a>
+            <div className="flex items-center border-t border-line max-tablet:flex-wrap">
+              <span className="min-w-0 flex-1 truncate px-4 py-3 text-xs text-muted max-tablet:basis-full max-tablet:border-b max-tablet:border-line">
+                {profileUrl}
+              </span>
+              <button
+                className="flex cursor-pointer items-center gap-[7px] self-stretch border-y-0 border-l border-r-0 border-line bg-transparent px-[15px] text-xs text-muted transition-[background-color,color] duration-150 hover:bg-panel hover:text-ink-strong max-tablet:min-h-[38px] max-tablet:border-l-0 max-tablet:border-r"
+                onClick={copyProfile}
+              >
+                {copied ? <Check size={15} /> : <Copy size={15} />}{copied ? "Copied" : "Copy"}
+              </button>
+              <a
+                className="flex items-center gap-[7px] self-stretch border-y-0 border-l border-r-0 border-line bg-transparent px-[15px] text-xs text-muted transition-[background-color,color] duration-150 hover:bg-panel hover:text-ink-strong max-tablet:min-h-[38px] max-tablet:border-l-0 max-tablet:border-r"
+                href={profileUrl}
+              >
+                <ExternalLink size={15} /> Preview
+              </a>
+            </div>
           </div>
         </div>
       </section>
@@ -372,108 +383,6 @@ export function SettingsControls({
 
       <section className={ROW}>
         <div className={RAIL}>
-          <h2 className={RAIL_TITLE}>Harnesses</h2>
-          <p className={RAIL_COPY}>What each agent has contributed, and whether it is still reporting.</p>
-        </div>
-        <div className="min-w-0">
-          {harnesses.length === 0 ? (
-            <p className="m-0 rounded-sm border border-line bg-panel p-[22px] text-xs text-faint">
-              No coding-tool activity yet. Your tools appear here after the first update.
-            </p>
-          ) : (
-            <div className={PANEL}>
-              <div className="grid min-h-[38px] grid-cols-[minmax(0,1.15fr)_minmax(96px,1.5fr)_46px_74px_82px] items-center gap-[18px] border-b border-line bg-canvas px-[18px] text-xs text-faint max-tablet:grid-cols-[minmax(0,1fr)_46px_68px] max-tablet:gap-3 max-tablet:px-3.5">
-                <span>Agent</span>
-                <span className="max-tablet:hidden" />
-                <span className="text-right">Share</span>
-                <span className="text-right">Tokens</span>
-                <span className="text-right max-tablet:hidden">Last seen</span>
-              </div>
-              {harnesses.map((harness) => (
-                <div
-                  className="group grid min-h-[58px] grid-cols-[minmax(0,1.15fr)_minmax(96px,1.5fr)_46px_74px_82px] items-center gap-[18px] border-b border-line px-[18px] last:border-b-0 max-tablet:grid-cols-[minmax(0,1fr)_46px_68px] max-tablet:gap-3 max-tablet:px-3.5"
-                  data-idle={!harness.live || undefined}
-                  key={harness.id}
-                >
-                  <span className="flex min-w-0 items-center gap-2.5">
-                    <span className="grid size-7 flex-[0_0_28px] place-items-center rounded-xs border border-line bg-canvas text-faint">
-                      {harnessBrand(harness.id).logo
-                        ? <Image src={harnessBrand(harness.id).logo!} alt="" width={18} height={18} className="size-[18px] object-contain" />
-                        : <Terminal size={15} />}
-                    </span>
-                    <b className="truncate text-base font-medium text-ink-strong group-data-[idle]:text-muted">
-                      {harnessLabels[harness.id] ?? harness.id}
-                    </b>
-                    {harness.version ? (
-                      <em className="flex-none rounded-xs border border-line px-[7px] py-0.5 text-xs not-italic text-faint max-tablet:hidden">{harness.version}</em>
-                    ) : null}
-                    {!harness.live ? <i className="flex-none text-xs not-italic text-amber">not reporting</i> : null}
-                  </span>
-                  <span className="h-2 overflow-hidden rounded-full bg-canvas-deep max-tablet:hidden">
-                    <i
-                      className="block h-full rounded-full bg-steel-3 group-data-[idle]:bg-line-strong"
-                      style={{
-                        width: `${Math.max(harness.share * 100, harness.tokens > 0 ? 1.5 : 0)}%`,
-                        background: harness.live ? harnessBrand(harness.id).color : undefined
-                      }}
-                    />
-                  </span>
-                  <span className={`${NUMERIC} font-semibold text-ink-strong`}>{Math.round(harness.share * 100)}%</span>
-                  <span className={`${NUMERIC} text-ink-strong`}>{compactTokens(harness.tokens)}</span>
-                  <span className={`${NUMERIC} text-faint max-tablet:hidden`}>
-                    {harness.lastCollected ? stamp(harness.lastCollected) : "—"}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </section>
-
-      <section className={ROW}>
-        <div className={RAIL}>
-          <h2 className={RAIL_TITLE}>Models</h2>
-          <p className={RAIL_COPY}>Token volume by model, coloured by the provider behind it.</p>
-        </div>
-        <div className="min-w-0">
-          {models.length === 0 ? (
-            <p className="m-0 rounded-sm border border-line bg-panel p-[22px] text-xs text-faint">No model activity yet.</p>
-          ) : (
-            <div
-              className={modelChart.root}
-              role="img"
-              aria-label={`Token volume by model: ${models.map((model) => `${model.id} ${compactTokens(model.tokens)}`).join(", ")}`}
-            >
-              {models.map((model) => {
-                const brand = modelBrand(model.id);
-                return (
-                  <div className={modelChart.column} key={model.id}>
-                    <span className={modelChart.value}>{compactTokens(model.tokens)}</span>
-                    <span className={modelChart.barWrap}>
-                      <i
-                        className={modelChart.bar}
-                        style={{
-                          height: `${Math.max((model.tokens / models[0].tokens) * 100, 2)}%`,
-                          background: brand.color
-                        }}
-                      />
-                    </span>
-                    <span className={modelChart.mark} style={{ borderColor: `${brand.color}59` }}>
-                      {brand.logo
-                        ? <Image src={brand.logo} alt="" width={15} height={15} className={modelChart.markImage} />
-                        : <em className={modelChart.markDot} style={{ background: brand.color }} />}
-                    </span>
-                    <span className={modelChart.name}>{model.id}</span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </section>
-
-      <section className={ROW}>
-        <div className={RAIL}>
           <h2 className={RAIL_TITLE}>Devices</h2>
           <p className={RAIL_COPY}>Removing a device stops future activity updates from it immediately.</p>
         </div>
@@ -486,7 +395,7 @@ export function SettingsControls({
                   <b className="block text-base font-medium text-ink-strong">No connected devices</b>
                   <small className="mt-[3px] block text-xs">Install the agent to start your first sync.</small>
                 </span>
-                <Link className="text-xs text-accent" href="/onboarding">Install agent</Link>
+                <Link className="text-xs text-accent" href="/add-device">Install agent</Link>
               </div>
             )}
             {devices.map((device) => (
@@ -541,7 +450,7 @@ export function SettingsControls({
               </div>
             ))}
           </div>
-          <Link className={buttonClass({ variant: "secondary", size: "small", className: "mt-3" })} href="/onboarding">
+          <Link className={buttonClass({ variant: "secondary", size: "small", className: "mt-3" })} href="/add-device">
             <Laptop size={15} /> Add device
           </Link>
         </div>
@@ -550,10 +459,10 @@ export function SettingsControls({
       <section className={ROW}>
         <div className={RAIL}>
           <h2 className={RAIL_TITLE}>Your data</h2>
-          <p className={RAIL_COPY}>Download your information or permanently delete your account.</p>
+          <p className={RAIL_COPY}>Manage your current session or permanently delete your account.</p>
         </div>
-        <div className="min-w-0">
-          <div className="flex min-h-[84px] items-center justify-between gap-6 rounded-sm border border-line bg-panel px-[22px] py-[19px] max-tablet:flex-col max-tablet:items-start max-tablet:gap-4 max-tablet:p-5">
+        <div className={PANEL} data-testid="data-settings-card">
+          <div className="flex min-h-[84px] items-center justify-between gap-6 px-[22px] py-[19px] max-tablet:flex-col max-tablet:items-start max-tablet:gap-4 max-tablet:p-5">
             <span>
               <b className="block text-base font-medium text-ink-strong">Current session</b>
               <small className="mt-1 flex items-center gap-1.5 text-xs text-muted">Sign out of Agentprint on this browser.</small>
@@ -567,20 +476,7 @@ export function SettingsControls({
               </button>
             </form>
           </div>
-          <div className="mt-2.5 flex min-h-[84px] items-center justify-between gap-6 rounded-sm border border-line bg-panel px-[22px] py-[19px] max-tablet:flex-col max-tablet:items-start max-tablet:gap-4 max-tablet:p-5">
-            <span>
-              <b className="block text-base font-medium text-ink-strong">Export personal data</b>
-              <small className="mt-1 flex items-center gap-1.5 text-xs text-muted">Includes your activity, profile, and settings.</small>
-            </span>
-            <a
-              className={buttonClass({ variant: "secondary", size: "small", className: "flex-none max-tablet:w-full" })}
-              href="/v1/me/export"
-              download
-            >
-              <Download size={15} /> Download
-            </a>
-          </div>
-          <div className="mt-2.5 flex min-h-[84px] items-center justify-between gap-6 rounded-sm border border-line bg-panel px-[22px] py-[19px] max-tablet:flex-col max-tablet:items-start max-tablet:gap-4 max-tablet:p-5">
+          <div className="flex min-h-[84px] items-center justify-between gap-6 border-t border-line px-[22px] py-[19px] max-tablet:flex-col max-tablet:items-start max-tablet:gap-4 max-tablet:p-5">
             <span>
               <b className="block text-base font-medium text-ink-strong">Delete account</b>
               <small className="mt-1 flex items-center gap-1.5 text-xs text-muted">

@@ -564,16 +564,17 @@ export async function updateProfile(userId: string, patch: ProfilePatch) {
   );
 }
 
-export async function updateProfileAvatar(userId: string, contentType: string, imageData: Buffer) {
+export async function updateProfileAvatar(userId: string, contentType: string, objectKey: string) {
   const result = await pool.query<{ updated_at: Date }>(
-    `INSERT INTO profile_avatars (user_id, content_type, image_data)
+    `INSERT INTO profile_avatars (user_id, content_type, object_key)
      VALUES ($1, $2, $3)
      ON CONFLICT (user_id) DO UPDATE
      SET content_type = EXCLUDED.content_type,
-         image_data = EXCLUDED.image_data,
+         object_key = EXCLUDED.object_key,
+         image_data = NULL,
          updated_at = now()
      RETURNING updated_at`,
-    [userId, contentType, imageData]
+    [userId, contentType, objectKey]
   );
   return result.rows[0].updated_at;
 }
@@ -583,9 +584,16 @@ export async function deleteProfileAvatar(userId: string) {
   return result.rowCount === 1;
 }
 
+export async function getProfileAvatarForUser(userId: string) {
+  return one<{ object_key: string | null }>(
+    "SELECT object_key FROM profile_avatars WHERE user_id = $1",
+    [userId]
+  );
+}
+
 export async function getProfileAvatar(handle: string) {
-  return one<{ content_type: string; image_data: Buffer; updated_at: Date }>(
-    `SELECT a.content_type, a.image_data, a.updated_at
+  return one<{ content_type: string; object_key: string | null; image_data: Buffer | null; updated_at: Date }>(
+    `SELECT a.content_type, a.object_key, a.image_data, a.updated_at
      FROM profile_avatars a
      JOIN profiles p ON p.user_id = a.user_id
      WHERE p.handle = $1 AND p.onboarding_complete = true`,

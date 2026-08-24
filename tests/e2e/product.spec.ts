@@ -134,7 +134,6 @@ test("landing keeps its live heatmap and ends with the session-to-heatmap card",
 
   const install = page.getByRole("region", { name: "Install Agentprint" });
   await expect(install).toContainText("curl -fsSL https://agentprint.tech/install.sh | sh");
-  await expect(install).not.toContainText("AGENTPRINT_DOWNLOAD_BASE");
   await expect(install.getByRole("tab", { name: "macOS" })).toHaveAttribute("aria-selected", "true");
   await install.getByRole("tab", { name: "Linux" }).click();
   await expect(install.getByRole("tabpanel", { name: "Linux install command" })).toContainText(
@@ -169,11 +168,15 @@ test("new account starts private and can be published", async ({ page }) => {
   await expect(page.getByLabel("Handle available")).toBeVisible();
   await page.getByRole("button", { name: "Claim profile and continue" }).click();
   await expect(page.getByRole("heading", { name: "Connect your machine." })).toBeVisible();
+  await expect(page.getByLabel("macOS install command", { exact: true })).toContainText(
+    "curl -fsSL https://agentprint.tech/install.sh | sh"
+  );
   await expect(page.getByLabel("Login command", { exact: true })).toContainText(
     "agentprint login --server http://localhost:3000"
   );
   const windowsTab = page.getByRole("tab", { name: "Windows" });
-  await windowsTab.click();
+  await windowsTab.focus();
+  await page.keyboard.press("Enter");
   await expect(windowsTab).toHaveAttribute("aria-selected", "true");
   await expect(page.getByText(/install\.ps1/)).toBeVisible();
 
@@ -192,7 +195,32 @@ test("new account starts private and can be published", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Your record is live." })).toBeVisible();
 
   await page.goto("/settings");
-  await expect(page.getByRole("heading", { name: "Identity" })).toBeVisible();
+  const collectionSummary = page.getByRole("region", { name: "Collection summary" });
+  await expect(collectionSummary).not.toContainText(/Collection healthy|No devices reporting|Awaiting first sync/);
+  await expect(collectionSummary).toContainText("Devices");
+  await expect(collectionSummary).toContainText("Trailing tokens");
+  await expect(collectionSummary).toContainText("Records accepted");
+  const profileSettings = page.getByTestId("profile-settings-card");
+  await expect(profileSettings.getByRole("heading", { name: "Identity" })).toBeVisible();
+  await expect(profileSettings.getByRole("heading", { name: "Audience" })).toHaveCount(0);
+  await expect(profileSettings.getByRole("switch", { name: "Public profile" })).toBeVisible();
+  await expect(profileSettings.getByRole("heading", { name: "Shared fields" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Shared fields" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Harnesses" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Models" })).toHaveCount(0);
+  await expect(page.getByText("JPEG, PNG, or WebP up to 5 MB.")).toBeVisible();
+  const dataSettings = page.getByTestId("data-settings-card");
+  await expect(dataSettings.getByText("Current session", { exact: true })).toBeVisible();
+  await expect(dataSettings.getByText("Export personal data", { exact: true })).toHaveCount(0);
+  await expect(dataSettings.getByText("Delete account", { exact: true })).toBeVisible();
+  await page.getByRole("link", { name: "Add device" }).click();
+  await expect(page).toHaveURL(/\/add-device$/);
+  await expect(page.getByRole("heading", { name: "Connect another machine." })).toBeVisible();
+  await expect(page.getByLabel("Login command", { exact: true })).toContainText(
+    "agentprint login --server http://localhost:3000"
+  );
+  await expect(page.getByRole("heading", { name: "Your record is live." })).toHaveCount(0);
+  await page.goto("/settings");
   const displayName = page.getByLabel("Display name");
   await displayName.fill("Browser Test Updated");
   await page.getByRole("button", { name: "Save name" }).click();

@@ -1,9 +1,14 @@
 import { NextResponse } from "next/server";
-import { updateProfileAvatar, deleteProfileAvatar } from "@agentprint/database";
+import {
+  updateProfileAvatar,
+  deleteProfileAvatar,
+  getProfileAvatarForUser
+} from "@agentprint/database";
 import { apiViewer } from "@/lib/auth";
+import { putProfileAvatar, removeProfileAvatar } from "@/lib/avatar-storage";
 import { unauthorized } from "@/lib/http";
 
-const MAX_AVATAR_BYTES = 1_048_576;
+const MAX_AVATAR_BYTES = 5_242_880;
 const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 function hasExpectedSignature(type: string, bytes: Uint8Array) {
@@ -33,21 +38,37 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "Use a JPEG, PNG, or WebP image." }, { status: 415 });
   }
   if (avatar.size === 0 || avatar.size > MAX_AVATAR_BYTES) {
-    return NextResponse.json({ message: "Choose an image smaller than 1 MB." }, { status: 413 });
+    return NextResponse.json({ message: "Choose an image up to 5 MB." }, { status: 413 });
   }
 
-  const bytes = new Uint8Array(await avatar.arrayBuffer());
+  const contents = await avatar.arrayBuffer();
+  const bytes = new Uint8Array(contents);
   if (!hasExpectedSignature(avatar.type, bytes)) {
     return NextResponse.json({ message: "That file does not appear to be a valid image." }, { status: 400 });
   }
 
-  const updatedAt = await updateProfileAvatar(current.id, avatar.type, Buffer.from(bytes));
+  const previous = await getProfileAvatarForUser(current.id);
+  const objectKey = await putProfileAvatar(current.id, avatar.type, contents);
+  let updatedAt: Date;
+  try {
+    updatedAt = await updateProfileAvatar(current.id, avatar.type, objectKey);
+  } catch (error) {
+    await removeProfileAvatar(objectKey).catch(() => undefined);
+    throw error;
+  }
+  if (previous?.object_key && previous.object_key !== objectKey) {
+    await removeProfileAvatar(previous.object_key).catch((error: unknown) => {
+      console.error("Failed to delete the replaced UploadThing avatar.", error);
+    });
+  }
   return NextResponse.json({ ok: true, updated_at: updatedAt.toISOString() });
 }
 
 export async function DELETE() {
   const current = await apiViewer();
   if (!current) return unauthorized();
+  const avatar = await getProfileAvatarForUser(current.id);
+  if (avatar?.object_key) await removeProfileAvatar(avatar.object_key);
   await deleteProfileAvatar(current.id);
   return NextResponse.json({ ok: true });
 }
