@@ -179,6 +179,7 @@ export type Viewer = {
   show_models: boolean;
   show_streaks: boolean;
   onboarding_complete: boolean;
+  avatar_updated_at: Date | null;
   created_at: Date;
 };
 
@@ -188,10 +189,11 @@ export async function getViewer(token?: string) {
     `SELECT u.id, u.email, u.created_at, p.handle, p.display_name, p.bio,
             p.timezone, p.is_public, p.show_tokens,
             p.show_harnesses, p.show_models, p.show_streaks,
-            p.onboarding_complete
+            p.onboarding_complete, a.updated_at AS avatar_updated_at
      FROM sessions s
      JOIN users u ON u.id = s.user_id
      JOIN profiles p ON p.user_id = u.id
+     LEFT JOIN profile_avatars a ON a.user_id = u.id
      WHERE s.token_hash = $1 AND s.expires_at > now()`,
     [hashSecret(token)]
   );
@@ -562,6 +564,43 @@ export async function updateProfile(userId: string, patch: ProfilePatch) {
   );
 }
 
+export async function updateProfileAvatar(userId: string, contentType: string, objectKey: string) {
+  const result = await pool.query<{ updated_at: Date }>(
+    `INSERT INTO profile_avatars (user_id, content_type, object_key)
+     VALUES ($1, $2, $3)
+     ON CONFLICT (user_id) DO UPDATE
+     SET content_type = EXCLUDED.content_type,
+         object_key = EXCLUDED.object_key,
+         image_data = NULL,
+         updated_at = now()
+     RETURNING updated_at`,
+    [userId, contentType, objectKey]
+  );
+  return result.rows[0].updated_at;
+}
+
+export async function deleteProfileAvatar(userId: string) {
+  const result = await pool.query("DELETE FROM profile_avatars WHERE user_id = $1", [userId]);
+  return result.rowCount === 1;
+}
+
+export async function getProfileAvatarForUser(userId: string) {
+  return one<{ object_key: string | null }>(
+    "SELECT object_key FROM profile_avatars WHERE user_id = $1",
+    [userId]
+  );
+}
+
+export async function getProfileAvatar(handle: string) {
+  return one<{ content_type: string; object_key: string | null; image_data: Buffer | null; updated_at: Date }>(
+    `SELECT a.content_type, a.object_key, a.image_data, a.updated_at
+     FROM profile_avatars a
+     JOIN profiles p ON p.user_id = a.user_id
+     WHERE p.handle = $1 AND p.onboarding_complete = true`,
+    [handle]
+  );
+}
+
 export async function completeOnboardingProfile(userId: string, profile: OnboardingProfile) {
   const result = await pool.query(
     `UPDATE profiles
@@ -928,8 +967,10 @@ export async function getProfile(handle: string, viewerId?: string) {
   const profile = await one<Viewer>(
     `SELECT u.id, u.email, u.created_at, p.handle, p.display_name, p.bio,
             p.timezone, p.is_public, p.show_tokens,
-            p.show_harnesses, p.show_models, p.show_streaks, p.onboarding_complete
+            p.show_harnesses, p.show_models, p.show_streaks, p.onboarding_complete,
+            a.updated_at AS avatar_updated_at
      FROM profiles p JOIN users u ON u.id = p.user_id
+     LEFT JOIN profile_avatars a ON a.user_id = p.user_id
      WHERE p.handle = $1 AND (p.is_public OR p.user_id = $2)`,
     [handle, viewerId ?? null]
   );

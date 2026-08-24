@@ -53,12 +53,8 @@ type Client struct {
 }
 
 func New(cachePath string) *Client {
-	baseURL := os.Getenv("AGENTPRINT_DOWNLOAD_BASE")
-	if baseURL == "" {
-		baseURL = defaultDownloadBase
-	}
 	return &Client{
-		BaseURL:   strings.TrimRight(baseURL, "/"),
+		BaseURL:   defaultDownloadBase,
 		CachePath: cachePath,
 		HTTP:      &http.Client{Timeout: 30 * time.Second},
 		Now:       time.Now,

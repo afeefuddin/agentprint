@@ -7,11 +7,14 @@ import {
   completeOnboardingProfile,
   createAccount,
   createDeviceCode,
+  deleteProfileAvatar,
   exchangeDeviceCode,
   findOrCreateOAuthUser,
   findFriendCandidate,
   getFriendComparison,
   getProfile,
+  getProfileAvatar,
+  getProfileAvatarForUser,
   getProfileIdentity,
   getSharedSession,
   ingestBatch,
@@ -25,6 +28,7 @@ import {
   searchPublicProfiles,
   sendFriendRequest,
   updateProfile,
+  updateProfileAvatar,
   updateShare,
   usageExport
 } from "./index";
@@ -186,6 +190,17 @@ describe("ingestion and public profile boundaries", () => {
       timezone: "UTC"
     });
     userId = user.id;
+    const objectKey = `uploadthing-${suffix}-avatar-key`;
+    await updateProfileAvatar(userId, "image/png", objectKey);
+    const avatar = await getProfileAvatar(handle);
+    expect(avatar?.content_type).toBe("image/png");
+    expect(avatar?.object_key).toBe(objectKey);
+    expect(avatar?.image_data).toBeNull();
+    expect(await getProfileAvatarForUser(userId)).toEqual({ object_key: objectKey });
+    expect((await getProfile(handle, userId))?.profile.avatar_updated_at).toBeInstanceOf(Date);
+    expect(await deleteProfileAvatar(userId)).toBe(true);
+    expect(await getProfileAvatar(handle)).toBeNull();
+
     await updateProfile(userId, {
       is_public: true,
       show_tokens: false,
