@@ -88,6 +88,7 @@ pipeline: it publishes one session at a time, only when asked.
 
 ```sh
 agentprint sessions                 # list local sessions across harnesses
+agentprint share --latest --dry-run # preview the newest session for this project
 agentprint share --dry-run          # render the exact payload locally, upload nothing
 agentprint share <id> --redact strict --visibility public
 agentprint shares                   # list what you have published
