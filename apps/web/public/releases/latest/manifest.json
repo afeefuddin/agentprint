@@ -1,11 +1,11 @@
 {
   "version": "0.4.1",
   "archives": {
-    "darwin-amd64": { "file": "agentprint-darwin-amd64.tar.gz", "sha256": "ca87adb01975b5104ca71b3642f70ecc389115f6ef2660ee35fa5871e1b84a8c" },
-    "darwin-arm64": { "file": "agentprint-darwin-arm64.tar.gz", "sha256": "c9ff5dcbc01f7bddd1854dff1958ca58bdfc483374d76eaf961e1e5e91438bc2" },
-    "linux-amd64": { "file": "agentprint-linux-amd64.tar.gz", "sha256": "22c661a4ea7d6421e4b230d96972128af698f7d3b9871ef338751bf837528dc2" },
-    "linux-arm64": { "file": "agentprint-linux-arm64.tar.gz", "sha256": "b6282bc83d663c280ba1834b7f8341e576efde2546afd50377cd676cbda49f84" },
-    "windows-amd64": { "file": "agentprint-windows-amd64.zip", "sha256": "19fb3d460db309244978fdd1235cfbefeddc5b3571419b0a68ea4368f19143dc" },
-    "windows-arm64": { "file": "agentprint-windows-arm64.zip", "sha256": "968d71f0299e6b39525fc244aed0f7da47cbd5bee1b9fe697b6c13826fb9686b" }
+    "darwin-amd64": { "file": "agentprint-darwin-amd64.tar.gz", "sha256": "95a5192dee7d0335066b7447a301cbea1b719bedf7f00969e80607fab67dcf05" },
+    "darwin-arm64": { "file": "agentprint-darwin-arm64.tar.gz", "sha256": "0895f78977a4c13e549de91737c64558a895879b5303c297aa3c22ffb062289c" },
+    "linux-amd64": { "file": "agentprint-linux-amd64.tar.gz", "sha256": "96851aeae548091ff16687e1a0bc0ae18b672ad144b6641f6c3505004b0ac99b" },
+    "linux-arm64": { "file": "agentprint-linux-arm64.tar.gz", "sha256": "3cebddc392a36fed84b9619cceb3b5ad3652f365c702ac353b1bb3b65c281f4c" },
+    "windows-amd64": { "file": "agentprint-windows-amd64.zip", "sha256": "f69c591c15fa9d766ccfe24bfb537c8179cbe91921921018e2108d1284e62ae8" },
+    "windows-arm64": { "file": "agentprint-windows-arm64.zip", "sha256": "04822dcfcede078d9bf6936d48c8b01fd1daf60698bbc72b8283fbaafd1024c6" }
   }
 }

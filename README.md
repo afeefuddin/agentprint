@@ -34,6 +34,13 @@ client with `http://localhost:3000/api/auth/google/callback` as an authorized
 redirect URI, then set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`. Use your
 deployed origin for both callback URLs outside local development.
 
+Profile avatars are private objects in DigitalOcean Spaces under
+`profile-avatars/v1/`. Avatar access continues to go through Agentprint's
+profile avatar endpoint, which applies profile visibility before redirecting to
+a short-lived signed object URL. Existing UploadThing avatars remain readable
+during the migration window; keep `UPLOADTHING_TOKEN` only until the backfill
+described below reports zero legacy objects.
+
 To enable PostHog, set `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN` and
 `NEXT_PUBLIC_POSTHOG_HOST` for the browser, then set the matching
 `POSTHOG_PROJECT_TOKEN` and `POSTHOG_HOST` values for server events and before
@@ -122,12 +129,16 @@ Spaces values. Deploy the worker with:
 bun --cwd apps/web trigger:deploy
 ```
 
-Static product images can use the same Space without weakening session-object
-privacy. They live under a separate versioned prefix and are the only objects
-uploaded with `public-read`; session uploads continue to require `private`.
-Keep file listing restricted, and scope the one-day lifecycle rule to
-`session-uploads/` so it never removes public assets. Preview and upload the
-static inventory before deploying the public origin:
+The same Space has three deliberately separate storage boundaries:
+
+- `session-uploads/` is private temporary storage with a one-day lifecycle.
+- `profile-avatars/v1/` is private durable storage with no expiry rule.
+- `public-assets/<version>/` is durable static storage and the only prefix
+  uploaded with `public-read`.
+
+Keep file listing restricted and never apply the session lifecycle to the avatar
+or public-asset prefixes. Preview and upload the static inventory before
+deploying the public origin:
 
 ```sh
 SPACES_PUBLIC_ASSET_PREFIX=public-assets/2026-08-26 bun run assets:upload:dry-run
@@ -140,6 +151,22 @@ that prefix, for example
 The checked-in `public/` copies remain the development and rollback fallback:
 unset `NEXT_PUBLIC_ASSET_BASE_URL` and rebuild to serve them locally again.
 When assets change, upload a new versioned prefix before switching the URL.
+
+After the database migrations and Spaces configuration are live, inspect and
+backfill any avatars created before this change:
+
+```sh
+bun run avatars:migrate:dry-run
+bun run avatars:migrate
+bun run avatars:migrate:dry-run
+```
+
+The migration is retry-safe: it conditionally replaces the database key only
+if the avatar has not changed, removes an unused new object after a race, and
+reports partial failures. Keep `UPLOADTHING_TOKEN` available to the web app and
+the one-off migration command until the final dry run reports zero. Removing
+that token later is a separate cleanup step; it does not belong in the initial
+rollout.
 
 Upload reservations last 15 minutes. Once finalized, the database and Trigger
 run retain the queued job for 24 hours so normal queue delay cannot invalidate a

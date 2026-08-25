@@ -6,7 +6,8 @@ import { formatTokens, rankModelUsage } from "@agentprint/analytics";
 import type { getProfile } from "@agentprint/database";
 import { compactTokens, harnessBrand, harnessLabels, modelBrand } from "@/lib/brands";
 import { assetUrl } from "@/lib/assets";
-import { cx, handleClass, modelChart, profileAvatarClass, sectionHeading } from "@/lib/ui";
+import { cx, handleClass, modelChart, sectionHeading } from "@/lib/ui";
+import { ProfileAvatar } from "@/components/profile-avatar";
 import { ContributionField } from "./contribution-field";
 import { ShareButton } from "./share-button";
 
@@ -22,10 +23,6 @@ const METRIC_ART =
 const MIX_ROW =
   "grid min-h-[63px] grid-cols-[30px_30px_minmax(0,190px)_minmax(0,1fr)_52px] items-center gap-[13px] border-b border-line last:border-b-0 max-tablet:grid-cols-[24px_30px_minmax(0,1fr)_46px] max-tablet:gap-2.5";
 const BREAKDOWN_EMPTY = "m-0 py-[18px] text-sm text-faint";
-
-function initials(name: string) {
-  return name.split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase();
-}
 
 function MetricCard({
   label,
@@ -71,7 +68,11 @@ export function ProfileView({
     <main id="main" data-profile-main className="overflow-x-clip pb-[var(--page-bottom)]">
       <div className="shell pt-[var(--page-top)]">
         <section className="mb-9 grid grid-cols-[auto_1fr_auto] items-center gap-6 rounded-md border border-line bg-panel p-7 max-tablet:grid-cols-[auto_1fr] max-tablet:p-[22px]">
-          <div className={profileAvatarClass} aria-hidden="true">{initials(profile.display_name)}</div>
+          <ProfileAvatar
+            handle={profile.handle}
+            name={profile.display_name}
+            updatedAt={profile.avatar_updated_at}
+          />
           <div>
             <div className="flex items-center gap-3 max-tablet:flex-col max-tablet:items-start max-tablet:gap-[5px]">
               <h1 className="m-0 text-4xl font-medium leading-none tracking-[-.04em] text-ink-strong">
@@ -82,7 +83,7 @@ export function ProfileView({
               </span>
             </div>
             <p className={handleClass}>@{profile.handle}</p>
-            <p className="m-0 text-sm text-muted">{profile.bio || "Building with agents, one trace at a time."}</p>
+            {profile.bio ? <p className="m-0 text-sm text-muted">{profile.bio}</p> : null}
             <div className="mt-[11px] flex gap-[18px] text-xs text-faint max-tablet:flex-col max-tablet:gap-1">
               <span className="flex items-center gap-[5px]"><MapPin size={13} /> {profile.timezone.replaceAll("_", " ")}</span>
               <span className="flex items-center gap-[5px]">

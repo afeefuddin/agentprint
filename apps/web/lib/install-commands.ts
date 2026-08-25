@@ -14,19 +14,12 @@ function deploymentOrigin(appUrl: string) {
 export function installCommandsFor(appUrl: string) {
   const origin = deploymentOrigin(appUrl);
   const cloud = cloudHosts.has(new URL(origin).hostname.toLowerCase());
-  const downloadBase = `${origin}/releases/latest`;
 
   return {
     install: {
-      macOS: cloud
-        ? AGENTPRINT_INSTALL_COMMAND
-        : `curl -fsSL ${origin}/install.sh | AGENTPRINT_DOWNLOAD_BASE=${downloadBase} sh`,
-      Linux: cloud
-        ? AGENTPRINT_INSTALL_COMMAND
-        : `curl -fsSL ${origin}/install.sh | AGENTPRINT_DOWNLOAD_BASE=${downloadBase} sh`,
-      Windows: cloud
-        ? `irm ${AGENTPRINT_CLOUD_ORIGIN}/install.ps1 | iex`
-        : `$env:AGENTPRINT_DOWNLOAD_BASE="${downloadBase}"; irm ${origin}/install.ps1 | iex`
+      macOS: AGENTPRINT_INSTALL_COMMAND,
+      Linux: AGENTPRINT_INSTALL_COMMAND,
+      Windows: `irm ${AGENTPRINT_CLOUD_ORIGIN}/install.ps1 | iex`
     },
     login: cloud ? "agentprint login" : `agentprint login --server ${origin}`
   } as const;

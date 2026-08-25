@@ -10,7 +10,7 @@ export const MAX_SHARE_UPLOAD_BYTES = 8 * 1024 * 1024;
 export const SHARE_UPLOAD_CONTENT_TYPE = "application/json";
 export const SHARE_UPLOAD_CONTENT_ENCODING = "gzip";
 
-function spacesConfiguration() {
+export function spacesConfiguration() {
   const endpoint = process.env.SPACES_ENDPOINT;
   const bucket = process.env.SPACES_BUCKET;
   const accessKeyId = process.env.SPACES_ACCESS_KEY_ID;
@@ -21,7 +21,7 @@ function spacesConfiguration() {
   return { endpoint, bucket, accessKeyId, secretAccessKey };
 }
 
-function spacesClient() {
+export function spacesClient() {
   const configuration = spacesConfiguration();
   return {
     bucket: configuration.bucket,

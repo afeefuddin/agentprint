@@ -11,7 +11,9 @@
     "trigger:dev": "trigger dev --config trigger.config.ts",
     "trigger:deploy": "trigger deploy --config trigger.config.ts",
     "assets:upload": "bun scripts/upload-public-assets.ts",
-    "assets:upload:dry-run": "bun scripts/upload-public-assets.ts --dry-run"
+    "assets:upload:dry-run": "bun scripts/upload-public-assets.ts --dry-run",
+    "avatars:migrate": "bun scripts/migrate-profile-avatars.ts",
+    "avatars:migrate:dry-run": "bun scripts/migrate-profile-avatars.ts --dry-run"
   },
   "dependencies": {
     "@agentprint/analytics": "workspace:*",
@@ -19,6 +21,7 @@
     "@agentprint/database": "workspace:*",
     "@aws-sdk/client-s3": "^3.1117.0",
     "@aws-sdk/s3-presigned-post": "^3.1117.0",
+    "@aws-sdk/s3-request-presigner": "^3.1117.0",
     "@trigger.dev/sdk": "^4.5.12",
     "cobe": "2.0.1",
     "lucide-react": "^0.468.0",
@@ -29,6 +32,7 @@
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-icons": "^5.7.0",
+    "uploadthing": "^7.7.4",
     "zod": "^4.0.0"
   },
   "devDependencies": {

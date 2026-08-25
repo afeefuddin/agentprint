@@ -8,11 +8,14 @@ import {
   createAccount,
   createDeviceCode,
   createSessionShareUpload,
+  deleteProfileAvatar,
   exchangeDeviceCode,
   findOrCreateOAuthUser,
   findFriendCandidate,
   getFriendComparison,
   getProfile,
+  getProfileAvatar,
+  getProfileAvatarForUser,
   getProfileIdentity,
   getSharedSession,
   ingestBatch,
@@ -21,16 +24,19 @@ import {
   getSessionShareUploadForOwner,
   getSessionShareUploadStatusForOwner,
   listFriendships,
+  listLegacyProfileAvatars,
   listPublicShares,
   markSessionShareUploadQueued,
   pool,
   publishShare,
   registerDevice,
+  replaceProfileAvatarObjectKey,
   removeFriendship,
   revokeShare,
   searchPublicProfiles,
   sendFriendRequest,
   updateProfile,
+  updateProfileAvatar,
   updateShare,
   usageExport
 } from "./index";
@@ -192,6 +198,22 @@ describe("ingestion and public profile boundaries", () => {
       timezone: "UTC"
     });
     userId = user.id;
+    const objectKey = `uploadthing-${suffix}-avatar-key`;
+    await updateProfileAvatar(userId, "image/png", objectKey);
+    expect(await getProfileAvatar(handle)).toBeNull();
+    const avatar = await getProfileAvatar(handle, userId);
+    expect(avatar?.content_type).toBe("image/png");
+    expect(avatar?.object_key).toBe(objectKey);
+    expect(avatar?.image_data).toBeNull();
+    expect(await getProfileAvatarForUser(userId)).toEqual({ object_key: objectKey });
+    expect((await listLegacyProfileAvatars()).some((row) => row.user_id === userId)).toBe(true);
+    const spacesKey = `profile-avatars/v1/${userId}/${suffix}.png`;
+    expect(await replaceProfileAvatarObjectKey(userId, objectKey, spacesKey)).toBe(true);
+    expect(await getProfileAvatarForUser(userId)).toEqual({ object_key: spacesKey });
+    expect((await getProfile(handle, userId))?.profile.avatar_updated_at).toBeInstanceOf(Date);
+    expect(await deleteProfileAvatar(userId)).toBe(true);
+    expect(await getProfileAvatar(handle, userId)).toBeNull();
+
     await updateProfile(userId, {
       is_public: true,
       show_tokens: false,

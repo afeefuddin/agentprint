@@ -19,6 +19,8 @@
     "cli:release": "sh scripts/build-local-releases.sh",
     "assets:upload": "bun --cwd apps/web assets:upload",
     "assets:upload:dry-run": "bun --cwd apps/web assets:upload:dry-run",
+    "avatars:migrate": "bun --cwd apps/web avatars:migrate",
+    "avatars:migrate:dry-run": "bun --cwd apps/web avatars:migrate:dry-run",
     "db:migrate": "bun packages/database/src/migrate.ts",
     "db:seed": "bun packages/database/src/seed.ts",
     "db:reset": "bun packages/database/src/reset.ts",
