@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { ContentHubPage } from "@/components/content-hub-page";
 import { absoluteUrl } from "@/lib/site";
+import { assetUrl } from "@/lib/assets";
 
 export const metadata: Metadata = {
   title: "Coding agent session sharing guides",
@@ -9,9 +10,9 @@ export const metadata: Metadata = {
 };
 
 const items = [
-  { href: "/guides/share-claude-code-session", title: "Share a Claude Code session", description: "Choose one local session, inspect the redacted preview, and publish a revocable link.", label: "Guide", mark: "/brands/claude.svg", tone: "blue" as const },
-  { href: "/guides/share-codex-session", title: "Share a Codex session", description: "Turn a selected Codex CLI session into a readable link without enabling background transcript uploads.", label: "Guide", mark: "/brands/codex.svg" },
-  { href: "/guides/share-kimi-code-session", title: "Share a Kimi Code session", description: "Preview a Kimi Code transcript locally, choose a redaction level, and control who can open it.", label: "Guide", mark: "/brands/kimi.svg", tone: "ink" as const },
+  { href: "/guides/share-claude-code-session", title: "Share a Claude Code session", description: "Choose one local session, inspect the redacted preview, and publish a revocable link.", label: "Guide", mark: assetUrl("/brands/claude.svg"), tone: "blue" as const },
+  { href: "/guides/share-codex-session", title: "Share a Codex session", description: "Turn a selected Codex CLI session into a readable link without enabling background transcript uploads.", label: "Guide", mark: assetUrl("/brands/codex.svg") },
+  { href: "/guides/share-kimi-code-session", title: "Share a Kimi Code session", description: "Preview a Kimi Code transcript locally, choose a redaction level, and control who can open it.", label: "Guide", mark: assetUrl("/brands/kimi.svg"), tone: "ink" as const },
   { href: "/security/session-redaction", title: "Understand session redaction", description: "See which credential shapes, paths, images, and tool details are removed before publishing.", label: "Security" },
   { href: "/docs/getting-started", title: "Install Agentprint", description: "Create a profile, connect a machine, and confirm which supported coding tools were found.", label: "Documentation" },
   { href: "/privacy/what-agentprint-collects", title: "Separate tracking from sharing", description: "Learn why numeric background activity and deliberately published transcripts use different boundaries.", label: "Methodology" }

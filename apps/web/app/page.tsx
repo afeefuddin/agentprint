@@ -10,6 +10,7 @@ import { SiteFooter } from "@/components/site-footer";
 import { cx, eyebrowClass } from "@/lib/ui";
 import type { Metadata } from "next";
 import { absoluteUrl, SITE_DESCRIPTION } from "@/lib/site";
+import { assetUrl } from "@/lib/assets";
 
 export const metadata: Metadata = {
   title: { absolute: "Agentprint – Coding agent activity tracker" },
@@ -40,17 +41,17 @@ const BENEFIT_ICON =
 const BENEFIT_TITLE = "mb-2 text-base font-bold tracking-[-.025em] text-ink-strong max-tablet:text-sm";
 const BENEFIT_COPY = "m-0 text-xs leading-[1.6] text-muted";
 const harnesses = [
-  { src: "/brands/opencode.svg", label: "OpenCode" },
-  { src: "/brands/claude.svg", label: "Claude Code" },
-  { src: "/brands/codex.svg", label: "Codex" },
-  { src: "/brands/kimi.svg", label: "Kimi Code" }
+  { src: assetUrl("/brands/opencode.svg"), label: "OpenCode" },
+  { src: assetUrl("/brands/claude.svg"), label: "Claude Code" },
+  { src: assetUrl("/brands/codex.svg"), label: "Codex" },
+  { src: assetUrl("/brands/kimi.svg"), label: "Kimi Code" }
 ];
 
 const collectorSources = [
-  { src: "/brands/codex.svg", label: "Codex" },
-  { src: "/brands/claude.svg", label: "Claude" },
-  { src: "/brands/opencode.svg", label: "OpenCode" },
-  { src: "/brands/kimi.svg", label: "Kimi" }
+  { src: assetUrl("/brands/codex.svg"), label: "Codex" },
+  { src: assetUrl("/brands/claude.svg"), label: "Claude" },
+  { src: assetUrl("/brands/opencode.svg"), label: "OpenCode" },
+  { src: assetUrl("/brands/kimi.svg"), label: "Kimi" }
 ];
 
 const boundaryRows = [
@@ -332,7 +333,7 @@ export default async function Home() {
               className="grid size-[82px] place-items-center rounded-md bg-white shadow-[inset_0_0_0_1px_rgb(255_255_255_/_0.4),0_14px_34px_rgb(0_0_0_/_0.2)] max-tablet:size-[58px]"
               aria-hidden="true"
             >
-              <Image src="/brands/github.svg" alt="" width={42} height={42} className="size-[42px] max-tablet:size-[30px]" />
+              <Image src={assetUrl("/brands/github.svg")} alt="" width={42} height={42} className="size-[42px] max-tablet:size-[30px]" />
             </div>
             <div>
               <span className="mb-2 block text-xs font-bold text-[#b7bdb1]">Built in the open</span>
@@ -347,7 +348,7 @@ export default async function Home() {
               </p>
             </div>
             <div className="flex min-h-12 items-center gap-[9px] whitespace-nowrap rounded-sm border border-white/[.17] bg-white px-3.5 text-xs font-bold text-[#181917] max-tablet:col-span-full max-tablet:w-full max-tablet:justify-center">
-              <Image src="/brands/github.svg" alt="" width={18} height={18} className="size-[18px]" />
+              <Image src={assetUrl("/brands/github.svg")} alt="" width={18} height={18} className="size-[18px]" />
               <span>afeefuddin/agentprint</span>
               <ArrowRight size={17} className="ml-2 transition-transform duration-[180ms] group-hover:translate-x-[3px]" />
             </div>
@@ -364,7 +365,7 @@ export default async function Home() {
                 />
                 <div className="absolute inset-x-[14%] bottom-[7%] h-[17%] rounded-[50%] bg-[#173c91]/35 blur-[28px]" aria-hidden="true" />
                 <Image
-                  src="/landing/sessions-to-heatmap.webp"
+                  src={assetUrl("/landing/sessions-to-heatmap.webp")}
                   alt="Coding-agent sessions flowing into an activity heatmap"
                   width={1536}
                   height={1024}

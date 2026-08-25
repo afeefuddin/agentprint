@@ -77,7 +77,7 @@ The onboarding installer then downloads them from
 
 GitHub Actions runs the CLI tests and builds the same six release archives on
 pull requests and pushes to `main`. Pushing a tag that matches the CLI version,
-such as `v0.4.0`, also publishes the archives and checksum manifest to a GitHub
+such as `v0.4.1`, also publishes the archives and checksum manifest to a GitHub
 Release. Configure the optional `POSTHOG_PROJECT_TOKEN` and `POSTHOG_HOST`
 repository secrets to compile telemetry into tagged release binaries.
 
@@ -102,10 +102,51 @@ omits tool arguments, tool output, and agent reasoning. The dry run writes a
 local HTML preview so the payload can be read before any network call, and the
 interactive publish shows the same preview before asking for confirmation.
 
-The server re-scans every upload and refuses one that still contains an
-apparent live credential. Shares default to unlisted—reachable by link, never
-indexed, never listed on a profile—and only appear on a profile once the owner
-marks them public. Deleting a share removes the transcript.
+Publishing sends the bounded gzip payload directly to a private DigitalOcean
+Space, then queues validation and publication with Trigger.dev. The Next.js
+request path only handles signed upload metadata. The worker verifies the
+reserved byte length and SHA-256 digest, applies decompression and schema
+limits, and re-scans every upload before writing transcript content to the
+database. Shares default to unlisted—reachable by link, never indexed, never
+listed on a profile—and only appear on a profile once the owner marks them
+public. Deleting a share removes the transcript.
+
+Configure `SPACES_ENDPOINT`, `SPACES_BUCKET`, `SPACES_ACCESS_KEY_ID`, and
+`SPACES_SECRET_ACCESS_KEY` in both the web deployment and Trigger.dev. Keep the
+Space private and add a one-day lifecycle expiration for the `session-uploads/`
+prefix. Configure `TRIGGER_PROJECT_REF`, put `TRIGGER_SECRET_KEY` in the web
+deployment, and give the Trigger.dev environment the same `DATABASE_URL` and
+Spaces values. Deploy the worker with:
+
+```sh
+bun --cwd apps/web trigger:deploy
+```
+
+Static product images can use the same Space without weakening session-object
+privacy. They live under a separate versioned prefix and are the only objects
+uploaded with `public-read`; session uploads continue to require `private`.
+Keep file listing restricted, and scope the one-day lifecycle rule to
+`session-uploads/` so it never removes public assets. Preview and upload the
+static inventory before deploying the public origin:
+
+```sh
+SPACES_PUBLIC_ASSET_PREFIX=public-assets/2026-08-26 bun run assets:upload:dry-run
+SPACES_PUBLIC_ASSET_PREFIX=public-assets/2026-08-26 bun run assets:upload
+```
+
+Then set `NEXT_PUBLIC_ASSET_BASE_URL` at build time to the public origin plus
+that prefix, for example
+`https://your-space.blr1.digitaloceanspaces.com/public-assets/2026-08-26`.
+The checked-in `public/` copies remain the development and rollback fallback:
+unset `NEXT_PUBLIC_ASSET_BASE_URL` and rebuild to serve them locally again.
+When assets change, upload a new versioned prefix before switching the URL.
+
+Upload reservations last 15 minutes. Once finalized, the database and Trigger
+run retain the queued job for 24 hours so normal queue delay cannot invalidate a
+completed upload. `agentprint share-status <upload-id>` reports queued,
+processing, published, and failed outcomes. Admission is capped per account,
+per client address, per-account bytes, and globally at 120 reservations per hour;
+the worker separately limits execution concurrency to two.
 
 Session readers exist for Claude Code, Codex, and Kimi Code. OpenCode is not
 yet supported: recent versions moved message storage into `opencode.db`, so it
@@ -147,7 +188,7 @@ fields cannot enter an ingestion batch. Public profile choices are enforced
 when the profile payload is built, not only hidden in the browser.
 
 Session sharing is the one path that carries content, and it is deliberately
-separate: its own endpoint (`POST /v1/me/shares`), its own strict contract
+separate: bounded reservation and finalize endpoints, its own strict contract
 (`SessionShare`), its own tables, and an explicit per-session consent step. The
 block vocabulary is closed, every field is size-bounded, and the server rejects
 anything it does not recognise. `agentprint privacy` prints both boundaries.

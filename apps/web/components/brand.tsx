@@ -1,11 +1,12 @@
 import Link from "next/link";
 import Image from "next/image";
+import { assetUrl } from "@/lib/assets";
 
 export function BrandMark({ className = "" }: { className?: string }) {
   return (
     <Image
       className={className}
-      src="/brand/agentprint-mark.svg"
+      src={assetUrl("/brand/agentprint-mark.svg")}
       alt=""
       width={32}
       height={32}
@@ -22,7 +23,7 @@ export function Brand({ compact = false, className = "" }: { compact?: boolean; 
       ) : (
         <Image
           className="block h-7 w-[126px] max-desktop:h-[23px] max-desktop:w-[104px]"
-          src="/brand/agentprint-lockup.svg"
+          src={assetUrl("/brand/agentprint-lockup.svg")}
           alt=""
           width={360}
           height={80}

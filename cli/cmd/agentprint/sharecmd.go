@@ -228,12 +228,12 @@ func (application *app) share(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	action := "Published"
-	if receipt.Replaced {
-		action = "Updated"
+	fmt.Println("\nUploaded. Agentprint is checking and publishing this session in the background.")
+	fmt.Println("Run agentprint shares shortly to copy the link or revoke it.")
+	if receipt.UploadID != "" {
+		fmt.Println("Upload id: " + receipt.UploadID)
+		fmt.Println("Check it with: agentprint share-status " + receipt.UploadID)
 	}
-	fmt.Printf("\n%s: %s\n", action, receipt.URL)
-	fmt.Println("Revoke it any time with: agentprint unshare " + receipt.ID)
 	return nil
 }
 
@@ -335,6 +335,40 @@ func (application *app) shares(ctx context.Context, args []string) error {
 		fmt.Printf("  %-10s %s\n", entry.Visibility, truncateTitle(entry.Title, 58))
 		fmt.Printf("             %s/s/%s · %d turns · %s views\n", application.config.Server, entry.Slug, entry.TurnCount, entry.ViewCount)
 		fmt.Printf("             id %s\n\n", entry.ID)
+	}
+	return nil
+}
+
+func (application *app) shareStatus(ctx context.Context, args []string) error {
+	if len(args) != 1 {
+		return errors.New("pass one upload id; the share command prints it after upload")
+	}
+	if application.config.DeviceID == "" {
+		return errors.New("this machine is not connected; run agentprint login")
+	}
+	credential, err := application.configManager.Credential(application.config.DeviceID)
+	if err != nil {
+		return fmt.Errorf("read device credential from OS keychain: %w", err)
+	}
+	status, err := application.client.GetShareUploadStatus(ctx, credential.AccessToken, args[0])
+	if err != nil {
+		return err
+	}
+	switch status.Status {
+	case "published":
+		if status.ShareURL != "" {
+			fmt.Println("Published: " + status.ShareURL)
+		} else {
+			fmt.Println("Published. Run agentprint shares to copy the link.")
+		}
+	case "failed":
+		failure := status.FailureCode
+		if failure == "" {
+			failure = "processing_failed"
+		}
+		fmt.Println("Publication failed: " + failure)
+	default:
+		fmt.Println("Publication status: " + status.Status)
 	}
 	return nil
 }

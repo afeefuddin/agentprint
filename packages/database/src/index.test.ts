@@ -7,6 +7,7 @@ import {
   completeOnboardingProfile,
   createAccount,
   createDeviceCode,
+  createSessionShareUpload,
   exchangeDeviceCode,
   findOrCreateOAuthUser,
   findFriendCandidate,
@@ -15,8 +16,13 @@ import {
   getProfileIdentity,
   getSharedSession,
   ingestBatch,
+  beginSessionShareUploadProcessing,
+  completeSessionShareUpload,
+  getSessionShareUploadForOwner,
+  getSessionShareUploadStatusForOwner,
   listFriendships,
   listPublicShares,
+  markSessionShareUploadQueued,
   pool,
   publishShare,
   registerDevice,
@@ -430,6 +436,53 @@ describe("session sharing", () => {
       ...overrides
     };
   }
+
+  test("reserves bounded uploads and records their processing lifecycle", async () => {
+    const owner = await createAccount({
+      email: `uploader-${suffix}@example.com`,
+      password: "a-strong-test-password",
+      handle: `uploader-${suffix}`,
+      displayName: "Uploader Trace",
+      timezone: "UTC"
+    });
+    shareUserIds.push(owner.id);
+    const device = await pool.query<{ id: string }>(
+      `INSERT INTO devices (user_id, name, platform, agent_version)
+       VALUES ($1, 'Upload test', 'test/arm64', '0.1.0') RETURNING id`,
+      [owner.id]
+    );
+    const upload = await createSessionShareUpload({
+      userId: owner.id,
+      deviceId: device.rows[0].id,
+      contentLength: 4096,
+      contentSha256: "a".repeat(64)
+    });
+    expect(upload?.object_key).toContain(`/` + upload?.id + ".json.gz");
+    expect(upload?.status).toBe("created");
+    expect(await getSessionShareUploadForOwner(upload!.id, randomUUID())).toBeNull();
+
+    await pool.query(
+      "UPDATE session_share_uploads SET expires_at = now() + interval '1 minute' WHERE id = $1",
+      [upload!.id]
+    );
+    await markSessionShareUploadQueued(upload!.id, "run-test");
+    const queued = await getSessionShareUploadForOwner(upload!.id, owner.id);
+    expect(queued?.expires_at.getTime()).toBeGreaterThan(Date.now() + 23 * 60 * 60 * 1000);
+    const processing = await beginSessionShareUploadProcessing(upload!.id);
+    expect(processing?.status).toBe("processing");
+    expect(processing?.trigger_run_id).toBe("run-test");
+
+    const published = await publishShare(
+      { userId: owner.id, deviceId: device.rows[0].id },
+      transcript({ session_fingerprint: `fingerprint-upload-${suffix}` })
+    );
+    await completeSessionShareUpload(upload!.id, published.id);
+    const complete = await getSessionShareUploadForOwner(upload!.id, owner.id);
+    expect(complete?.status).toBe("published");
+    expect(complete?.share_id).toBe(published.id);
+    const status = await getSessionShareUploadStatusForOwner(upload!.id, owner.id);
+    expect(status?.share_slug).toBe(published.slug);
+  });
 
   test("publishes, reads back, changes visibility, and hard-deletes on revoke", async () => {
     const owner = await createAccount({

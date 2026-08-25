@@ -28,7 +28,7 @@ import (
 	"github.com/agentprint/agentprint/cli/internal/updater"
 )
 
-const version = "0.4.0"
+const version = "0.4.1"
 
 type app struct {
 	configManager *config.Manager
@@ -119,6 +119,8 @@ func run() error {
 		commandErr = application.share(ctx, os.Args[2:])
 	case "shares":
 		commandErr = application.shares(ctx, os.Args[2:])
+	case "share-status":
+		commandErr = application.shareStatus(ctx, os.Args[2:])
 	case "unshare":
 		commandErr = application.unshare(ctx, os.Args[2:])
 	case "privacy":
@@ -246,7 +248,7 @@ func confirmUpdate(input io.Reader, output io.Writer) (bool, error) {
 func shouldOfferUpdate(command string) bool {
 	switch command {
 	case "login", "status", "sync", "sources", "privacy", "doctor", "pause", "resume", "logout",
-		"sessions", "share", "shares", "unshare":
+		"sessions", "share", "shares", "share-status", "unshare":
 		return true
 	default:
 		return false
@@ -639,6 +641,7 @@ Commands:
   sessions    list sessions you could share
   share       preview and publish one session (--dry-run publishes nothing)
   shares      list the sessions you have published
+  share-status inspect a background session upload
   unshare     delete a published session
   privacy     explain what Agentprint collects and shares
   doctor      diagnose connection problems

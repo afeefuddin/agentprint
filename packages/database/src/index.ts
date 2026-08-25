@@ -1278,6 +1278,147 @@ export async function publishShare(
   }
 }
 
+export type SessionShareUpload = {
+  id: string;
+  user_id: string;
+  device_id: string;
+  object_key: string;
+  content_length: number;
+  content_sha256: string;
+  status: "created" | "queued" | "processing" | "published" | "failed";
+  trigger_run_id: string | null;
+  share_id: string | null;
+  failure_code: string | null;
+  expires_at: Date;
+};
+
+const shareUploadColumns = [
+  "id", "user_id", "device_id", "object_key", "content_length", "content_sha256",
+  "status", "trigger_run_id", "share_id", "failure_code", "expires_at"
+].join(", ");
+
+const MAX_SHARE_UPLOAD_BYTES_PER_HOUR = 256 * 1024 * 1024;
+
+/*
+ * Reserve upload capacity before issuing a presigned URL. The advisory lock
+ * makes the per-user byte budget safe under concurrent requests; otherwise a
+ * burst could race every request past the same SUM check.
+ */
+export async function createSessionShareUpload(input: {
+  userId: string;
+  deviceId: string;
+  contentLength: number;
+  contentSha256: string;
+}) {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [`share-upload:${input.userId}`]);
+    const usage = await one<{ bytes: string }>(
+      `SELECT COALESCE(SUM(content_length), 0)::text AS bytes
+       FROM session_share_uploads
+       WHERE user_id = $1 AND created_at > now() - interval '1 hour'`,
+      [input.userId],
+      client
+    );
+    if (Number(usage?.bytes ?? 0) + input.contentLength > MAX_SHARE_UPLOAD_BYTES_PER_HOUR) {
+      await client.query("ROLLBACK");
+      return null;
+    }
+    const id = randomUUID();
+    const objectKey = `session-uploads/${input.userId}/${id}.json.gz`;
+    const upload = await one<SessionShareUpload>(
+      `INSERT INTO session_share_uploads (
+         id, user_id, device_id, object_key, content_length, content_sha256
+       ) VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING ${shareUploadColumns}`,
+      [id, input.userId, input.deviceId, objectKey, input.contentLength, input.contentSha256],
+      client
+    );
+    await client.query("COMMIT");
+    return upload;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function getSessionShareUploadForOwner(uploadId: string, userId: string) {
+  return one<SessionShareUpload>(
+    `SELECT ${shareUploadColumns} FROM session_share_uploads
+     WHERE id = $1 AND user_id = $2`,
+    [uploadId, userId]
+  );
+}
+
+export async function markSessionShareUploadQueued(uploadId: string, triggerRunId: string) {
+  await pool.query(
+    `UPDATE session_share_uploads
+     SET status = CASE WHEN status = 'created' THEN 'queued' ELSE status END,
+         trigger_run_id = COALESCE(trigger_run_id, $2),
+         expires_at = CASE
+           WHEN status IN ('created', 'queued')
+             THEN GREATEST(expires_at, now() + interval '24 hours')
+           ELSE expires_at
+         END,
+         updated_at = now()
+     WHERE id = $1 AND status IN ('created', 'queued', 'processing', 'published')`,
+    [uploadId, triggerRunId]
+  );
+}
+
+export async function getSessionShareUploadStatusForOwner(uploadId: string, userId: string) {
+  return one<SessionShareUpload & { share_slug: string | null }>(
+    `SELECT ${shareUploadColumns.split(", ").map((column) => `u.${column}`).join(", ")},
+            s.slug AS share_slug
+     FROM session_share_uploads u
+     LEFT JOIN shared_sessions s ON s.id = u.share_id
+     WHERE u.id = $1 AND u.user_id = $2`,
+    [uploadId, userId]
+  );
+}
+
+export async function beginSessionShareUploadProcessing(uploadId: string) {
+  return one<SessionShareUpload>(
+    `UPDATE session_share_uploads
+     SET status = 'processing', updated_at = now()
+     WHERE id = $1 AND status IN ('created', 'queued', 'processing')
+       AND expires_at > now()
+     RETURNING ${shareUploadColumns}`,
+    [uploadId]
+  );
+}
+
+export async function getSessionShareUpload(uploadId: string) {
+  return one<SessionShareUpload>(
+    `SELECT ${shareUploadColumns} FROM session_share_uploads WHERE id = $1`,
+    [uploadId]
+  );
+}
+
+export async function completeSessionShareUpload(uploadId: string, shareId: string) {
+  await pool.query(
+    `UPDATE session_share_uploads
+     SET status = 'published', share_id = $2, failure_code = NULL,
+         processed_at = now(), updated_at = now()
+     WHERE id = $1`,
+    [uploadId, shareId]
+  );
+}
+
+export async function failSessionShareUpload(uploadId: string, failureCode: string) {
+  await pool.query(
+    `UPDATE session_share_uploads
+     SET status = 'failed',
+         failure_code = CASE WHEN status = 'failed' THEN failure_code ELSE $2 END,
+         processed_at = now(), updated_at = now()
+     WHERE id = $1 AND status <> 'published'`,
+    [uploadId, failureCode]
+  );
+}
+
 export async function listShares(userId: string) {
   const result = await pool.query<ShareSummary>(
     `SELECT ${shareColumns} FROM shared_sessions

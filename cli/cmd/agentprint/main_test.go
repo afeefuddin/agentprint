@@ -70,7 +70,7 @@ func TestConfirmUpdate(t *testing.T) {
 }
 
 func TestUpdatePromptsOnlyForInteractiveCommands(t *testing.T) {
-	for _, command := range []string{"login", "status", "sync", "sources", "privacy", "doctor", "pause", "resume", "logout"} {
+	for _, command := range []string{"login", "status", "sync", "sources", "privacy", "doctor", "pause", "resume", "logout", "share-status"} {
 		if !shouldOfferUpdate(command) {
 			t.Fatalf("expected %s to offer updates", command)
 		}
@@ -79,5 +79,11 @@ func TestUpdatePromptsOnlyForInteractiveCommands(t *testing.T) {
 		if shouldOfferUpdate(command) {
 			t.Fatalf("did not expect %s to offer updates", command)
 		}
+	}
+}
+
+func TestSessionUploadProtocolBumpsCLIVersion(t *testing.T) {
+	if version != "0.4.1" {
+		t.Fatalf("version = %s, want 0.4.1 for the new session upload protocol", version)
 	}
 }

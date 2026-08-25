@@ -31,7 +31,7 @@ export default async function PrivacyPage() {
               Privacy policy
             </h1>
             <div className="mt-6 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm font-medium text-faint">
-              <span>Last updated August 23, 2026</span>
+              <span>Last updated August 26, 2026</span>
               <span aria-hidden="true">·</span>
               <span>Legal</span>
             </div>
@@ -72,6 +72,9 @@ export default async function PrivacyPage() {
               </p>
               <p className={COPY}>
                 Agentprint previews and redacts the session on your device before upload. New shares begin as unlisted, and you can change their visibility or delete them at any time. Redaction helps, but you should still read the preview before publishing.
+              </p>
+              <p className={COPY}>
+                A session you choose to publish is uploaded temporarily to a private DigitalOcean Space and processed by an isolated Trigger.dev worker before publication. Temporary upload objects are deleted after processing, with a one-day storage lifecycle as the cleanup backstop.
               </p>
             </section>
 

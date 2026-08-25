@@ -1,16 +1,18 @@
 // Brand colours for harness and model bars. Values that exist in our own SVG
 // assets are taken from those files so the bar matches the mark beside it.
+import { assetUrl } from "./assets";
+
 export type Brand = { label: string; color: string; logo?: string };
 
 const providers: Record<string, Brand> = {
-  anthropic: { label: "Anthropic", color: "#d97757", logo: "/brands/claude.svg" },
-  openai: { label: "OpenAI", color: "#10a37f", logo: "/brands/codex.svg" },
-  opencode: { label: "OpenCode", color: "#211e1e", logo: "/brands/opencode.svg" },
-  moonshot: { label: "Moonshot", color: "#2b5ce6", logo: "/brands/kimi.svg" },
+  anthropic: { label: "Anthropic", color: "#d97757", logo: assetUrl("/brands/claude.svg") },
+  openai: { label: "OpenAI", color: "#10a37f", logo: assetUrl("/brands/codex.svg") },
+  opencode: { label: "OpenCode", color: "#211e1e", logo: assetUrl("/brands/opencode.svg") },
+  moonshot: { label: "Moonshot", color: "#2b5ce6", logo: assetUrl("/brands/kimi.svg") },
   google: { label: "Google", color: "#4285f4" },
   deepseek: { label: "DeepSeek", color: "#4d6bfe" },
-  zhipu: { label: "Zhipu", color: "#3859ff", logo: "/brands/glm.svg" },
-  alibaba: { label: "Alibaba", color: "#615ced", logo: "/brands/qwen.svg" },
+  zhipu: { label: "Zhipu", color: "#3859ff", logo: assetUrl("/brands/glm.svg") },
+  alibaba: { label: "Alibaba", color: "#615ced", logo: assetUrl("/brands/qwen.svg") },
   xai: { label: "xAI", color: "#4a4a57" },
   meta: { label: "Meta", color: "#0668e1" },
   unknown: { label: "Unknown", color: "#7898db" }
