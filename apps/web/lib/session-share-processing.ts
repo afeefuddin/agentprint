@@ -1,5 +1,9 @@
 import { createHash } from "node:crypto";
-import { auditShareForCredentials, sessionShareSchema } from "@agentprint/contracts";
+import {
+  auditShareForCredentials,
+  sessionShareSchema,
+  type SessionShare
+} from "@agentprint/contracts";
 import {
   beginSessionShareUploadProcessing,
   completeSessionShareUpload,
@@ -20,6 +24,41 @@ export class PermanentSessionShareUploadError extends Error {
   constructor(public readonly code: string) {
     super(code);
   }
+}
+
+export async function validateSessionShareUpload(
+  compressed: Buffer,
+  integrity: { contentLength: number; contentSha256: string }
+): Promise<SessionShare> {
+  if (compressed.byteLength !== integrity.contentLength) {
+    throw new PermanentSessionShareUploadError("upload_size_mismatch");
+  }
+  const digest = createHash("sha256").update(compressed).digest("hex");
+  if (digest !== integrity.contentSha256) {
+    throw new PermanentSessionShareUploadError("upload_checksum_mismatch");
+  }
+
+  let decoded: Buffer;
+  try {
+    decoded = await decompressDeviceRequestBody(compressed, MAX_DECOMPRESSED_SHARE_BYTES);
+  } catch {
+    throw new PermanentSessionShareUploadError("invalid_compressed_payload");
+  }
+
+  let payload: unknown;
+  try {
+    payload = JSON.parse(decoded.toString("utf8"));
+  } catch {
+    throw new PermanentSessionShareUploadError("invalid_json_payload");
+  }
+  const parsed = sessionShareSchema.safeParse(payload);
+  if (!parsed.success) {
+    throw new PermanentSessionShareUploadError("invalid_session_share");
+  }
+  if (auditShareForCredentials(parsed.data).length > 0) {
+    throw new PermanentSessionShareUploadError("credentials_detected");
+  }
+  return parsed.data;
 }
 
 async function permanentlyFail(uploadId: string, objectKey: string, code: string): Promise<never> {
@@ -48,39 +87,22 @@ export async function processSessionShareUpload(uploadId: string) {
   }
 
   const compressed = await readSessionShareUpload(upload.object_key, MAX_SHARE_UPLOAD_BYTES);
-  if (compressed.byteLength !== upload.content_length) {
-    await permanentlyFail(uploadId, upload.object_key, "upload_size_mismatch");
-  }
-  const digest = createHash("sha256").update(compressed).digest("hex");
-  if (digest !== upload.content_sha256) {
-    await permanentlyFail(uploadId, upload.object_key, "upload_checksum_mismatch");
-  }
-
-  let decoded: Buffer;
+  let share: SessionShare;
   try {
-    decoded = await decompressDeviceRequestBody(compressed, MAX_DECOMPRESSED_SHARE_BYTES);
-  } catch {
-    return permanentlyFail(uploadId, upload.object_key, "invalid_compressed_payload");
-  }
-
-  let payload: unknown;
-  try {
-    payload = JSON.parse(decoded.toString("utf8"));
-  } catch {
-    return permanentlyFail(uploadId, upload.object_key, "invalid_json_payload");
-  }
-  const parsed = sessionShareSchema.safeParse(payload);
-  if (!parsed.success) {
-    return permanentlyFail(uploadId, upload.object_key, "invalid_session_share");
-  }
-  const credentials = auditShareForCredentials(parsed.data);
-  if (credentials.length > 0) {
-    await permanentlyFail(uploadId, upload.object_key, "credentials_detected");
+    share = await validateSessionShareUpload(compressed, {
+      contentLength: upload.content_length,
+      contentSha256: upload.content_sha256
+    });
+  } catch (error) {
+    if (error instanceof PermanentSessionShareUploadError) {
+      return permanentlyFail(uploadId, upload.object_key, error.code);
+    }
+    throw error;
   }
 
   const result = await publishShare(
     { userId: upload.user_id, deviceId: upload.device_id },
-    parsed.data
+    share
   );
   await completeSessionShareUpload(uploadId, result.id);
   await deleteSessionShareUpload(upload.object_key);

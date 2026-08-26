@@ -25,5 +25,6 @@ describe("assetUrl", () => {
   test("rejects paths outside the public image inventory", () => {
     expect(() => assetUrl("/releases/latest/manifest.json")).toThrow("invalid_public_asset_path");
     expect(() => assetUrl("/brands/../install.sh")).toThrow("invalid_public_asset_path");
+    expect(() => assetUrl("/brand/agentprint-lockup-dark.svg")).toThrow("invalid_public_asset_path");
   });
 });

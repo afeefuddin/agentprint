@@ -394,8 +394,7 @@ func (client *Client) PublishShare(ctx context.Context, credential, signingPriva
 	if err != nil {
 		return ShareReceipt{}, err
 	}
-	uploadClient := &http.Client{Timeout: 90 * time.Second}
-	reservationResponse, err := uploadClient.Do(reservationRequest)
+	reservationResponse, err := client.HTTPClient.Do(reservationRequest)
 	if err != nil {
 		return ShareReceipt{}, err
 	}
@@ -435,6 +434,12 @@ func (client *Client) PublishShare(ctx context.Context, credential, signingPriva
 		return ShareReceipt{}, err
 	}
 	uploadRequest.Header.Set("Content-Type", formWriter.FormDataContentType())
+	uploadClient := &http.Client{
+		Transport:     client.HTTPClient.Transport,
+		CheckRedirect: client.HTTPClient.CheckRedirect,
+		Jar:           client.HTTPClient.Jar,
+		Timeout:       90 * time.Second,
+	}
 	uploadResponse, err := uploadClient.Do(uploadRequest)
 	if err != nil {
 		return ShareReceipt{}, err
@@ -454,7 +459,7 @@ func (client *Client) PublishShare(ctx context.Context, credential, signingPriva
 	if err != nil {
 		return ShareReceipt{}, err
 	}
-	finalizeResponse, err := uploadClient.Do(finalizeRequest)
+	finalizeResponse, err := client.HTTPClient.Do(finalizeRequest)
 	if err != nil {
 		return ShareReceipt{}, err
 	}

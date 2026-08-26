@@ -265,13 +265,14 @@ paths:
             schema: { type: object, additionalProperties: false }
       responses:
         "202": { description: Publication queued idempotently }
+        "400": { description: The signed finalize body was not an empty object }
         "401": { description: Missing or invalid device signature }
         "404": { description: Upload not found for this device }
         "409": { description: Upload incomplete or previously failed }
         "410": { description: Upload reservation expired }
         "422": { description: Stored object does not match its reservation }
         "429": { description: Finalization rate limit exhausted }
-        "503": { description: Background queue unavailable }
+        "503": { description: Object storage or background queue unavailable }
   /v1/me/shares/{id}:
     patch:
       summary: Change a shared session's title, visibility, or expiry

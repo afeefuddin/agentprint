@@ -10,6 +10,7 @@ import {
   createSessionShareUpload,
   deleteProfileAvatar,
   exchangeDeviceCode,
+  failSessionShareUpload,
   findOrCreateOAuthUser,
   findFriendCandidate,
   getFriendComparison,
@@ -479,18 +480,19 @@ describe("session sharing", () => {
       contentLength: 4096,
       contentSha256: "a".repeat(64)
     });
-    expect(upload?.object_key).toContain(`/` + upload?.id + ".json.gz");
-    expect(upload?.status).toBe("created");
-    expect(await getSessionShareUploadForOwner(upload!.id, randomUUID())).toBeNull();
+    if (!upload) throw new Error("expected an upload reservation");
+    expect(upload.object_key).toContain(`/` + upload.id + ".json.gz");
+    expect(upload.status).toBe("created");
+    expect(await getSessionShareUploadForOwner(upload.id, randomUUID())).toBeNull();
 
     await pool.query(
       "UPDATE session_share_uploads SET expires_at = now() + interval '1 minute' WHERE id = $1",
-      [upload!.id]
+      [upload.id]
     );
-    await markSessionShareUploadQueued(upload!.id, "run-test");
-    const queued = await getSessionShareUploadForOwner(upload!.id, owner.id);
+    await markSessionShareUploadQueued(upload.id, "run-test");
+    const queued = await getSessionShareUploadForOwner(upload.id, owner.id);
     expect(queued?.expires_at.getTime()).toBeGreaterThan(Date.now() + 23 * 60 * 60 * 1000);
-    const processing = await beginSessionShareUploadProcessing(upload!.id);
+    const processing = await beginSessionShareUploadProcessing(upload.id);
     expect(processing?.status).toBe("processing");
     expect(processing?.trigger_run_id).toBe("run-test");
 
@@ -498,11 +500,12 @@ describe("session sharing", () => {
       { userId: owner.id, deviceId: device.rows[0].id },
       transcript({ session_fingerprint: `fingerprint-upload-${suffix}` })
     );
-    await completeSessionShareUpload(upload!.id, published.id);
-    const complete = await getSessionShareUploadForOwner(upload!.id, owner.id);
+    await completeSessionShareUpload(upload.id, published.id);
+    await failSessionShareUpload(upload.id, "processing_failed");
+    const complete = await getSessionShareUploadForOwner(upload.id, owner.id);
     expect(complete?.status).toBe("published");
     expect(complete?.share_id).toBe(published.id);
-    const status = await getSessionShareUploadStatusForOwner(upload!.id, owner.id);
+    const status = await getSessionShareUploadStatusForOwner(upload.id, owner.id);
     expect(status?.share_slug).toBe(published.slug);
   });
 

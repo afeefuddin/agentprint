@@ -10,7 +10,10 @@ export const MAX_SHARE_UPLOAD_BYTES = 8 * 1024 * 1024;
 export const SHARE_UPLOAD_CONTENT_TYPE = "application/json";
 export const SHARE_UPLOAD_CONTENT_ENCODING = "gzip";
 
-export function spacesConfiguration() {
+type SpacesConnection = ReturnType<typeof createSpacesConnection>;
+let cachedConnection: SpacesConnection | undefined;
+
+function spacesConfiguration() {
   const endpoint = process.env.SPACES_ENDPOINT;
   const bucket = process.env.SPACES_BUCKET;
   const accessKeyId = process.env.SPACES_ACCESS_KEY_ID;
@@ -21,7 +24,7 @@ export function spacesConfiguration() {
   return { endpoint, bucket, accessKeyId, secretAccessKey };
 }
 
-export function spacesClient() {
+function createSpacesConnection() {
   const configuration = spacesConfiguration();
   return {
     bucket: configuration.bucket,
@@ -35,6 +38,17 @@ export function spacesClient() {
       }
     })
   };
+}
+
+export function spacesClient() {
+  cachedConnection ??= createSpacesConnection();
+  return cachedConnection;
+}
+
+export function isMissingSpaceObject(error: unknown): boolean {
+  if (!error || typeof error !== "object" || !("$metadata" in error)) return false;
+  const metadata = error.$metadata as { httpStatusCode?: number };
+  return metadata.httpStatusCode === 404;
 }
 
 export async function presignSessionShareUpload(objectKey: string, contentLength: number) {

@@ -3,7 +3,7 @@ import { profileAvatarUrl } from "@/lib/avatar-storage";
 import { apiViewer } from "@/lib/auth";
 
 export async function GET(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ handle: string }> }
 ) {
   const { handle } = await params;
@@ -12,19 +12,13 @@ export async function GET(
   if (!avatar) return new Response(null, { status: 404 });
 
   const etag = `"${avatar.updated_at.getTime()}"`;
-  if (avatar.is_public && request.headers.get("if-none-match") === etag) {
-    return new Response(null, { status: 304, headers: { etag } });
-  }
-
   if (avatar.object_key) {
     const location = await profileAvatarUrl(avatar.object_key);
     return new Response(null, {
       status: 302,
       headers: {
         location,
-        "cache-control": avatar.is_public
-          ? "public, max-age=3600, stale-while-revalidate=86400"
-          : "private, no-store",
+        "cache-control": "private, no-store",
         etag,
         "x-content-type-options": "nosniff"
       }
@@ -38,9 +32,7 @@ export async function GET(
   return new Response(body, {
     headers: {
       "content-type": avatar.content_type,
-      "cache-control": avatar.is_public
-        ? "public, max-age=3600, stale-while-revalidate=86400"
-        : "private, no-store",
+      "cache-control": "private, no-store",
       etag,
       "x-content-type-options": "nosniff"
     }

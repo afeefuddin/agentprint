@@ -172,7 +172,7 @@ Upload reservations last 15 minutes. Once finalized, the database and Trigger
 run retain the queued job for 24 hours so normal queue delay cannot invalidate a
 completed upload. `agentprint share-status <upload-id>` reports queued,
 processing, published, and failed outcomes. Admission is capped per account,
-per client address, per-account bytes, and globally at 120 reservations per hour;
+per client address, per-account bytes, and by a 5,000-per-hour global circuit breaker;
 the worker separately limits execution concurrency to two.
 
 Session readers exist for Claude Code, Codex, and Kimi Code. OpenCode is not
@@ -202,6 +202,10 @@ bun run test:go
 bun run test:e2e
 bun run build
 ```
+
+Database migrations are an explicit deployment step; the web build never
+mutates a database. Run `bun run db:migrate` against the target database before
+promoting the corresponding web and Trigger.dev deployments.
 
 The database integration suite requires the local PostgreSQL container. Browser
 tests exercise desktop and mobile Chromium.

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { presignSessionShareUpload } from "./spaces";
+import { isMissingSpaceObject, presignSessionShareUpload } from "./spaces";
 
 const original = {
   endpoint: process.env.SPACES_ENDPOINT,
@@ -34,5 +34,13 @@ describe("presignSessionShareUpload", () => {
     expect(policy.conditions).toContainEqual(["content-length-range", 4096, 4096]);
     expect(policy.conditions).toContainEqual(["eq", "$Content-Encoding", "gzip"]);
     expect(policy.conditions).toContainEqual(["eq", "$Content-Type", "application/json"]);
+  });
+});
+
+describe("isMissingSpaceObject", () => {
+  test("distinguishes a missing upload from a storage outage", () => {
+    expect(isMissingSpaceObject({ $metadata: { httpStatusCode: 404 } })).toBe(true);
+    expect(isMissingSpaceObject({ $metadata: { httpStatusCode: 503 } })).toBe(false);
+    expect(isMissingSpaceObject(new Error("network unavailable"))).toBe(false);
   });
 });

@@ -10,6 +10,8 @@ const uploadReservationSchema = z.object({
   content_sha256: z.string().regex(/^[a-f0-9]{64}$/)
 }).strict();
 
+const GLOBAL_SHARE_UPLOADS_PER_HOUR = 5_000;
+
 export async function POST(request: Request) {
   const { device, payload, response } = await readSignedDeviceRequest(request, {
     maxCompressedBytes: 4 * 1024,
@@ -28,7 +30,7 @@ export async function POST(request: Request) {
     consumeRateLimit(`share-upload-ip:${clientAddress(request)}`, 120, 3600)
   ]);
   if (!allowedUser || !allowedAddress) return tooManyRequests();
-  if (!(await consumeRateLimit("share-upload:global", 120, 3600))) {
+  if (!(await consumeRateLimit("share-upload:global", GLOBAL_SHARE_UPLOADS_PER_HOUR, 3600))) {
     return tooManyRequests();
   }
 

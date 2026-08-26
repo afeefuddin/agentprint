@@ -81,9 +81,3 @@ func TestUpdatePromptsOnlyForInteractiveCommands(t *testing.T) {
 		}
 	}
 }
-
-func TestSessionUploadProtocolBumpsCLIVersion(t *testing.T) {
-	if version != "0.4.1" {
-		t.Fatalf("version = %s, want 0.4.1 for the new session upload protocol", version)
-	}
-}

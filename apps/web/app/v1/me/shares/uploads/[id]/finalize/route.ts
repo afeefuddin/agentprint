@@ -3,23 +3,32 @@ import { z } from "zod";
 import { tasks } from "@trigger.dev/sdk";
 import {
   consumeRateLimit,
+  failSessionShareUpload,
   getSessionShareUploadForOwner,
   markSessionShareUploadQueued
 } from "@agentprint/database";
 import type { processSessionShareTask } from "@/trigger/process-session-share";
 import { readSignedDeviceRequest } from "@/lib/device-request";
-import { inspectSessionShareUpload } from "@/lib/spaces";
+import { inspectSessionShareUpload, isMissingSpaceObject } from "@/lib/spaces";
 import { tooManyRequests } from "@/lib/http";
+
+const finalizeSchema = z.object({}).strict();
 
 export async function POST(
   request: Request,
   context: { params: Promise<{ id: string }> }
 ) {
-  const { device, response } = await readSignedDeviceRequest(request, {
+  const { device, payload, response } = await readSignedDeviceRequest(request, {
     maxCompressedBytes: 1024,
     maxDecompressedBytes: 1024
   });
   if (response) return response;
+  if (!finalizeSchema.safeParse(payload).success) {
+    return NextResponse.json(
+      { error: "invalid_request", message: "The finalize request must be empty." },
+      { status: 400 }
+    );
+  }
   if (!(await consumeRateLimit(`share-finalize:${device.user_id}`, 120, 3600))) {
     return tooManyRequests();
   }
@@ -48,6 +57,7 @@ export async function POST(
     return NextResponse.json({ upload_id: upload.id, status: "published", share_id: upload.share_id });
   }
   if (upload.expires_at.getTime() <= Date.now()) {
+    await failSessionShareUpload(upload.id, "upload_expired");
     return NextResponse.json(
       { error: "upload_expired", message: "That upload reservation has expired." },
       { status: 410 }
@@ -66,7 +76,13 @@ export async function POST(
         { status: 422 }
       );
     }
-  } catch {
+  } catch (error) {
+    if (!isMissingSpaceObject(error)) {
+      return NextResponse.json(
+        { error: "storage_unavailable", message: "Session storage is temporarily unavailable." },
+        { status: 503 }
+      );
+    }
     return NextResponse.json(
       { error: "upload_incomplete", message: "The session upload has not completed." },
       { status: 409 }
