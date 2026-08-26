@@ -21,15 +21,16 @@ import {
   getSharedSession,
   ingestBatch,
   beginSessionShareUploadProcessing,
-  completeSessionShareUpload,
   getSessionShareUploadForOwner,
   getSessionShareUploadStatusForOwner,
   listFriendships,
   listLegacyProfileAvatars,
   listPublicShares,
+  listSessionShareAttempts,
   markSessionShareUploadQueued,
   pool,
   publishShare,
+  publishSessionShareUpload,
   registerDevice,
   replaceProfileAvatarObjectKey,
   removeFriendship,
@@ -478,12 +479,16 @@ describe("session sharing", () => {
       userId: owner.id,
       deviceId: device.rows[0].id,
       contentLength: 4096,
-      contentSha256: "a".repeat(64)
+      contentSha256: "a".repeat(64),
+      displayTitle: "Pending upload",
+      harnessId: "claude-code"
     });
     if (!upload) throw new Error("expected an upload reservation");
     expect(upload.object_key).toContain(`/` + upload.id + ".json.gz");
     expect(upload.status).toBe("created");
+    expect(upload.display_title).toBe("Pending upload");
     expect(await getSessionShareUploadForOwner(upload.id, randomUUID())).toBeNull();
+    expect((await listSessionShareAttempts(owner.id)).map((attempt) => attempt.id)).toContain(upload.id);
 
     await pool.query(
       "UPDATE session_share_uploads SET expires_at = now() + interval '1 minute' WHERE id = $1",
@@ -496,17 +501,35 @@ describe("session sharing", () => {
     expect(processing?.status).toBe("processing");
     expect(processing?.trigger_run_id).toBe("run-test");
 
-    const published = await publishShare(
-      { userId: owner.id, deviceId: device.rows[0].id },
+    const published = await publishSessionShareUpload(
+      upload.id,
       transcript({ session_fingerprint: `fingerprint-upload-${suffix}` })
     );
-    await completeSessionShareUpload(upload.id, published.id);
     await failSessionShareUpload(upload.id, "processing_failed");
     const complete = await getSessionShareUploadForOwner(upload.id, owner.id);
     expect(complete?.status).toBe("published");
     expect(complete?.share_id).toBe(published.id);
     const status = await getSessionShareUploadStatusForOwner(upload.id, owner.id);
     expect(status?.share_slug).toBe(published.slug);
+    expect((await listSessionShareAttempts(owner.id)).map((attempt) => attempt.id)).not.toContain(upload.id);
+
+    const abandoned = await createSessionShareUpload({
+      userId: owner.id,
+      deviceId: device.rows[0].id,
+      contentLength: 4096,
+      contentSha256: "b".repeat(64)
+    });
+    if (!abandoned) throw new Error("expected an abandoned upload reservation");
+    await markSessionShareUploadQueued(abandoned.id, "run-abandoned");
+    await pool.query(
+      "UPDATE session_share_uploads SET expires_at = now() - interval '1 second' WHERE id = $1",
+      [abandoned.id]
+    );
+    const expiredAttempt = (await listSessionShareAttempts(owner.id)).find(
+      (attempt) => attempt.id === abandoned.id
+    );
+    expect(expiredAttempt?.status).toBe("failed");
+    expect(expiredAttempt?.failure_code).toBe("upload_expired");
   });
 
   test("publishes, reads back, changes visibility, and hard-deletes on revoke", async () => {

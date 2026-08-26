@@ -6,10 +6,9 @@ import {
 } from "@agentprint/contracts";
 import {
   beginSessionShareUploadProcessing,
-  completeSessionShareUpload,
   failSessionShareUpload,
   getSessionShareUpload,
-  publishShare
+  publishSessionShareUpload
 } from "@agentprint/database";
 import { decompressDeviceRequestBody } from "./bounded-gzip";
 import {
@@ -100,11 +99,12 @@ export async function processSessionShareUpload(uploadId: string) {
     throw error;
   }
 
-  const result = await publishShare(
-    { userId: upload.user_id, deviceId: upload.device_id },
-    share
-  );
-  await completeSessionShareUpload(uploadId, result.id);
-  await deleteSessionShareUpload(upload.object_key);
+  const result = await publishSessionShareUpload(uploadId, share);
+  try {
+    await deleteSessionShareUpload(upload.object_key);
+  } catch {
+    // Publication is already committed. The one-day lifecycle rule is the
+    // cleanup backstop and a storage failure must not turn success into failure.
+  }
   return { status: "published" as const, shareId: result.id, replaced: result.replaced };
 }

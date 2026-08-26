@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { listShares } from "@agentprint/database";
+import { listSessionShareAttempts, listShares } from "@agentprint/database";
 import { apiViewer } from "@/lib/auth";
 import { resolveOwner } from "@/lib/device-request";
 import { unauthorized } from "@/lib/http";
@@ -7,7 +7,11 @@ import { unauthorized } from "@/lib/http";
 export async function GET(request: Request) {
   const owner = await resolveOwner(request, apiViewer);
   if (!owner) return unauthorized();
-  return NextResponse.json({ shares: await listShares(owner.id) });
+  const [shares, attempts] = await Promise.all([
+    listShares(owner.id),
+    listSessionShareAttempts(owner.id)
+  ]);
+  return NextResponse.json({ shares, attempts });
 }
 
 export async function POST() {

@@ -193,9 +193,9 @@ paths:
     post:
       summary: Reserve a bounded private session upload
       description: >-
-        Accepts only signed integrity metadata. Transcript bytes upload directly
-        to the returned private object-storage form and never pass through the
-        Next.js request body.
+        Accepts signed integrity metadata plus bounded owner-only display hints.
+        Transcript turns upload directly to the returned private object-storage
+        form and never pass through the Next.js request body.
       security: [{ deviceBearer: [] }]
       parameters:
         - in: header
@@ -427,6 +427,8 @@ components:
       properties:
         content_length: { type: integer, minimum: 1, maximum: 8388608 }
         content_sha256: { type: string, pattern: "^[a-f0-9]{64}$" }
+        title: { type: string, minLength: 1, maxLength: 140 }
+        harness_id: { enum: [codex, claude-code, opencode, kimi-code, synthetic] }
     ShareUploadReservation:
       type: object
       additionalProperties: false

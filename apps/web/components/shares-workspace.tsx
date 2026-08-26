@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
+  AlertCircle,
   ArrowUpRight,
   Check,
   ChevronDown,
@@ -13,7 +14,7 @@ import {
   Users
 } from "lucide-react";
 import { formatTokens } from "@agentprint/analytics";
-import type { ShareSummary } from "@agentprint/database";
+import type { SessionShareAttempt, ShareSummary } from "@agentprint/database";
 import type { ShareVisibility } from "@agentprint/contracts";
 import { harnessBrand, harnessLabels } from "@/lib/brands";
 import {
@@ -23,7 +24,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
-import { buttonClass, cx, iconButtonDangerClass, quietActionClass } from "@/lib/ui";
+import { buttonClass, cx, iconButtonDangerClass, quietActionClass, spinnerClass } from "@/lib/ui";
 
 const MONO = "font-mono";
 const emptyStateCommands = ["agentprint sessions", "agentprint share --dry-run"];
@@ -58,17 +59,45 @@ function publishedAt(value: Date | string) {
 
 export function SharesWorkspace({
   initialShares,
+  initialAttempts,
   baseUrl
 }: {
   initialShares: ShareSummary[];
+  initialAttempts: SessionShareAttempt[];
   baseUrl: string;
 }) {
   const [shares, setShares] = useState(initialShares);
+  const [attempts, setAttempts] = useState(initialAttempts);
   const [busy, setBusy] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copiedCommand, setCopiedCommand] = useState<string | null>(null);
+  const hasPendingAttempts = attempts.some((attempt) => attempt.status !== "failed");
+
+  useEffect(() => {
+    if (!hasPendingAttempts) return;
+    let active = true;
+    const refresh = async () => {
+      try {
+        const response = await fetch("/v1/me/shares", { cache: "no-store" });
+        if (!response.ok || !active) return;
+        const body = await response.json() as {
+          shares: ShareSummary[];
+          attempts: SessionShareAttempt[];
+        };
+        setShares(body.shares);
+        setAttempts(body.attempts);
+      } catch {
+        // A later poll or ordinary navigation can recover from a transient error.
+      }
+    };
+    const interval = window.setInterval(refresh, 5_000);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, [hasPendingAttempts]);
 
   async function changeVisibility(id: string, visibility: ShareVisibility) {
     setBusy(id);
@@ -113,7 +142,7 @@ export function SharesWorkspace({
     setTimeout(() => setCopiedCommand((value) => (value === command ? null : value)), 1500);
   }
 
-  if (shares.length === 0) {
+  if (shares.length === 0 && attempts.length === 0) {
     return (
       <section className="rounded-md border border-line bg-panel p-7 text-center max-tablet:p-[22px]">
         <h2 className="m-0 text-lg font-semibold text-ink-strong">No shared sessions yet</h2>
@@ -152,6 +181,47 @@ export function SharesWorkspace({
       {error ? (
         <p className="rounded-sm border border-red px-4 py-3 text-xs text-red" role="alert">{error}</p>
       ) : null}
+      {attempts.map((attempt) => {
+        const failed = attempt.status === "failed";
+        const brand = harnessBrand(attempt.harness_id);
+        return (
+          <article
+            className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-6 rounded-sm border border-line bg-panel px-6 py-5 max-tablet:grid-cols-1 max-tablet:px-5"
+            key={`attempt-${attempt.id}`}
+          >
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2.5 text-xs text-faint">
+                <span className="inline-flex items-center gap-[7px] font-semibold text-ink-strong">
+                  <i className="size-2 rounded-full" style={{ background: brand.color }} aria-hidden="true" />
+                  {harnessLabels[attempt.harness_id] ?? brand.label}
+                </span>
+                <span className="text-line-strong" aria-hidden="true">·</span>
+                <span>{failed ? "Publication failed" : "Preparing your shared session"}</span>
+              </div>
+              <h2 className="mt-2.5 truncate text-xl font-semibold leading-[1.25] tracking-[-.02em] text-ink-strong max-tablet:text-lg">
+                {attempt.display_title}
+              </h2>
+              <p className={cx("mt-2 text-sm", failed ? "text-red" : "text-muted")}>
+                {failed
+                  ? "This session was not published. Review the CLI error and try sharing it again."
+                  : "Agentprint is validating and publishing this session. This page updates automatically."}
+              </p>
+            </div>
+            <div
+              className={cx(
+                "inline-flex items-center gap-2 justify-self-end rounded-full border px-3 py-1.5 text-xs font-semibold max-tablet:justify-self-start",
+                failed ? "border-red/30 text-red" : "border-line-strong text-muted"
+              )}
+              role="status"
+            >
+              {failed
+                ? <AlertCircle size={14} aria-hidden="true" />
+                : <span className={spinnerClass} aria-hidden="true" />}
+              {failed ? "Failed" : "Processing"}
+            </div>
+          </article>
+        );
+      })}
       {shares.map((share) => {
         const brand = harnessBrand(share.harness_id);
         const visibility = visibilityMeta[share.visibility];

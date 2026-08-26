@@ -380,10 +380,23 @@ func (client *Client) PublishShare(ctx context.Context, credential, signingPriva
 		return ShareReceipt{}, err
 	}
 	digest := sha256.Sum256(compressed.Bytes())
-	reservationBody, err := json.Marshal(map[string]any{
+	reservationManifest := map[string]any{
 		"content_length": len(compressed.Bytes()),
 		"content_sha256": fmt.Sprintf("%x", digest),
-	})
+	}
+	var display struct {
+		Title     string `json:"title"`
+		HarnessID string `json:"harness_id"`
+	}
+	if err := json.Unmarshal(payload, &display); err == nil {
+		if display.Title != "" {
+			reservationManifest["title"] = display.Title
+		}
+		if display.HarnessID != "" {
+			reservationManifest["harness_id"] = display.HarnessID
+		}
+	}
+	reservationBody, err := json.Marshal(reservationManifest)
 	if err != nil {
 		return ShareReceipt{}, err
 	}

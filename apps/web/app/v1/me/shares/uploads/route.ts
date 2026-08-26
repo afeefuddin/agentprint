@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { harnessIds } from "@agentprint/contracts";
 import { consumeRateLimit, createSessionShareUpload, failSessionShareUpload } from "@agentprint/database";
 import { readSignedDeviceRequest } from "@/lib/device-request";
 import { clientAddress, tooManyRequests } from "@/lib/http";
@@ -7,7 +8,9 @@ import { MAX_SHARE_UPLOAD_BYTES, presignSessionShareUpload } from "@/lib/spaces"
 
 const uploadReservationSchema = z.object({
   content_length: z.number().int().positive().max(MAX_SHARE_UPLOAD_BYTES),
-  content_sha256: z.string().regex(/^[a-f0-9]{64}$/)
+  content_sha256: z.string().regex(/^[a-f0-9]{64}$/),
+  title: z.string().trim().min(1).max(140).optional(),
+  harness_id: z.enum(harnessIds).optional()
 }).strict();
 
 const GLOBAL_SHARE_UPLOADS_PER_HOUR = 5_000;
@@ -38,7 +41,9 @@ export async function POST(request: Request) {
     userId: device.user_id,
     deviceId: device.id,
     contentLength: parsed.data.content_length,
-    contentSha256: parsed.data.content_sha256
+    contentSha256: parsed.data.content_sha256,
+    displayTitle: parsed.data.title,
+    harnessId: parsed.data.harness_id
   });
   if (!upload) return tooManyRequests();
 

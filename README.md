@@ -111,12 +111,14 @@ interactive publish shows the same preview before asking for confirmation.
 
 Publishing sends the bounded gzip payload directly to a private DigitalOcean
 Space, then queues validation and publication with Trigger.dev. The Next.js
-request path only handles signed upload metadata. The worker verifies the
+request path only handles signed integrity metadata and bounded owner-only
+display hints. The owner sees a processing entry immediately; that private view
+polls until the worker publishes or rejects the upload. The worker verifies the
 reserved byte length and SHA-256 digest, applies decompression and schema
-limits, and re-scans every upload before writing transcript content to the
-database. Shares default to unlisted—reachable by link, never indexed, never
-listed on a profile—and only appear on a profile once the owner marks them
-public. Deleting a share removes the transcript.
+limits, and re-scans every upload before atomically writing transcript content
+and marking the upload published. Shares default to unlisted—reachable by link,
+never indexed, never listed on a profile—and only appear on a profile once the
+owner marks them public. Deleting a share removes the transcript.
 
 Configure `SPACES_ENDPOINT`, `SPACES_BUCKET`, `SPACES_ACCESS_KEY_ID`, and
 `SPACES_SECRET_ACCESS_KEY` in both the web deployment and Trigger.dev. Keep the

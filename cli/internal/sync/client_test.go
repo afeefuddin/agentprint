@@ -215,8 +215,15 @@ func TestPublishShareUploadsContentDirectlyAndQueuesIt(t *testing.T) {
 		response.Header().Set("Content-Type", "application/json")
 		switch request.URL.Path {
 		case "/v1/me/shares/uploads":
-			if bytes.Contains(body, []byte("private transcript")) {
-				t.Error("reservation request contained transcript content")
+			var reservation map[string]any
+			if err := json.Unmarshal(body, &reservation); err != nil {
+				t.Fatal(err)
+			}
+			if reservation["title"] != "Private transcript" || reservation["harness_id"] != "codex" {
+				t.Errorf("reservation display metadata = %#v", reservation)
+			}
+			if _, included := reservation["turns"]; included {
+				t.Error("reservation request contained transcript turns")
 			}
 			fmt.Fprintf(response,
 				`{"upload_id":"upload-123","upload_url":%q,"fields":{"key":"session-uploads/upload-123.json.gz","Content-Type":"application/json","Content-Encoding":"gzip"}}`,
@@ -236,7 +243,7 @@ func TestPublishShareUploadsContentDirectlyAndQueuesIt(t *testing.T) {
 	client := NewClient(apiServer.URL)
 	receipt, err := client.PublishShare(
 		context.Background(), "access-token", base64.StdEncoding.EncodeToString(privateKey),
-		map[string]string{"title": "private transcript"},
+		map[string]string{"title": "Private transcript", "harness_id": "codex"},
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -252,7 +259,7 @@ func TestPublishShareUploadsContentDirectlyAndQueuesIt(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Contains(decoded, []byte("private transcript")) {
+	if !bytes.Contains(decoded, []byte("Private transcript")) {
 		t.Fatalf("uploaded payload was not the transcript: %s", decoded)
 	}
 }

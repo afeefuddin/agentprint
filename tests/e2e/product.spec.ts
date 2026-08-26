@@ -2,6 +2,8 @@ import { expect, test } from "@playwright/test";
 import {
   createAccount,
   createSession,
+  createSessionShareUpload,
+  failSessionShareUpload,
   findOrCreateOAuthUser,
   pool,
   publishShare,
@@ -450,6 +452,42 @@ test("the session library keeps cards compact and opens the transcript", async (
   await expect(page.getByText("Who can open this session?")).toBeVisible();
   await content.getByText(/Published/).click();
   await expect(page.getByText("Who can open this session?")).toBeHidden();
+});
+
+test("the session library shows an owner-only publication attempt while it processes", async ({ page }, testInfo) => {
+  const owner = await pool.query("SELECT user_id FROM profiles WHERE handle = 'maya-builds'");
+  const userId = owner.rows[0].user_id;
+  const device = await pool.query<{ id: string }>(
+    `INSERT INTO devices (user_id, name, platform, agent_version)
+     VALUES ($1, 'Processing UI test', 'test/arm64', '0.1.0') RETURNING id`,
+    [userId]
+  );
+  const displayTitle = `Validate the processing experience ${testInfo.project.name}`;
+  const upload = await createSessionShareUpload({
+    userId,
+    deviceId: device.rows[0].id,
+    contentLength: 4096,
+    contentSha256: "b".repeat(64),
+    displayTitle,
+    harnessId: "codex"
+  });
+  if (!upload) throw new Error("expected an upload reservation");
+
+  try {
+    const token = await createSession(userId);
+    await page.context().addCookies([{ name: "pm_session", value: token, url: "http://localhost:3000" }]);
+    await page.goto("/sessions");
+
+    const attempt = page.locator("article").filter({ hasText: displayTitle });
+    await expect(attempt.getByText("Processing", { exact: true })).toBeVisible();
+    await expect(attempt.getByText(/updates automatically/)).toBeVisible();
+
+    await failSessionShareUpload(upload.id, "processing_failed");
+    await expect(attempt.getByText("Failed", { exact: true })).toBeVisible({ timeout: 8_000 });
+  } finally {
+    await pool.query("DELETE FROM session_share_uploads WHERE id = $1", [upload.id]);
+    await pool.query("DELETE FROM devices WHERE id = $1", [device.rows[0].id]);
+  }
 });
 
 test("an unlisted session is reachable by link but never listed or indexed", async ({ page, request }) => {
