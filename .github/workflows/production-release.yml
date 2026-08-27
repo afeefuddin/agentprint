@@ -44,7 +44,7 @@ jobs:
       - name: Apply database migrations
         env:
           VERCEL_ENV: production
-        run: bun --cwd apps/web db:migrate:deploy
+        run: bun run --cwd apps/web db:migrate:deploy
 
       - name: Deploy background tasks
-        run: bun --cwd apps/web trigger:deploy --external-id "$GITHUB_SHA"
+        run: bun run --cwd apps/web trigger:deploy --external-id "$GITHUB_SHA"
