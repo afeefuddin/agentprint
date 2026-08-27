@@ -16,6 +16,7 @@ permissions:
 jobs:
   release:
     name: Production release
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
@@ -46,4 +47,4 @@ jobs:
         run: bun --cwd apps/web db:migrate:deploy
 
       - name: Deploy background tasks
-        run: bun --cwd apps/web trigger:deploy
+        run: bun --cwd apps/web trigger:deploy --external-id "$GITHUB_SHA"
