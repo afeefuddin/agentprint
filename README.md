@@ -205,9 +205,14 @@ bun run test:e2e
 bun run build
 ```
 
-Database migrations are an explicit deployment step; the web build never
-mutates a database. Run `bun run db:migrate` against the target database before
-promoting the corresponding web and Trigger.dev deployments.
+Database migrations are an explicit deployment check; the web build never
+mutates a database. In Vercel, add `DATABASE_DIRECT_URL` to the Production
+environment using Neon's direct, non-pooled connection URL. Then add the native
+`db:migrate:deploy` check under Build and Deployment, scope it to Production,
+and mark it required. Vercel will run pending migrations and withhold the
+production domain when migration fails. Local development continues to use
+`bun run db:migrate`. Applied migration checksums are immutable; make every
+schema change in a new, sequentially numbered SQL file.
 
 The database integration suite requires the local PostgreSQL container. Browser
 tests exercise desktop and mobile Chromium.

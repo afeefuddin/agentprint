@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
+    "db:migrate:deploy": "bun ../../packages/database/src/migrate.ts --production",
     "trigger:dev": "trigger dev --config trigger.config.ts",
     "trigger:deploy": "trigger deploy --config trigger.config.ts",
     "assets:upload": "bun scripts/upload-public-assets.ts",
