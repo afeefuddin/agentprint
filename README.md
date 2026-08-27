@@ -34,12 +34,14 @@ client with `http://localhost:3000/api/auth/google/callback` as an authorized
 redirect URI, then set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`. Use your
 deployed origin for both callback URLs outside local development.
 
-Profile avatars are private objects in DigitalOcean Spaces under
-`profile-avatars/v1/`. Avatar access continues to go through Agentprint's
-profile avatar endpoint, which applies profile visibility before redirecting to
-a short-lived signed object URL. Existing UploadThing avatars remain readable
-during the migration window; keep `UPLOADTHING_TOKEN` only until the backfill
-described below reports zero legacy objects.
+Profile avatars upload directly from the browser to a short-lived private
+`profile-avatar-uploads/` key using a constrained signed request. The finalize
+endpoint validates the stored length, content type, and image signature before
+copying it to `profile-avatars/v1/`. Avatar reads continue to go through
+Agentprint's profile avatar endpoint, which applies profile visibility before
+redirecting to a short-lived signed object URL. Existing UploadThing avatars
+remain readable during the migration window; keep `UPLOADTHING_TOKEN` only
+until the backfill described below reports zero legacy objects.
 
 To enable PostHog, set `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN` and
 `NEXT_PUBLIC_POSTHOG_HOST` for the browser, then set the matching
@@ -123,22 +125,28 @@ owner marks them public. Deleting a share removes the transcript.
 Configure `SPACES_ENDPOINT`, `SPACES_BUCKET`, `SPACES_ACCESS_KEY_ID`, and
 `SPACES_SECRET_ACCESS_KEY` in both the web deployment and Trigger.dev. Keep the
 Space private and add a one-day lifecycle expiration for the `session-uploads/`
-prefix. Configure `TRIGGER_PROJECT_REF`, put `TRIGGER_SECRET_KEY` in the web
-deployment, and give the Trigger.dev environment the same `DATABASE_URL` and
-Spaces values. Deploy the worker with:
+and `profile-avatar-uploads/` prefixes. Add a Spaces CORS rule that allows only
+the production web origin to use `POST`, with `*` under Allowed Headers;
+browser avatar uploads need that rule, but the bucket and uploaded objects
+remain private. Configure
+`TRIGGER_PROJECT_REF`, put `TRIGGER_SECRET_KEY` in the web deployment, and give
+the Trigger.dev environment the same `DATABASE_URL` and Spaces values. Deploy
+the worker with:
 
 ```sh
 bun --cwd apps/web trigger:deploy
 ```
 
-The same private Space has two deliberately separate storage boundaries:
+The same private Space has three deliberately separate storage boundaries:
 
 - `session-uploads/` is private temporary storage with a one-day lifecycle.
+- `profile-avatar-uploads/` is private temporary storage with a one-day lifecycle.
 - `profile-avatars/v1/` is private durable storage with no expiry rule.
 
-Keep file listing restricted and never apply the session lifecycle to the avatar
-prefix. Website images, logos, and release downloads remain checked into
-`apps/web/public/` and are served by Vercel.
+Keep file listing restricted. Apply the one-day lifecycle only to the two
+temporary upload prefixes, never to `profile-avatars/v1/`. Website images,
+logos, and release downloads remain checked into `apps/web/public/` and are
+served by Vercel.
 
 After the database migrations and Spaces configuration are live, inspect and
 backfill any avatars created before this change:
