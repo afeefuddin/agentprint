@@ -20,7 +20,6 @@ import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { buttonClass, cx } from "@/lib/ui";
 import { viewer } from "@/lib/auth";
-import { assetUrl } from "@/lib/assets";
 
 export type SeoPageStep = { title: string; body: string; command?: string };
 export type SeoPageFaq = { question: string; answer: string };
@@ -48,18 +47,18 @@ export type ContentPageProps = {
 };
 
 const brand = {
-  codex: { name: "Codex", src: assetUrl("/brands/codex.svg") },
-  claude: { name: "Claude Code", src: assetUrl("/brands/claude.svg") },
-  kimi: { name: "Kimi Code", src: assetUrl("/brands/kimi.svg") },
-  opencode: { name: "OpenCode", src: assetUrl("/brands/opencode.svg") },
-  agentprint: { name: "Agentprint", src: assetUrl("/brand/agentprint-mark.svg") }
+  codex: { name: "Codex", src: "/brands/codex.svg" },
+  claude: { name: "Claude Code", src: "/brands/claude.svg" },
+  kimi: { name: "Kimi Code", src: "/brands/kimi.svg" },
+  opencode: { name: "OpenCode", src: "/brands/opencode.svg" },
+  agentprint: { name: "Agentprint", src: "/brand/agentprint-mark.svg" }
 };
 
 const agentSources = [
-  { name: "Claude Code", src: assetUrl("/brands/claude.svg") },
-  { name: "Codex", src: assetUrl("/brands/codex.svg") },
-  { name: "OpenCode", src: assetUrl("/brands/opencode.svg") },
-  { name: "Kimi Code", src: assetUrl("/brands/kimi.svg") }
+  { name: "Claude Code", src: "/brands/claude.svg" },
+  { name: "Codex", src: "/brands/codex.svg" },
+  { name: "OpenCode", src: "/brands/opencode.svg" },
+  { name: "Kimi Code", src: "/brands/kimi.svg" }
 ];
 
 const visualShell =

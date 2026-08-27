@@ -11,8 +11,6 @@
     "db:migrate:deploy": "bun ../../packages/database/src/migrate.ts --production",
     "trigger:dev": "trigger dev --config trigger.config.ts",
     "trigger:deploy": "trigger deploy --config trigger.config.ts",
-    "assets:upload": "bun scripts/upload-public-assets.ts",
-    "assets:upload:dry-run": "bun scripts/upload-public-assets.ts --dry-run",
     "avatars:migrate": "bun scripts/migrate-profile-avatars.ts",
     "avatars:migrate:dry-run": "bun scripts/migrate-profile-avatars.ts --dry-run"
   },

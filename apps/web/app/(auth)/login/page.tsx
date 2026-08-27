@@ -4,7 +4,6 @@ import { redirect } from "next/navigation";
 import { viewer } from "@/lib/auth";
 import { Brand } from "@/components/brand";
 import { OAuthButtons } from "@/components/oauth-buttons";
-import { assetUrl } from "@/lib/assets";
 
 export const metadata: Metadata = { title: "Sign in" };
 
@@ -36,7 +35,7 @@ export default async function LoginPage({
         data-testid="login-artwork"
       >
         <Image
-          src={assetUrl("/auth/agentprint-trace-field.webp")}
+          src="/auth/agentprint-trace-field.webp"
           alt=""
           fill
           priority

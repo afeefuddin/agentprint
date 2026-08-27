@@ -17,8 +17,6 @@
     "test:e2e": "playwright test",
     "cli:build": "cd cli && go build -o agentprint ./cmd/agentprint",
     "cli:release": "sh scripts/build-local-releases.sh",
-    "assets:upload": "bun --cwd apps/web assets:upload",
-    "assets:upload:dry-run": "bun --cwd apps/web assets:upload:dry-run",
     "avatars:migrate": "bun --cwd apps/web avatars:migrate",
     "avatars:migrate:dry-run": "bun --cwd apps/web avatars:migrate:dry-run",
     "db:migrate": "bun packages/database/src/migrate.ts",

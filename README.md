@@ -131,28 +131,14 @@ Spaces values. Deploy the worker with:
 bun --cwd apps/web trigger:deploy
 ```
 
-The same Space has three deliberately separate storage boundaries:
+The same private Space has two deliberately separate storage boundaries:
 
 - `session-uploads/` is private temporary storage with a one-day lifecycle.
 - `profile-avatars/v1/` is private durable storage with no expiry rule.
-- `public-assets/<version>/` is durable static storage and the only prefix
-  uploaded with `public-read`.
 
 Keep file listing restricted and never apply the session lifecycle to the avatar
-or public-asset prefixes. Preview and upload the static inventory before
-deploying the public origin:
-
-```sh
-SPACES_PUBLIC_ASSET_PREFIX=public-assets/2026-08-26 bun run assets:upload:dry-run
-SPACES_PUBLIC_ASSET_PREFIX=public-assets/2026-08-26 bun run assets:upload
-```
-
-Then set `NEXT_PUBLIC_ASSET_BASE_URL` at build time to the public origin plus
-that prefix, for example
-`https://your-space.blr1.digitaloceanspaces.com/public-assets/2026-08-26`.
-The checked-in `public/` copies remain the development and rollback fallback:
-unset `NEXT_PUBLIC_ASSET_BASE_URL` and rebuild to serve them locally again.
-When assets change, upload a new versioned prefix before switching the URL.
+prefix. Website images, logos, and release downloads remain checked into
+`apps/web/public/` and are served by Vercel.
 
 After the database migrations and Spaces configuration are live, inspect and
 backfill any avatars created before this change:

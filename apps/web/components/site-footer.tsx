@@ -1,7 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { Viewer } from "@agentprint/database";
-import { assetUrl } from "@/lib/assets";
 
 export function SiteFooter({ current }: { current?: Viewer | null }) {
   return (
@@ -10,7 +9,7 @@ export function SiteFooter({ current }: { current?: Viewer | null }) {
         <div className="max-tablet:col-span-full">
           <Link href="/" aria-label="Agentprint home" className="inline-flex">
             <Image
-              src={assetUrl("/brand/agentprint-lockup.svg")}
+              src="/brand/agentprint-lockup.svg"
               alt="Agentprint"
               width={360}
               height={80}

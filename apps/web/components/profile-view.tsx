@@ -5,7 +5,6 @@ import { Calendar, CheckCircle2, Clock3, ExternalLink, MapPin } from "lucide-rea
 import { formatTokens, rankModelUsage } from "@agentprint/analytics";
 import type { getProfile } from "@agentprint/database";
 import { compactTokens, harnessBrand, harnessLabels, modelBrand } from "@/lib/brands";
-import { assetUrl } from "@/lib/assets";
 import { cx, handleClass, modelChart, sectionHeading } from "@/lib/ui";
 import { ProfileAvatar } from "@/components/profile-avatar";
 import { ContributionField } from "./contribution-field";
@@ -46,7 +45,7 @@ function MetricCard({
         <strong className={METRIC_VALUE}>{value}</strong>
         <small className={METRIC_LABEL}>{note}</small>
       </div>
-      <Image className={cx(METRIC_ART, artClass)} src={assetUrl(art)} alt="" width={512} height={512} aria-hidden="true" />
+      <Image className={cx(METRIC_ART, artClass)} src={art} alt="" width={512} height={512} aria-hidden="true" />
     </div>
   );
 }
