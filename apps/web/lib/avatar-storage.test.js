@@ -38,7 +38,7 @@ describe("presignProfileAvatarUpload", () => {
     });
     const policy = JSON.parse(Buffer.from(result.fields.Policy, "base64").toString("utf8"));
 
-    expect(result.fields.key).toBe("profile-avatar-uploads/user-id/upload-id");
+    expect(result.fields.key).toBe("profile-avatars/user-id/upload-id");
     expect(policy.conditions).toContainEqual(["content-length-range", 4096, 4096]);
     expect(policy.conditions).toContainEqual(["eq", "$acl", "private"]);
     expect(policy.conditions).toContainEqual(["eq", "$Content-Type", "image/png"]);

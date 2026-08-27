@@ -627,7 +627,7 @@ export async function listLegacyProfileAvatars() {
     `SELECT user_id, content_type, object_key
      FROM profile_avatars
      WHERE object_key IS NOT NULL
-       AND object_key NOT LIKE 'profile-avatars/v1/%'
+       AND object_key NOT LIKE 'profile-avatars/%'
      ORDER BY updated_at`
   );
   return result.rows;

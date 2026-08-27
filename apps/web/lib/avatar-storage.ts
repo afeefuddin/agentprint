@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
 import {
-  CopyObjectCommand,
   DeleteObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
@@ -11,8 +10,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { UTApi } from "uploadthing/server";
 import { spacesClient } from "./spaces";
 
-const PROFILE_AVATAR_PREFIX = "profile-avatars/v1/";
-const PROFILE_AVATAR_UPLOAD_PREFIX = "profile-avatar-uploads/";
+const PROFILE_AVATAR_PREFIX = "profile-avatars/";
 export const MAX_PROFILE_AVATAR_BYTES = 5 * 1024 * 1024;
 export const PROFILE_AVATAR_CONTENT_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 let legacyClient: UTApi | undefined;
@@ -32,11 +30,7 @@ function extensionFor(contentType: string): "jpg" | "png" | "webp" {
 }
 
 function uploadKey(userId: string, uploadId: string): string {
-  return `${PROFILE_AVATAR_UPLOAD_PREFIX}${userId}/${uploadId}`;
-}
-
-function avatarKey(userId: string, uploadId: string, contentType: string): string {
-  return `${PROFILE_AVATAR_PREFIX}${userId}/${uploadId}.${extensionFor(contentType)}`;
+  return `${PROFILE_AVATAR_PREFIX}${userId}/${uploadId}`;
 }
 
 export function hasExpectedProfileAvatarSignature(type: string, bytes: Uint8Array): boolean {
@@ -108,24 +102,8 @@ export async function readProfileAvatarSignature(
   return bytes;
 }
 
-export async function promoteProfileAvatarUpload(
-  userId: string,
-  uploadId: string,
-  contentType: string
-): Promise<string> {
-  const { bucket, client } = spacesClient();
-  const sourceKey = uploadKey(userId, uploadId);
-  const destinationKey = avatarKey(userId, uploadId, contentType);
-  await client.send(new CopyObjectCommand({
-    Bucket: bucket,
-    CopySource: `${bucket}/${sourceKey}`,
-    Key: destinationKey,
-    ACL: "private",
-    ContentType: contentType,
-    CacheControl: "private, max-age=604800",
-    MetadataDirective: "REPLACE"
-  }));
-  return destinationKey;
+export function profileAvatarUploadKey(userId: string, uploadId: string): string {
+  return uploadKey(userId, uploadId);
 }
 
 export async function removeProfileAvatarUpload(userId: string, uploadId: string): Promise<void> {

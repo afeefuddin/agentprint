@@ -10,7 +10,7 @@ import {
   PROFILE_AVATAR_CONTENT_TYPES,
   hasExpectedProfileAvatarSignature,
   inspectProfileAvatarUpload,
-  promoteProfileAvatarUpload,
+  profileAvatarUploadKey,
   readProfileAvatarSignature,
   removeProfileAvatar,
   removeProfileAvatarUpload
@@ -79,15 +79,7 @@ export async function POST(
     );
   }
 
-  let objectKey: string;
-  try {
-    objectKey = await promoteProfileAvatarUpload(current.id, id, contentType);
-  } catch {
-    return NextResponse.json(
-      { message: "Your profile picture cannot be saved right now. Try again shortly." },
-      { status: 503 }
-    );
-  }
+  const objectKey = profileAvatarUploadKey(current.id, id);
 
   let updatedAt: Date;
   let previousObjectKey: string | null;
@@ -100,9 +92,6 @@ export async function POST(
     throw error;
   }
 
-  await removeProfileAvatarUpload(current.id, id).catch((error: unknown) => {
-    console.error("Failed to delete a finalized profile avatar upload.", error);
-  });
   if (previousObjectKey && previousObjectKey !== objectKey) {
     await removeProfileAvatar(previousObjectKey).catch((error: unknown) => {
       console.error("Failed to delete the replaced profile avatar.", error);

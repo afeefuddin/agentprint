@@ -65,7 +65,7 @@ async function permanentlyFail(uploadId: string, objectKey: string, code: string
   try {
     await deleteSessionShareUpload(objectKey);
   } catch {
-    // The Space lifecycle rule remains the final cleanup backstop.
+    // Cleanup is best effort; the failed upload remains private.
   }
   throw new PermanentSessionShareUploadError(code);
 }
@@ -103,8 +103,7 @@ export async function processSessionShareUpload(uploadId: string) {
   try {
     await deleteSessionShareUpload(upload.object_key);
   } catch {
-    // Publication is already committed. The one-day lifecycle rule is the
-    // cleanup backstop and a storage failure must not turn success into failure.
+    // Publication is already committed, so cleanup failure must not turn it into failure.
   }
   return { status: "published" as const, shareId: result.id, replaced: result.replaced };
 }

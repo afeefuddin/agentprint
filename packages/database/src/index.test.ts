@@ -213,12 +213,12 @@ describe("ingestion and public profile boundaries", () => {
     expect(avatar?.image_data).toBeNull();
     expect(await getProfileAvatarForUser(userId)).toEqual({ object_key: objectKey });
     expect((await listLegacyProfileAvatars()).some((row) => row.user_id === userId)).toBe(true);
-    const spacesKey = `profile-avatars/v1/${userId}/${suffix}.png`;
+    const spacesKey = `profile-avatars/${userId}/${suffix}.png`;
     expect(await replaceProfileAvatarObjectKey(userId, objectKey, spacesKey)).toBe(true);
     expect(await getProfileAvatarForUser(userId)).toEqual({ object_key: spacesKey });
     const concurrentKeys = [
-      `profile-avatars/v1/${userId}/${suffix}-a.png`,
-      `profile-avatars/v1/${userId}/${suffix}-b.png`
+      `profile-avatars/${userId}/${suffix}-a.png`,
+      `profile-avatars/${userId}/${suffix}-b.png`
     ];
     const replacements = await Promise.all(
       concurrentKeys.map((key) => updateProfileAvatar(userId, "image/png", key))
