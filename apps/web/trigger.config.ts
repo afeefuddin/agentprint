@@ -1,10 +1,7 @@
 import { defineConfig } from "@trigger.dev/sdk";
 
-const project = process.env.TRIGGER_PROJECT_REF;
-if (!project) throw new Error("Set TRIGGER_PROJECT_REF before running Trigger.dev.");
-
 export default defineConfig({
-  project,
+  project: "proj_monqxihpgosocijrxeis",
   dirs: ["./trigger"],
   maxDuration: 120,
   retries: {
