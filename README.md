@@ -200,13 +200,15 @@ bun run build
 ```
 
 Database migrations are an explicit deployment check; the web build never
-mutates a database. In Vercel, add `DATABASE_DIRECT_URL` to the Production
-environment using Neon's direct, non-pooled connection URL. Then add the native
-`db:migrate:deploy` check under Build and Deployment, scope it to Production,
-and mark it required. Vercel will run pending migrations and withhold the
-production domain when migration fails. Local development continues to use
-`bun run db:migrate`. Applied migration checksums are immutable; make every
-schema change in a new, sequentially numbered SQL file.
+mutates a database. The `Production release` GitHub workflow uses the
+`DATABASE_DIRECT_URL` repository secret with Neon's direct, non-pooled
+connection URL, runs pending migrations, and then deploys the Trigger.dev
+tasks. Store the Trigger.dev deployment token as `TRIGGER_ACCESS_TOKEN` and set
+the `TRIGGER_PROJECT_REF` repository variable. In Vercel, make the workflow's
+`Production release` job a required deployment check so a failed migration or
+task deployment withholds the production domain. Local development continues
+to use `bun run db:migrate`. Applied migration checksums are immutable; make
+every schema change in a new, sequentially numbered SQL file.
 
 The database integration suite requires the local PostgreSQL container. Browser
 tests exercise desktop and mobile Chromium.

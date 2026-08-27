@@ -177,8 +177,7 @@ test("new account starts private and can be published", async ({ page }) => {
     "agentprint login --server http://localhost:3000"
   );
   const windowsTab = page.getByRole("tab", { name: "Windows" });
-  await windowsTab.focus();
-  await page.keyboard.press("Enter");
+  await windowsTab.press("Enter");
   await expect(windowsTab).toHaveAttribute("aria-selected", "true");
   await expect(page.getByText(/install\.ps1/)).toBeVisible();
 
@@ -228,10 +227,47 @@ test("new account starts private and can be published", async ({ page }) => {
   await page.getByRole("button", { name: "Save name" }).click();
   await expect(page.getByRole("status")).toHaveText("Saved");
 
+  const avatarBytes = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+    "base64"
+  );
+  await page.route("**/v1/me/avatar/uploads", async (route) => {
+    await route.fulfill({
+      status: 201,
+      contentType: "application/json",
+      body: JSON.stringify({
+        upload_id: "00000000-0000-4000-8000-000000000001",
+        upload_url: "http://localhost:3000/e2e/avatar-upload",
+        fields: {},
+        expires_at: new Date(Date.now() + 60_000).toISOString()
+      })
+    });
+  });
+  await page.route("**/e2e/avatar-upload", async (route) => {
+    await route.fulfill({ status: 204 });
+  });
+  await page.route(/\/v1\/me\/avatar\/uploads\/[^/]+\/finalize$/, async (route) => {
+    const updated = await pool.query<{ updated_at: Date }>(
+      `INSERT INTO profile_avatars (user_id, content_type, image_data, object_key)
+       VALUES ($1, 'image/png', $2, NULL)
+       ON CONFLICT (user_id) DO UPDATE
+       SET content_type = EXCLUDED.content_type,
+           image_data = EXCLUDED.image_data,
+           object_key = NULL,
+           updated_at = now()
+       RETURNING updated_at`,
+      [user.id, avatarBytes]
+    );
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ ok: true, updated_at: updated.rows[0].updated_at.toISOString() })
+    });
+  });
   await page.getByLabel("Profile picture file").setInputFiles({
     name: "avatar.png",
     mimeType: "image/png",
-    buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=", "base64")
+    buffer: avatarBytes
   });
   await expect(page.getByRole("button", { name: "Change image" })).toBeVisible();
   const avatarResponse = await page.request.get(`/v1/profiles/${handle}/avatar`);
@@ -490,7 +526,7 @@ test("the session library shows an owner-only publication attempt while it proce
   }
 });
 
-test("an unlisted session is reachable by link but never listed or indexed", async ({ page, request }) => {
+test("an unlisted session is reachable by link but never listed or indexed", async ({ page, request }, testInfo) => {
   // A dedicated share, so this test never mutates the seeded public one that
   // other tests read in parallel.
   const owner = await pool.query("SELECT user_id FROM profiles WHERE handle = 'maya-builds'");
@@ -500,7 +536,7 @@ test("an unlisted session is reachable by link but never listed or indexed", asy
     {
       schema_version: 1,
       harness_id: "codex",
-      session_fingerprint: `e2e-unlisted-${Date.now()}-000000`,
+      session_fingerprint: `e2e-unlisted-${testInfo.project.name}-${Date.now()}-${Math.random()}`,
       title: "An unlisted session about caching",
       visibility: "unlisted",
       redaction_level: "balanced",

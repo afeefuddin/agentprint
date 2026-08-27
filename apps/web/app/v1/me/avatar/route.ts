@@ -12,6 +12,6 @@ export async function DELETE() {
   if (!current) return unauthorized();
   const avatar = await getProfileAvatarForUser(current.id);
   if (avatar?.object_key) await removeProfileAvatar(avatar.object_key);
-  await deleteProfileAvatar(current.id);
+  await deleteProfileAvatar(current.id, avatar?.object_key ?? null);
   return NextResponse.json({ ok: true });
 }

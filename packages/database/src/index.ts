@@ -23,6 +23,10 @@ const databaseUrl =
 
 export const pool = new Pool({ connectionString: databaseUrl, max: 10 });
 
+function profileAvatarLockName(userId: string) {
+  return `profile-avatar:${userId}`;
+}
+
 export function hashSecret(value: string) {
   return createHash("sha256").update(value).digest("hex");
 }
@@ -565,22 +569,45 @@ export async function updateProfile(userId: string, patch: ProfilePatch) {
 }
 
 export async function updateProfileAvatar(userId: string, contentType: string, objectKey: string) {
-  const result = await pool.query<{ updated_at: Date }>(
-    `INSERT INTO profile_avatars (user_id, content_type, object_key)
-     VALUES ($1, $2, $3)
-     ON CONFLICT (user_id) DO UPDATE
-     SET content_type = EXCLUDED.content_type,
-         object_key = EXCLUDED.object_key,
-         image_data = NULL,
-         updated_at = now()
-     RETURNING updated_at`,
-    [userId, contentType, objectKey]
-  );
-  return result.rows[0].updated_at;
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [profileAvatarLockName(userId)]);
+    const previous = await one<{ object_key: string | null }>(
+      "SELECT object_key FROM profile_avatars WHERE user_id = $1 FOR UPDATE",
+      [userId],
+      client
+    );
+    const result = await client.query<{ updated_at: Date }>(
+      `INSERT INTO profile_avatars (user_id, content_type, object_key)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (user_id) DO UPDATE
+       SET content_type = EXCLUDED.content_type,
+           object_key = EXCLUDED.object_key,
+           image_data = NULL,
+           updated_at = now()
+       RETURNING updated_at`,
+      [userId, contentType, objectKey]
+    );
+    await client.query("COMMIT");
+    return {
+      updatedAt: result.rows[0].updated_at,
+      previousObjectKey: previous?.object_key ?? null
+    };
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
-export async function deleteProfileAvatar(userId: string) {
-  const result = await pool.query("DELETE FROM profile_avatars WHERE user_id = $1", [userId]);
+export async function deleteProfileAvatar(userId: string, expectedObjectKey: string | null) {
+  const result = await pool.query(
+    `DELETE FROM profile_avatars
+     WHERE user_id = $1 AND object_key IS NOT DISTINCT FROM $2`,
+    [userId, expectedObjectKey]
+  );
   return result.rowCount === 1;
 }
 
@@ -1229,7 +1256,24 @@ export async function usageExport(userId: string) {
 }
 
 export async function deleteAccount(userId: string) {
-  await pool.query("DELETE FROM users WHERE id = $1", [userId]);
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [profileAvatarLockName(userId)]);
+    const avatar = await one<{ object_key: string | null }>(
+      "SELECT object_key FROM profile_avatars WHERE user_id = $1 FOR UPDATE",
+      [userId],
+      client
+    );
+    await client.query("DELETE FROM users WHERE id = $1", [userId]);
+    await client.query("COMMIT");
+    return avatar?.object_key ?? null;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 /* Session sharing. */
@@ -1337,13 +1381,27 @@ async function persistShare(
     );
   }
   if (!row) throw new Error("share was not persisted");
-  for (const turn of share.turns) {
-    await client.query(
-      `INSERT INTO shared_session_turns (share_id, index, role, occurred_at, model_id, blocks)
-       VALUES ($1, $2, $3, $4, $5, $6::jsonb)`,
-      [row.id, turn.index, turn.role, turn.at ?? null, turn.model_id ?? null, JSON.stringify(turn.blocks)]
-    );
-  }
+  await client.query(
+    `INSERT INTO shared_session_turns (share_id, index, role, occurred_at, model_id, blocks)
+     SELECT $1, turn_index, role, occurred_at, model_id, blocks
+     FROM jsonb_to_recordset($2::jsonb) AS turns(
+       turn_index integer,
+       role text,
+       occurred_at timestamptz,
+       model_id text,
+       blocks jsonb
+     )`,
+    [
+      row.id,
+      JSON.stringify(share.turns.map((turn) => ({
+        turn_index: turn.index,
+        role: turn.role,
+        occurred_at: turn.at ?? null,
+        model_id: turn.model_id ?? null,
+        blocks: turn.blocks
+      })))
+    ]
+  );
   return { id: row.id, slug: row.slug, replaced: Boolean(existing) };
 }
 
@@ -1557,6 +1615,20 @@ export async function failSessionShareUpload(uploadId: string, failureCode: stri
      WHERE id = $1 AND status <> 'published'`,
     [uploadId, failureCode]
   );
+}
+
+export async function deleteStaleSessionShareUploads() {
+  const result = await pool.query(
+    `DELETE FROM session_share_uploads
+     WHERE (
+       status IN ('published', 'failed')
+       AND COALESCE(processed_at, updated_at) < now() - interval '7 days'
+     ) OR (
+       status IN ('created', 'queued', 'processing')
+       AND expires_at < now() - interval '7 days'
+     )`
+  );
+  return result.rowCount;
 }
 
 export async function listShares(userId: string) {

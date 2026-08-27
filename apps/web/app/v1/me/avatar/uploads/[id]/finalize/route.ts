@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import {
   consumeRateLimit,
-  getProfileAvatarForUser,
   updateProfileAvatar
 } from "@agentprint/database";
 import { apiViewer } from "@/lib/auth";
@@ -80,7 +79,6 @@ export async function POST(
     );
   }
 
-  const previous = await getProfileAvatarForUser(current.id);
   let objectKey: string;
   try {
     objectKey = await promoteProfileAvatarUpload(current.id, id, contentType);
@@ -92,8 +90,11 @@ export async function POST(
   }
 
   let updatedAt: Date;
+  let previousObjectKey: string | null;
   try {
-    updatedAt = await updateProfileAvatar(current.id, contentType, objectKey);
+    const updated = await updateProfileAvatar(current.id, contentType, objectKey);
+    updatedAt = updated.updatedAt;
+    previousObjectKey = updated.previousObjectKey;
   } catch (error) {
     await removeProfileAvatar(objectKey).catch(() => undefined);
     throw error;
@@ -102,8 +103,8 @@ export async function POST(
   await removeProfileAvatarUpload(current.id, id).catch((error: unknown) => {
     console.error("Failed to delete a finalized profile avatar upload.", error);
   });
-  if (previous?.object_key && previous.object_key !== objectKey) {
-    await removeProfileAvatar(previous.object_key).catch((error: unknown) => {
+  if (previousObjectKey && previousObjectKey !== objectKey) {
+    await removeProfileAvatar(previousObjectKey).catch((error: unknown) => {
       console.error("Failed to delete the replaced profile avatar.", error);
     });
   }

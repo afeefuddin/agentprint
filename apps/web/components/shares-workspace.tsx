@@ -203,8 +203,8 @@ export function SharesWorkspace({
               </h2>
               <p className={cx("mt-2 text-sm", failed ? "text-red" : "text-muted")}>
                 {failed
-                  ? "This session was not published. Review the CLI error and try sharing it again."
-                  : "Agentprint is validating and publishing this session. This page updates automatically."}
+                  ? "This session was not published. Try sharing it again."
+                  : "Your session will appear here when it is ready. This page updates automatically."}
               </p>
             </div>
             <div

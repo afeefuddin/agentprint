@@ -9,6 +9,7 @@ import {
   createDeviceCode,
   createSessionShareUpload,
   deleteProfileAvatar,
+  deleteStaleSessionShareUploads,
   exchangeDeviceCode,
   failSessionShareUpload,
   findOrCreateOAuthUser,
@@ -201,7 +202,10 @@ describe("ingestion and public profile boundaries", () => {
     });
     userId = user.id;
     const objectKey = `uploadthing-${suffix}-avatar-key`;
-    await updateProfileAvatar(userId, "image/png", objectKey);
+    expect(await updateProfileAvatar(userId, "image/png", objectKey)).toEqual({
+      updatedAt: expect.any(Date),
+      previousObjectKey: null
+    });
     expect(await getProfileAvatar(handle)).toBeNull();
     const avatar = await getProfileAvatar(handle, userId);
     expect(avatar?.content_type).toBe("image/png");
@@ -212,8 +216,22 @@ describe("ingestion and public profile boundaries", () => {
     const spacesKey = `profile-avatars/v1/${userId}/${suffix}.png`;
     expect(await replaceProfileAvatarObjectKey(userId, objectKey, spacesKey)).toBe(true);
     expect(await getProfileAvatarForUser(userId)).toEqual({ object_key: spacesKey });
+    const concurrentKeys = [
+      `profile-avatars/v1/${userId}/${suffix}-a.png`,
+      `profile-avatars/v1/${userId}/${suffix}-b.png`
+    ];
+    const replacements = await Promise.all(
+      concurrentKeys.map((key) => updateProfileAvatar(userId, "image/png", key))
+    );
+    const finalKey = (await getProfileAvatarForUser(userId))?.object_key;
+    expect(concurrentKeys).toContain(finalKey);
+    expect(replacements.map((replacement) => replacement.previousObjectKey)).toContain(spacesKey);
+    expect(replacements.map((replacement) => replacement.previousObjectKey)).toContain(
+      concurrentKeys.find((key) => key !== finalKey)
+    );
     expect((await getProfile(handle, userId))?.profile.avatar_updated_at).toBeInstanceOf(Date);
-    expect(await deleteProfileAvatar(userId)).toBe(true);
+    expect(await deleteProfileAvatar(userId, spacesKey)).toBe(false);
+    expect(await deleteProfileAvatar(userId, finalKey ?? null)).toBe(true);
     expect(await getProfileAvatar(handle, userId)).toBeNull();
 
     await updateProfile(userId, {
@@ -530,6 +548,42 @@ describe("session sharing", () => {
     );
     expect(expiredAttempt?.status).toBe("failed");
     expect(expiredAttempt?.failure_code).toBe("upload_expired");
+    await pool.query(
+      "UPDATE session_share_uploads SET expires_at = now() - interval '8 days' WHERE id = $1",
+      [abandoned.id]
+    );
+    expect(await deleteStaleSessionShareUploads()).toBeGreaterThanOrEqual(1);
+    expect(await getSessionShareUploadForOwner(abandoned.id, owner.id)).toBeNull();
+  });
+
+  test("persists the maximum transcript in one database operation", async () => {
+    const owner = await createAccount({
+      email: `bulk-sharer-${suffix}@example.com`,
+      password: "a-strong-test-password",
+      handle: `bulk-sharer-${suffix}`,
+      displayName: "Bulk Sharer",
+      timezone: "UTC"
+    });
+    shareUserIds.push(owner.id);
+    const turns = Array.from({ length: 4_000 }, (_, index) => ({
+      index,
+      role: index % 2 === 0 ? "user" as const : "assistant" as const,
+      blocks: [{ kind: "text" as const, text: `Turn ${index}` }]
+    }));
+
+    const published = await publishShare(
+      { userId: owner.id },
+      transcript({
+        session_fingerprint: `fingerprint-bulk-${suffix}`,
+        turns
+      })
+    );
+    const stored = await pool.query<{ count: string; first_index: number; last_index: number }>(
+      `SELECT count(*)::text AS count, min(index) AS first_index, max(index) AS last_index
+       FROM shared_session_turns WHERE share_id = $1`,
+      [published.id]
+    );
+    expect(stored.rows[0]).toEqual({ count: "4000", first_index: 0, last_index: 3999 });
   });
 
   test("publishes, reads back, changes visibility, and hard-deletes on revoke", async () => {
