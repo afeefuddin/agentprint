@@ -325,7 +325,7 @@ func signedDeviceRequest(
 ) (*http.Request, error) {
 	privateKey, err := base64.StdEncoding.DecodeString(signingPrivateKey)
 	if err != nil || len(privateKey) != ed25519.PrivateKeySize {
-		return nil, errors.New("invalid signing private key in OS keychain")
+		return nil, errors.New("Reconnect this device and try again.")
 	}
 	timestamp := fmt.Sprint(time.Now().Unix())
 	signature := ed25519.Sign(
@@ -349,18 +349,13 @@ func shareAPIError(response *http.Response) error {
 		return err
 	}
 	var failure struct {
-		Error    string   `json:"error"`
-		Message  string   `json:"message"`
-		Detected []string `json:"detected"`
+		Message string `json:"message"`
 	}
 	_ = json.Unmarshal(body, &failure)
-	if len(failure.Detected) > 0 {
-		return fmt.Errorf("%s: %s (%s)", failure.Error, failure.Message, strings.Join(failure.Detected, ", "))
+	if failure.Message != "" {
+		return errors.New(failure.Message)
 	}
-	if failure.Error == "" {
-		failure.Error = response.Status
-	}
-	return fmt.Errorf("%s: %s", failure.Error, failure.Message)
+	return errors.New("Agentprint could not publish this session. Try again.")
 }
 
 // PublishShare reserves a bounded object, uploads the signed payload directly
@@ -420,7 +415,7 @@ func (client *Client) PublishShare(ctx context.Context, credential, signingPriva
 		return ShareReceipt{}, err
 	}
 	if reservation.UploadID == "" || reservation.UploadURL == "" {
-		return ShareReceipt{}, errors.New("the server returned an incomplete upload reservation")
+		return ShareReceipt{}, errors.New("Agentprint could not prepare this session for publishing. Try again.")
 	}
 
 	var uploadForm bytes.Buffer
@@ -460,7 +455,7 @@ func (client *Client) PublishShare(ctx context.Context, credential, signingPriva
 	defer uploadResponse.Body.Close()
 	if uploadResponse.StatusCode < 200 || uploadResponse.StatusCode >= 300 {
 		_, _ = io.Copy(io.Discard, io.LimitReader(uploadResponse.Body, 1024*1024))
-		return ShareReceipt{}, fmt.Errorf("object upload failed: %s", uploadResponse.Status)
+		return ShareReceipt{}, errors.New("Agentprint could not upload this session. Try again.")
 	}
 
 	finalizeBody := []byte("{}")

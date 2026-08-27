@@ -18,7 +18,7 @@ export async function POST() {
   return NextResponse.json(
     {
       error: "client_upgrade_required",
-      message: "Update Agentprint to publish sessions through the protected upload flow."
+      message: "Update Agentprint, then try publishing this session again."
     },
     { status: 426 }
   );

@@ -69,7 +69,7 @@ export async function readSignedDeviceRequest(
     return failure(423, "device_paused", "Resume collection before syncing.");
   }
   if (!device.signing_public_key) {
-    return failure(401, "unsigned_device", "Re-authenticate this device to enable signed requests.");
+    return failure(401, "unsigned_device", "Reconnect this device and try again.");
   }
   const timestamp = request.headers.get("x-agentprint-timestamp");
   const signature = request.headers.get("x-agentprint-signature");
@@ -83,23 +83,23 @@ export async function readSignedDeviceRequest(
     return failure(
       401,
       "invalid_signature_time",
-      "The signed request timestamp is missing or outside the five-minute window."
+      "Reconnect this device and try again."
     );
   }
   const maxCompressedBytes = options.maxCompressedBytes ?? DEFAULT_MAX_COMPRESSED_BYTES;
   const maxDecompressedBytes = options.maxDecompressedBytes ?? DEFAULT_MAX_DECOMPRESSED_BYTES;
   const contentLength = Number(request.headers.get("content-length"));
   if (Number.isFinite(contentLength) && contentLength > maxCompressedBytes) {
-    return failure(413, "payload_too_large", "The request body exceeded the maximum accepted size.");
+    return failure(413, "payload_too_large", "This request is too large.");
   }
   let compressed: Buffer;
   try {
     compressed = await readDeviceRequestBody(request, maxCompressedBytes);
   } catch (error) {
     if (error instanceof PayloadTooLargeError) {
-      return failure(413, "payload_too_large", "The request body exceeded the maximum accepted size.");
+      return failure(413, "payload_too_large", "This request is too large.");
     }
-    return failure(400, "invalid_payload", "The request body could not be read.");
+    return failure(400, "invalid_payload", "This request could not be processed.");
   }
   const signed = Buffer.concat([Buffer.from(`${timestamp}.`), compressed]);
   let valid = false;
@@ -114,7 +114,7 @@ export async function readSignedDeviceRequest(
     valid = false;
   }
   if (!valid) {
-    return failure(401, "invalid_signature", "The request signature could not be verified.");
+    return failure(401, "invalid_signature", "Reconnect this device and try again.");
   }
   let body: Buffer;
   try {
@@ -123,17 +123,17 @@ export async function readSignedDeviceRequest(
       : compressed;
   } catch (error) {
     if (error instanceof PayloadTooLargeError) {
-      return failure(413, "payload_too_large", "The decoded request body exceeded the maximum accepted size.");
+      return failure(413, "payload_too_large", "This request is too large.");
     }
-    return failure(400, "invalid_payload", "The compressed JSON payload could not be decoded.");
+    return failure(400, "invalid_payload", "This request could not be processed.");
   }
   if (body.byteLength > maxDecompressedBytes) {
-    return failure(413, "payload_too_large", "The decoded request body exceeded the maximum accepted size.");
+    return failure(413, "payload_too_large", "This request is too large.");
   }
   try {
     return { device, payload: JSON.parse(body.toString("utf8")), response: null };
   } catch {
-    return failure(400, "invalid_payload", "The compressed JSON payload could not be decoded.");
+    return failure(400, "invalid_payload", "This request could not be processed.");
   }
 }
 
@@ -159,7 +159,7 @@ export function contractFailure(issues: Array<{ path: PropertyKey[]; message: st
   return NextResponse.json(
     {
       error: "invalid_request",
-      message: "The request did not match the expected contract.",
+      message: "This request could not be accepted.",
       issues: issues.slice(0, 20).map((issue) => ({
         path: issue.path.map(String).join("."),
         message: issue.message

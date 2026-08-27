@@ -24,7 +24,7 @@ export async function POST(request: Request) {
   const parsed = uploadReservationSchema.safeParse(payload);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: "invalid_request", message: "The upload reservation was invalid." },
+      { error: "invalid_request", message: "That session could not be prepared for publishing. Try again." },
       { status: 400 }
     );
   }
@@ -61,7 +61,7 @@ export async function POST(request: Request) {
   } catch {
     await failSessionShareUpload(upload.id, "storage_unavailable");
     return NextResponse.json(
-      { error: "upload_unavailable", message: "Session uploads are temporarily unavailable." },
+      { error: "upload_unavailable", message: "Your session cannot be published right now. Try again shortly." },
       { status: 503 }
     );
   }

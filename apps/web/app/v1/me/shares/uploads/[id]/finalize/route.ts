@@ -25,7 +25,7 @@ export async function POST(
   if (response) return response;
   if (!finalizeSchema.safeParse(payload).success) {
     return NextResponse.json(
-      { error: "invalid_request", message: "The finalize request must be empty." },
+      { error: "invalid_request", message: "That session could not be published. Try again." },
       { status: 400 }
     );
   }
@@ -59,7 +59,7 @@ export async function POST(
   if (upload.expires_at.getTime() <= Date.now()) {
     await failSessionShareUpload(upload.id, "upload_expired");
     return NextResponse.json(
-      { error: "upload_expired", message: "That upload reservation has expired." },
+      { error: "upload_expired", message: "That session took too long to upload. Upload it again." },
       { status: 410 }
     );
   }
@@ -72,19 +72,19 @@ export async function POST(
       object.contentEncoding !== "gzip"
     ) {
       return NextResponse.json(
-        { error: "upload_mismatch", message: "The uploaded object did not match its reservation." },
+        { error: "upload_mismatch", message: "That session could not be verified. Upload it again." },
         { status: 422 }
       );
     }
   } catch (error) {
     if (!isMissingSpaceObject(error)) {
       return NextResponse.json(
-        { error: "storage_unavailable", message: "Session storage is temporarily unavailable." },
+        { error: "storage_unavailable", message: "Your session cannot be published right now. Try again shortly." },
         { status: 503 }
       );
     }
     return NextResponse.json(
-      { error: "upload_incomplete", message: "The session upload has not completed." },
+      { error: "upload_incomplete", message: "Your session has not finished uploading. Try again." },
       { status: 409 }
     );
   }
@@ -102,7 +102,7 @@ export async function POST(
     );
   } catch {
     return NextResponse.json(
-      { error: "queue_unavailable", message: "The session was uploaded but could not be queued. Retry shortly." },
+      { error: "queue_unavailable", message: "Your session cannot be published right now. Try again shortly." },
       { status: 503 }
     );
   }

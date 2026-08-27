@@ -220,7 +220,7 @@ func (application *app) share(ctx context.Context, args []string) error {
 
 	credential, err := application.configManager.Credential(application.config.DeviceID)
 	if err != nil {
-		return fmt.Errorf("read device credential from OS keychain: %w", err)
+		return errors.New("Agentprint could not access this device. Run agentprint login and try again.")
 	}
 	receipt, err := application.client.PublishShare(
 		ctx, credential.AccessToken, credential.SigningPrivateKey, payload,
@@ -228,11 +228,9 @@ func (application *app) share(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println("\nUploaded. Agentprint is checking and publishing this session in the background.")
-	fmt.Println("Run agentprint shares shortly to copy the link or revoke it.")
+	fmt.Println("\nYour session is being published.")
 	if receipt.UploadID != "" {
-		fmt.Println("Upload id: " + receipt.UploadID)
-		fmt.Println("Check it with: agentprint share-status " + receipt.UploadID)
+		fmt.Println("Check progress: agentprint share-status " + receipt.UploadID)
 	}
 	return nil
 }
@@ -341,14 +339,14 @@ func (application *app) shares(ctx context.Context, args []string) error {
 
 func (application *app) shareStatus(ctx context.Context, args []string) error {
 	if len(args) != 1 {
-		return errors.New("pass one upload id; the share command prints it after upload")
+		return errors.New("pass the value printed by agentprint share")
 	}
 	if application.config.DeviceID == "" {
 		return errors.New("this machine is not connected; run agentprint login")
 	}
 	credential, err := application.configManager.Credential(application.config.DeviceID)
 	if err != nil {
-		return fmt.Errorf("read device credential from OS keychain: %w", err)
+		return errors.New("Agentprint could not access this device. Run agentprint login and try again.")
 	}
 	status, err := application.client.GetShareUploadStatus(ctx, credential.AccessToken, args[0])
 	if err != nil {
@@ -362,13 +360,9 @@ func (application *app) shareStatus(ctx context.Context, args []string) error {
 			fmt.Println("Published. Run agentprint shares to copy the link.")
 		}
 	case "failed":
-		failure := status.FailureCode
-		if failure == "" {
-			failure = "processing_failed"
-		}
-		fmt.Println("Publication failed: " + failure)
+		fmt.Println("Agentprint could not publish this session. Try sharing it again.")
 	default:
-		fmt.Println("Publication status: " + status.Status)
+		fmt.Println("Your session is being published.")
 	}
 	return nil
 }

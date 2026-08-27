@@ -47,19 +47,19 @@ export async function POST(
     ) {
       await removeProfileAvatarUpload(current.id, id).catch(() => undefined);
       return NextResponse.json(
-        { message: "The uploaded object did not match the profile picture reservation." },
+        { message: "That image could not be verified. Choose it again." },
         { status: 422 }
       );
     }
   } catch (error) {
     if (isMissingSpaceObject(error)) {
       return NextResponse.json(
-        { message: "The profile picture upload has not completed." },
+        { message: "Your profile picture has not finished uploading. Try again." },
         { status: 409 }
       );
     }
     return NextResponse.json(
-      { message: "Profile picture storage is temporarily unavailable." },
+      { message: "Your profile picture cannot be saved right now. Try again shortly." },
       { status: 503 }
     );
   }
@@ -75,7 +75,7 @@ export async function POST(
     }
   } catch {
     return NextResponse.json(
-      { message: "Profile picture storage is temporarily unavailable." },
+      { message: "Your profile picture cannot be saved right now. Try again shortly." },
       { status: 503 }
     );
   }
@@ -86,7 +86,7 @@ export async function POST(
     objectKey = await promoteProfileAvatarUpload(current.id, id, contentType);
   } catch {
     return NextResponse.json(
-      { message: "Profile picture storage is temporarily unavailable." },
+      { message: "Your profile picture cannot be saved right now. Try again shortly." },
       { status: 503 }
     );
   }

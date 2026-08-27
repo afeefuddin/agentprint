@@ -60,7 +60,7 @@ export async function POST(request: Request) {
     }, { status: 201 });
   } catch {
     return NextResponse.json(
-      { message: "Profile picture uploads are temporarily unavailable." },
+      { message: "Your profile picture cannot be saved right now. Try again shortly." },
       { status: 503 }
     );
   }

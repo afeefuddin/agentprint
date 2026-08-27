@@ -73,9 +73,6 @@ export default async function PrivacyPage() {
               <p className={COPY}>
                 Agentprint previews and redacts the session on your device before upload. New shares begin as unlisted, and you can change their visibility or delete them at any time. Redaction helps, but you should still read the preview before publishing.
               </p>
-              <p className={COPY}>
-                Agentprint keeps the session private while checking it for publication. The temporary upload is deleted after processing and automatically expires within one day if processing cannot finish.
-              </p>
             </section>
 
             <section className={SECTION} aria-labelledby="use-title">

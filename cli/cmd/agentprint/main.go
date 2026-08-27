@@ -641,7 +641,7 @@ Commands:
   sessions    list sessions you could share
   share       preview and publish one session (--dry-run publishes nothing)
   shares      list the sessions you have published
-  share-status inspect a background session upload
+  share-status check whether a session is ready
   unshare     delete a published session
   privacy     explain what Agentprint collects and shares
   doctor      diagnose connection problems

@@ -10,13 +10,17 @@
 - Do not use arbitrary numeric font weights such as `font-[weight:560]` or arbitrary numeric text sizes such as `text-[22px]` and `text-[clamp(...)]`.
 - Use responsive variants of the named text-size utilities when typography must change by viewport.
 
-## Website copy
+## User-facing copy
 
-- Write customer-facing copy in plain, friendly language that explains the product value or the outcome for the user.
-- Lead with what the user can do, gain, or understand. Do not expose internal implementation details as marketing or supporting copy.
-- Avoid infrastructure terms such as cloud, host, server, origin, deployment, or protocol unless the user genuinely needs that detail to complete the task.
-- Do not state behavior that is obvious from the interface. Supporting copy must add useful context, confidence, or motivation.
-- Prefer short, natural sentences over technical explanations, developer shorthand, or implementation notes.
+- This rule applies to every user-facing surface, including website pages, product UI, onboarding, settings, privacy and security pages, CLI help, prompts, progress messages, success messages, warnings, and errors.
+- Never expose internal implementation details, technical architecture, infrastructure, or engineering terminology in user-facing copy.
+- Never name or describe internal vendors, services, storage systems, databases, queues, workers, servers, hosts, origins, deployment systems, protocols, schemas, endpoints, processing pipelines, lifecycle mechanisms, or similar implementation choices.
+- Privacy and security copy must explain the user's choices, protections, consequences, and controls without explaining the technical mechanism used to provide them.
+- CLI copy must explain only what the user can do, what happened, and how to recover. Literal commands, flags, and values that the user must enter may be shown, but their internal implementation must not be described.
+- Translate every internal behavior into a direct user outcome. If a detail does not help the user decide, act, understand the result, or recover from a problem, omit it.
+- Keep technical details in developer documentation, source code, code comments, tests, and internal diagnostics that are not shown to users.
+- Write in short, plain, friendly language. Do not use developer shorthand or implementation notes.
+- Do not state behavior that is already obvious from the interface. Supporting copy must add useful context, confidence, or motivation.
 - When the user supplies exact copy or approved legal language, preserve it as requested.
 
 ## Component reuse
