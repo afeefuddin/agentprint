@@ -220,7 +220,7 @@ func (application *app) share(ctx context.Context, args []string) error {
 
 	credential, err := application.configManager.Credential(application.config.DeviceID)
 	if err != nil {
-		return fmt.Errorf("read device credential from OS keychain: %w", err)
+		return errors.New("Agentprint could not access this device. Run agentprint login and try again.")
 	}
 	receipt, err := application.client.PublishShare(
 		ctx, credential.AccessToken, credential.SigningPrivateKey, payload,
@@ -228,12 +228,10 @@ func (application *app) share(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	action := "Published"
-	if receipt.Replaced {
-		action = "Updated"
+	fmt.Println("\nYour session is being published.")
+	if receipt.UploadID != "" {
+		fmt.Println("Check progress: agentprint share-status " + receipt.UploadID)
 	}
-	fmt.Printf("\n%s: %s\n", action, receipt.URL)
-	fmt.Println("Revoke it any time with: agentprint unshare " + receipt.ID)
 	return nil
 }
 
@@ -335,6 +333,36 @@ func (application *app) shares(ctx context.Context, args []string) error {
 		fmt.Printf("  %-10s %s\n", entry.Visibility, truncateTitle(entry.Title, 58))
 		fmt.Printf("             %s/s/%s · %d turns · %s views\n", application.config.Server, entry.Slug, entry.TurnCount, entry.ViewCount)
 		fmt.Printf("             id %s\n\n", entry.ID)
+	}
+	return nil
+}
+
+func (application *app) shareStatus(ctx context.Context, args []string) error {
+	if len(args) != 1 {
+		return errors.New("pass the value printed by agentprint share")
+	}
+	if application.config.DeviceID == "" {
+		return errors.New("this machine is not connected; run agentprint login")
+	}
+	credential, err := application.configManager.Credential(application.config.DeviceID)
+	if err != nil {
+		return errors.New("Agentprint could not access this device. Run agentprint login and try again.")
+	}
+	status, err := application.client.GetShareUploadStatus(ctx, credential.AccessToken, args[0])
+	if err != nil {
+		return err
+	}
+	switch status.Status {
+	case "published":
+		if status.ShareURL != "" {
+			fmt.Println("Published: " + status.ShareURL)
+		} else {
+			fmt.Println("Published. Run agentprint shares to copy the link.")
+		}
+	case "failed":
+		fmt.Println("Agentprint could not publish this session. Try sharing it again.")
+	default:
+		fmt.Println("Your session is being published.")
 	}
 	return nil
 }

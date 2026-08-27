@@ -140,11 +140,43 @@ export function SettingsControls({
 
     setIdentityState("uploading-avatar");
     try {
+      const reservationResponse = await fetch("/v1/me/avatar/uploads", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ content_type: file.type, content_length: file.size })
+      });
+      const reservation = await reservationResponse.json().catch(() => ({})) as {
+        message?: string;
+        upload_id?: string;
+        upload_url?: string;
+        fields?: Record<string, string>;
+      };
+      if (
+        !reservationResponse.ok ||
+        !reservation.upload_id ||
+        !reservation.upload_url ||
+        !reservation.fields
+      ) {
+        throw new Error(reservation.message ?? "Your profile picture could not be uploaded. Try again.");
+      }
+
       const form = new FormData();
-      form.set("avatar", file);
-      const response = await fetch("/v1/me/avatar", { method: "POST", body: form });
-      const result = await response.json().catch(() => ({})) as { message?: string; updated_at?: string };
-      if (!response.ok || !result.updated_at) {
+      for (const [name, value] of Object.entries(reservation.fields)) form.set(name, value);
+      form.set("file", file);
+      const uploadResponse = await fetch(reservation.upload_url, { method: "POST", body: form });
+      if (!uploadResponse.ok) {
+        throw new Error("Your profile picture could not be uploaded. Try again.");
+      }
+
+      const finalizeResponse = await fetch(
+        `/v1/me/avatar/uploads/${encodeURIComponent(reservation.upload_id)}/finalize`,
+        { method: "POST" }
+      );
+      const result = await finalizeResponse.json().catch(() => ({})) as {
+        message?: string;
+        updated_at?: string;
+      };
+      if (!finalizeResponse.ok || !result.updated_at) {
         throw new Error(result.message ?? "Your profile picture could not be saved. Try again.");
       }
       setAvatarUpdatedAt(result.updated_at);

@@ -181,27 +181,98 @@ paths:
         "200": { description: Shared sessions owned by this account }
         "401": { description: Authentication required }
     post:
-      summary: Publish one redacted session transcript
+      summary: Legacy synchronous session publication
+      deprecated: true
       description: >-
-        The only endpoint that accepts harness content. It is never called by
-        background sync; the collector calls it once per session the user
-        explicitly chooses to share, after local redaction and preview. The
-        request is gzipped and Ed25519-signed exactly like a usage batch.
-        Publishing is idempotent per session_fingerprint: re-sharing the same
-        session replaces the transcript in place and keeps the existing link.
+        Disabled after CLI 0.4.0. Clients must reserve a bounded private object,
+        upload directly to object storage, and finalize the upload instead.
       security: [{ deviceBearer: [] }]
+      responses:
+        "426": { description: Upgrade to a client that supports direct uploads }
+  /v1/me/shares/uploads:
+    post:
+      summary: Reserve a bounded private session upload
+      description: >-
+        Accepts signed integrity metadata plus bounded owner-only display hints.
+        Transcript turns upload directly to the returned private object-storage
+        form and never pass through the Next.js request body.
+      security: [{ deviceBearer: [] }]
+      parameters:
+        - in: header
+          name: X-Agentprint-Timestamp
+          required: true
+          schema: { type: string }
+        - in: header
+          name: X-Agentprint-Signature
+          required: true
+          schema: { type: string }
       requestBody:
         required: true
         content:
           application/json:
-            schema: { $ref: "#/components/schemas/SessionShare" }
+            schema: { $ref: "#/components/schemas/ShareUploadReservationRequest" }
       responses:
-        "201": { description: Published, with slug and URL }
-        "200": { description: Replaced an existing share for the same session }
-        "400": { description: The payload did not match the contract }
-        "413": { description: The payload exceeded the maximum accepted size }
-        "422": { description: The transcript still contains apparent credentials }
-        "429": { description: Too many publishes for this account }
+        "201":
+          description: Time-limited private upload form
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ShareUploadReservation" }
+        "400": { description: Invalid reservation metadata }
+        "401": { description: Missing or invalid device signature }
+        "429": { description: Account, address, or byte budget exhausted }
+        "503": { description: Object storage unavailable }
+  /v1/me/shares/uploads/{id}:
+    get:
+      summary: Read an owned background upload status
+      security: [{ deviceBearer: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Current upload and publication state
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ShareUploadStatus" }
+        "401": { description: Authentication required }
+        "404": { description: Upload not found for this account }
+  /v1/me/shares/uploads/{id}/finalize:
+    post:
+      summary: Verify a private upload and enqueue publication
+      description: >-
+        The signed request contains no transcript. The server verifies object
+        metadata and enqueues a task carrying only the upload identifier.
+      security: [{ deviceBearer: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: header
+          name: X-Agentprint-Timestamp
+          required: true
+          schema: { type: string }
+        - in: header
+          name: X-Agentprint-Signature
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: false }
+      responses:
+        "202": { description: Publication queued idempotently }
+        "400": { description: The signed finalize body was not an empty object }
+        "401": { description: Missing or invalid device signature }
+        "404": { description: Upload not found for this device }
+        "409": { description: Upload incomplete or previously failed }
+        "410": { description: Upload reservation expired }
+        "422": { description: Stored object does not match its reservation }
+        "429": { description: Finalization rate limit exhausted }
+        "503": { description: Object storage or background queue unavailable }
   /v1/me/shares/{id}:
     patch:
       summary: Change a shared session's title, visibility, or expiry
@@ -349,6 +420,37 @@ components:
           minItems: 1
           maxItems: 2000
           items: { $ref: "#/components/schemas/UsageRecord" }
+    ShareUploadReservationRequest:
+      type: object
+      additionalProperties: false
+      required: [content_length, content_sha256]
+      properties:
+        content_length: { type: integer, minimum: 1, maximum: 8388608 }
+        content_sha256: { type: string, pattern: "^[a-f0-9]{64}$" }
+        title: { type: string, minLength: 1, maxLength: 140 }
+        harness_id: { enum: [codex, claude-code, opencode, kimi-code, synthetic] }
+    ShareUploadReservation:
+      type: object
+      additionalProperties: false
+      required: [upload_id, upload_url, fields, expires_at]
+      properties:
+        upload_id: { type: string, format: uuid }
+        upload_url: { type: string, format: uri }
+        fields:
+          type: object
+          additionalProperties: { type: string }
+        expires_at: { type: string, format: date-time }
+    ShareUploadStatus:
+      type: object
+      additionalProperties: false
+      required: [upload_id, status, failure_code, share_id, share_url, expires_at]
+      properties:
+        upload_id: { type: string, format: uuid }
+        status: { enum: [created, queued, processing, published, failed] }
+        failure_code: { type: [string, "null"] }
+        share_id: { type: [string, "null"], format: uuid }
+        share_url: { type: [string, "null"], format: uri }
+        expires_at: { type: string, format: date-time }
     TranscriptBlock:
       description: >-
         A closed vocabulary. Content the viewer cannot render is content nobody

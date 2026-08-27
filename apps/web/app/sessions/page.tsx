@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { listShares } from "@agentprint/database";
+import { listSessionShareAttempts, listShares } from "@agentprint/database";
 import { requireViewer } from "@/lib/auth";
 import { SiteHeader } from "@/components/site-header";
 import { SharesWorkspace } from "@/components/shares-workspace";
@@ -9,7 +9,10 @@ export const metadata: Metadata = { title: "Shared sessions" };
 
 export default async function SessionsPage() {
   const current = await requireViewer();
-  const shares = await listShares(current.id);
+  const [shares, attempts] = await Promise.all([
+    listShares(current.id),
+    listSessionShareAttempts(current.id)
+  ]);
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://agentprint.tech";
   return (
     <>
@@ -26,7 +29,7 @@ export default async function SessionsPage() {
               <span className="mt-1.5 block">{shares.length === 1 ? "session" : "sessions"} published</span>
             </p>
           </header>
-          <SharesWorkspace initialShares={shares} baseUrl={baseUrl} />
+          <SharesWorkspace initialShares={shares} initialAttempts={attempts} baseUrl={baseUrl} />
         </div>
       </main>
     </>

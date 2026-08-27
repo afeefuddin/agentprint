@@ -34,11 +34,14 @@ client with `http://localhost:3000/api/auth/google/callback` as an authorized
 redirect URI, then set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`. Use your
 deployed origin for both callback URLs outside local development.
 
-Profile avatars are stored with UploadThing as public profile assets. Create an
-UploadThing app, enable per-request ACL overrides, then set its v7
-`UPLOADTHING_TOKEN` in `.env` and in the deployed web app. Avatar access
-continues to go through Agentprint's profile avatar endpoint, which redirects
-to the UploadThing CDN.
+Profile avatars upload directly from the browser to a short-lived private
+`profile-avatars/` key using a constrained signed request. The finalize
+endpoint validates the stored length, content type, and image signature before
+saving it as the current avatar. Avatar reads continue to go through
+Agentprint's profile avatar endpoint, which applies profile visibility before
+redirecting to a short-lived signed object URL. Existing UploadThing avatars
+remain readable during the migration window; keep `UPLOADTHING_TOKEN` only
+until the backfill described below reports zero legacy objects.
 
 To enable PostHog, set `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN` and
 `NEXT_PUBLIC_POSTHOG_HOST` for the browser, then set the matching
@@ -83,7 +86,7 @@ The onboarding installer then downloads them from
 
 GitHub Actions runs the CLI tests and builds the same six release archives on
 pull requests and pushes to `main`. Pushing a tag that matches the CLI version,
-such as `v0.4.0`, also publishes the archives and checksum manifest to a GitHub
+such as `v0.4.1`, also publishes the archives and checksum manifest to a GitHub
 Release. Configure the optional `POSTHOG_PROJECT_TOKEN` and `POSTHOG_HOST`
 repository secrets to compile telemetry into tagged release binaries.
 
@@ -108,10 +111,61 @@ omits tool arguments, tool output, and agent reasoning. The dry run writes a
 local HTML preview so the payload can be read before any network call, and the
 interactive publish shows the same preview before asking for confirmation.
 
-The server re-scans every upload and refuses one that still contains an
-apparent live credential. Shares default to unlisted—reachable by link, never
-indexed, never listed on a profile—and only appear on a profile once the owner
-marks them public. Deleting a share removes the transcript.
+Publishing sends the bounded gzip payload directly to a private DigitalOcean
+Space, then queues validation and publication with Trigger.dev. The Next.js
+request path only handles signed integrity metadata and bounded owner-only
+display hints. The owner sees a processing entry immediately; that private view
+polls until the worker publishes or rejects the upload. The worker verifies the
+reserved byte length and SHA-256 digest, applies decompression and schema
+limits, and re-scans every upload before atomically writing transcript content
+and marking the upload published. Shares default to unlisted—reachable by link,
+never indexed, never listed on a profile—and only appear on a profile once the
+owner marks them public. Deleting a share removes the transcript.
+
+Configure `SPACES_ENDPOINT`, `SPACES_BUCKET`, `SPACES_ACCESS_KEY_ID`, and
+`SPACES_SECRET_ACCESS_KEY` in both the web deployment and Trigger.dev. Keep the
+Space private. Add a Spaces CORS rule that allows only
+the production web origin to use `POST`, with `*` under Allowed Headers;
+browser avatar uploads need that rule, but the bucket and uploaded objects
+remain private. Configure
+`TRIGGER_PROJECT_REF`, put `TRIGGER_SECRET_KEY` in the web deployment, and give
+the Trigger.dev environment the same `DATABASE_URL` and Spaces values. Deploy
+the worker with:
+
+```sh
+bun --cwd apps/web trigger:deploy
+```
+
+The same private Space has three deliberately separate storage boundaries:
+
+- `session-uploads/` stores private session uploads until processing finishes.
+- `profile-avatars/` stores private profile avatars.
+
+Keep file listing restricted. Website images, logos, and release downloads
+remain checked into `apps/web/public/` and are served by Vercel.
+
+After the database migrations and Spaces configuration are live, inspect and
+backfill any avatars created before this change:
+
+```sh
+bun run avatars:migrate:dry-run
+bun run avatars:migrate
+bun run avatars:migrate:dry-run
+```
+
+The migration is retry-safe: it conditionally replaces the database key only
+if the avatar has not changed, removes an unused new object after a race, and
+reports partial failures. Keep `UPLOADTHING_TOKEN` available to the web app and
+the one-off migration command until the final dry run reports zero. Removing
+that token later is a separate cleanup step; it does not belong in the initial
+rollout.
+
+Upload reservations last 15 minutes. Once finalized, the database and Trigger
+run retain the queued job for 24 hours so normal queue delay cannot invalidate a
+completed upload. `agentprint share-status <upload-id>` reports queued,
+processing, published, and failed outcomes. Admission is capped per account,
+per client address, per-account bytes, and by a 5,000-per-hour global circuit breaker;
+the worker separately limits execution concurrency to two.
 
 Session readers exist for Claude Code, Codex, and Kimi Code. OpenCode is not
 yet supported: recent versions moved message storage into `opencode.db`, so it
@@ -141,6 +195,17 @@ bun run test:e2e
 bun run build
 ```
 
+Database migrations are an explicit deployment check; the web build never
+mutates a database. The `Production release` GitHub workflow uses the
+`DATABASE_DIRECT_URL` repository secret with Neon's direct, non-pooled
+connection URL, runs pending migrations, and then deploys the Trigger.dev
+tasks. Store the Trigger.dev deployment token as `TRIGGER_ACCESS_TOKEN` and set
+the `TRIGGER_PROJECT_REF` repository variable. In Vercel, make the workflow's
+`Production release` job a required deployment check so a failed migration or
+task deployment withholds the production domain. Local development continues
+to use `bun run db:migrate`. Applied migration checksums are immutable; make
+every schema change in a new, sequentially numbered SQL file.
+
 The database integration suite requires the local PostgreSQL container. Browser
 tests exercise desktop and mobile Chromium.
 
@@ -153,7 +218,7 @@ fields cannot enter an ingestion batch. Public profile choices are enforced
 when the profile payload is built, not only hidden in the browser.
 
 Session sharing is the one path that carries content, and it is deliberately
-separate: its own endpoint (`POST /v1/me/shares`), its own strict contract
+separate: bounded reservation and finalize endpoints, its own strict contract
 (`SessionShare`), its own tables, and an explicit per-session consent step. The
 block vocabulary is closed, every field is size-bounded, and the server rejects
 anything it does not recognise. `agentprint privacy` prints both boundaries.

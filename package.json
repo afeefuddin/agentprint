@@ -6,6 +6,13 @@
     "apps/*",
     "packages/*"
   ],
+  "overrides": {
+    "js-yaml": "4.3.1",
+    "nanoid": "3.3.18",
+    "postcss": "8.5.26",
+    "tar": "7.5.22",
+    "ws": "8.21.0"
+  },
   "scripts": {
     "dev": "bun --env-file=../../.env --cwd apps/web dev",
     "build": "bun --cwd apps/web build",
@@ -17,6 +24,8 @@
     "test:e2e": "playwright test",
     "cli:build": "cd cli && go build -o agentprint ./cmd/agentprint",
     "cli:release": "sh scripts/build-local-releases.sh",
+    "avatars:migrate": "bun --cwd apps/web avatars:migrate",
+    "avatars:migrate:dry-run": "bun --cwd apps/web avatars:migrate:dry-run",
     "db:migrate": "bun packages/database/src/migrate.ts",
     "db:seed": "bun packages/database/src/seed.ts",
     "db:reset": "bun packages/database/src/reset.ts",

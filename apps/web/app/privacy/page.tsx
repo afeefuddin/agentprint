@@ -31,7 +31,7 @@ export default async function PrivacyPage() {
               Privacy policy
             </h1>
             <div className="mt-6 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm font-medium text-faint">
-              <span>Last updated August 23, 2026</span>
+              <span>Last updated August 27, 2026</span>
               <span aria-hidden="true">·</span>
               <span>Legal</span>
             </div>

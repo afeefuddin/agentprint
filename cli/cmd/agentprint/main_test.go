@@ -70,7 +70,7 @@ func TestConfirmUpdate(t *testing.T) {
 }
 
 func TestUpdatePromptsOnlyForInteractiveCommands(t *testing.T) {
-	for _, command := range []string{"login", "status", "sync", "sources", "privacy", "doctor", "pause", "resume", "logout"} {
+	for _, command := range []string{"login", "status", "sync", "sources", "privacy", "doctor", "pause", "resume", "logout", "share-status"} {
 		if !shouldOfferUpdate(command) {
 			t.Fatalf("expected %s to offer updates", command)
 		}

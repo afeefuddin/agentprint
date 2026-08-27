@@ -7,8 +7,11 @@ import {
   completeOnboardingProfile,
   createAccount,
   createDeviceCode,
+  createSessionShareUpload,
   deleteProfileAvatar,
+  deleteStaleSessionShareUploads,
   exchangeDeviceCode,
+  failSessionShareUpload,
   findOrCreateOAuthUser,
   findFriendCandidate,
   getFriendComparison,
@@ -18,11 +21,19 @@ import {
   getProfileIdentity,
   getSharedSession,
   ingestBatch,
+  beginSessionShareUploadProcessing,
+  getSessionShareUploadForOwner,
+  getSessionShareUploadStatusForOwner,
   listFriendships,
+  listLegacyProfileAvatars,
   listPublicShares,
+  listSessionShareAttempts,
+  markSessionShareUploadQueued,
   pool,
   publishShare,
+  publishSessionShareUpload,
   registerDevice,
+  replaceProfileAvatarObjectKey,
   removeFriendship,
   revokeShare,
   searchPublicProfiles,
@@ -191,15 +202,37 @@ describe("ingestion and public profile boundaries", () => {
     });
     userId = user.id;
     const objectKey = `uploadthing-${suffix}-avatar-key`;
-    await updateProfileAvatar(userId, "image/png", objectKey);
-    const avatar = await getProfileAvatar(handle);
+    expect(await updateProfileAvatar(userId, "image/png", objectKey)).toEqual({
+      updatedAt: expect.any(Date),
+      previousObjectKey: null
+    });
+    expect(await getProfileAvatar(handle)).toBeNull();
+    const avatar = await getProfileAvatar(handle, userId);
     expect(avatar?.content_type).toBe("image/png");
     expect(avatar?.object_key).toBe(objectKey);
     expect(avatar?.image_data).toBeNull();
     expect(await getProfileAvatarForUser(userId)).toEqual({ object_key: objectKey });
+    expect((await listLegacyProfileAvatars()).some((row) => row.user_id === userId)).toBe(true);
+    const spacesKey = `profile-avatars/${userId}/${suffix}.png`;
+    expect(await replaceProfileAvatarObjectKey(userId, objectKey, spacesKey)).toBe(true);
+    expect(await getProfileAvatarForUser(userId)).toEqual({ object_key: spacesKey });
+    const concurrentKeys = [
+      `profile-avatars/${userId}/${suffix}-a.png`,
+      `profile-avatars/${userId}/${suffix}-b.png`
+    ];
+    const replacements = await Promise.all(
+      concurrentKeys.map((key) => updateProfileAvatar(userId, "image/png", key))
+    );
+    const finalKey = (await getProfileAvatarForUser(userId))?.object_key;
+    expect(concurrentKeys).toContain(finalKey);
+    expect(replacements.map((replacement) => replacement.previousObjectKey)).toContain(spacesKey);
+    expect(replacements.map((replacement) => replacement.previousObjectKey)).toContain(
+      concurrentKeys.find((key) => key !== finalKey)
+    );
     expect((await getProfile(handle, userId))?.profile.avatar_updated_at).toBeInstanceOf(Date);
-    expect(await deleteProfileAvatar(userId)).toBe(true);
-    expect(await getProfileAvatar(handle)).toBeNull();
+    expect(await deleteProfileAvatar(userId, spacesKey)).toBe(false);
+    expect(await deleteProfileAvatar(userId, finalKey ?? null)).toBe(true);
+    expect(await getProfileAvatar(handle, userId)).toBeNull();
 
     await updateProfile(userId, {
       is_public: true,
@@ -281,6 +314,9 @@ describe("ingestion and public profile boundaries", () => {
     expect(stored.rows[0]).toEqual({ estimated_cost_micros: null, cost_basis: null });
 
     const publicProfile = await getProfile(handle);
+    expect(publicProfile?.profile).not.toHaveProperty("id");
+    expect(publicProfile?.profile).not.toHaveProperty("email");
+    expect(publicProfile?.profile).not.toHaveProperty("onboarding_complete");
     expect(publicProfile?.summary.totalTokens).toBe(0);
     expect(publicProfile?.summary.currentStreak).toBe(0);
     expect(publicProfile?.harnesses).toEqual({});
@@ -442,6 +478,113 @@ describe("session sharing", () => {
       ...overrides
     };
   }
+
+  test("reserves bounded uploads and records their processing lifecycle", async () => {
+    const owner = await createAccount({
+      email: `uploader-${suffix}@example.com`,
+      password: "a-strong-test-password",
+      handle: `uploader-${suffix}`,
+      displayName: "Uploader Trace",
+      timezone: "UTC"
+    });
+    shareUserIds.push(owner.id);
+    const device = await pool.query<{ id: string }>(
+      `INSERT INTO devices (user_id, name, platform, agent_version)
+       VALUES ($1, 'Upload test', 'test/arm64', '0.1.0') RETURNING id`,
+      [owner.id]
+    );
+    const upload = await createSessionShareUpload({
+      userId: owner.id,
+      deviceId: device.rows[0].id,
+      contentLength: 4096,
+      contentSha256: "a".repeat(64),
+      displayTitle: "Pending upload",
+      harnessId: "claude-code"
+    });
+    if (!upload) throw new Error("expected an upload reservation");
+    expect(upload.object_key).toContain(`/` + upload.id + ".json.gz");
+    expect(upload.status).toBe("created");
+    expect(upload.display_title).toBe("Pending upload");
+    expect(await getSessionShareUploadForOwner(upload.id, randomUUID())).toBeNull();
+    expect((await listSessionShareAttempts(owner.id)).map((attempt) => attempt.id)).toContain(upload.id);
+
+    await pool.query(
+      "UPDATE session_share_uploads SET expires_at = now() + interval '1 minute' WHERE id = $1",
+      [upload.id]
+    );
+    await markSessionShareUploadQueued(upload.id, "run-test");
+    const queued = await getSessionShareUploadForOwner(upload.id, owner.id);
+    expect(queued?.expires_at.getTime()).toBeGreaterThan(Date.now() + 23 * 60 * 60 * 1000);
+    const processing = await beginSessionShareUploadProcessing(upload.id);
+    expect(processing?.status).toBe("processing");
+    expect(processing?.trigger_run_id).toBe("run-test");
+
+    const published = await publishSessionShareUpload(
+      upload.id,
+      transcript({ session_fingerprint: `fingerprint-upload-${suffix}` })
+    );
+    await failSessionShareUpload(upload.id, "processing_failed");
+    const complete = await getSessionShareUploadForOwner(upload.id, owner.id);
+    expect(complete?.status).toBe("published");
+    expect(complete?.share_id).toBe(published.id);
+    const status = await getSessionShareUploadStatusForOwner(upload.id, owner.id);
+    expect(status?.share_slug).toBe(published.slug);
+    expect((await listSessionShareAttempts(owner.id)).map((attempt) => attempt.id)).not.toContain(upload.id);
+
+    const abandoned = await createSessionShareUpload({
+      userId: owner.id,
+      deviceId: device.rows[0].id,
+      contentLength: 4096,
+      contentSha256: "b".repeat(64)
+    });
+    if (!abandoned) throw new Error("expected an abandoned upload reservation");
+    await markSessionShareUploadQueued(abandoned.id, "run-abandoned");
+    await pool.query(
+      "UPDATE session_share_uploads SET expires_at = now() - interval '1 second' WHERE id = $1",
+      [abandoned.id]
+    );
+    const expiredAttempt = (await listSessionShareAttempts(owner.id)).find(
+      (attempt) => attempt.id === abandoned.id
+    );
+    expect(expiredAttempt?.status).toBe("failed");
+    expect(expiredAttempt?.failure_code).toBe("upload_expired");
+    await pool.query(
+      "UPDATE session_share_uploads SET expires_at = now() - interval '8 days' WHERE id = $1",
+      [abandoned.id]
+    );
+    expect(await deleteStaleSessionShareUploads()).toBeGreaterThanOrEqual(1);
+    expect(await getSessionShareUploadForOwner(abandoned.id, owner.id)).toBeNull();
+  });
+
+  test("persists the maximum transcript in one database operation", async () => {
+    const owner = await createAccount({
+      email: `bulk-sharer-${suffix}@example.com`,
+      password: "a-strong-test-password",
+      handle: `bulk-sharer-${suffix}`,
+      displayName: "Bulk Sharer",
+      timezone: "UTC"
+    });
+    shareUserIds.push(owner.id);
+    const turns = Array.from({ length: 4_000 }, (_, index) => ({
+      index,
+      role: index % 2 === 0 ? "user" as const : "assistant" as const,
+      blocks: [{ kind: "text" as const, text: `Turn ${index}` }]
+    }));
+
+    const published = await publishShare(
+      { userId: owner.id },
+      transcript({
+        session_fingerprint: `fingerprint-bulk-${suffix}`,
+        turns
+      })
+    );
+    const stored = await pool.query<{ count: string; first_index: number; last_index: number }>(
+      `SELECT count(*)::text AS count, min(index) AS first_index, max(index) AS last_index
+       FROM shared_session_turns WHERE share_id = $1`,
+      [published.id]
+    );
+    expect(stored.rows[0]).toEqual({ count: "4000", first_index: 0, last_index: 3999 });
+  });
 
   test("publishes, reads back, changes visibility, and hard-deletes on revoke", async () => {
     const owner = await createAccount({

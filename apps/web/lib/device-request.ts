@@ -1,7 +1,35 @@
 import { NextResponse } from "next/server";
 import { createPublicKey, verify } from "node:crypto";
-import { gunzipSync } from "node:zlib";
 import { authenticateDevice } from "@agentprint/database";
+import { decompressDeviceRequestBody, PayloadTooLargeError } from "./bounded-gzip";
+
+export { decompressDeviceRequestBody } from "./bounded-gzip";
+
+const DEFAULT_MAX_COMPRESSED_BYTES = 8 * 1024 * 1024;
+const DEFAULT_MAX_DECOMPRESSED_BYTES = 32 * 1024 * 1024;
+
+export async function readDeviceRequestBody(request: Request, maxBytes: number): Promise<Buffer> {
+  if (!request.body) return Buffer.alloc(0);
+
+  const reader = request.body.getReader();
+  const chunks: Buffer[] = [];
+  let totalBytes = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      totalBytes += value.byteLength;
+      if (totalBytes > maxBytes) {
+        await reader.cancel();
+        throw new PayloadTooLargeError("compressed", maxBytes);
+      }
+      chunks.push(Buffer.from(value));
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  return Buffer.concat(chunks, totalBytes);
+}
 
 function signingKey(raw: Buffer) {
   // RFC 8410 SubjectPublicKeyInfo prefix for a raw 32-byte Ed25519 public key.
@@ -18,7 +46,11 @@ type AuthenticatedDevice = NonNullable<Awaited<ReturnType<typeof authenticateDev
  */
 export async function readSignedDeviceRequest(
   request: Request,
-  options: { requireUnpaused?: boolean; maxBytes?: number } = {}
+  options: {
+    requireUnpaused?: boolean;
+    maxCompressedBytes?: number;
+    maxDecompressedBytes?: number;
+  } = {}
 ): Promise<
   | { device: AuthenticatedDevice; payload: unknown; response: null }
   | { device: null; payload: null; response: NextResponse }
@@ -37,7 +69,7 @@ export async function readSignedDeviceRequest(
     return failure(423, "device_paused", "Resume collection before syncing.");
   }
   if (!device.signing_public_key) {
-    return failure(401, "unsigned_device", "Re-authenticate this device to enable signed requests.");
+    return failure(401, "unsigned_device", "Reconnect this device and try again.");
   }
   const timestamp = request.headers.get("x-agentprint-timestamp");
   const signature = request.headers.get("x-agentprint-signature");
@@ -51,12 +83,23 @@ export async function readSignedDeviceRequest(
     return failure(
       401,
       "invalid_signature_time",
-      "The signed request timestamp is missing or outside the five-minute window."
+      "Reconnect this device and try again."
     );
   }
-  const compressed = Buffer.from(await request.arrayBuffer());
-  if (options.maxBytes && compressed.byteLength > options.maxBytes) {
-    return failure(413, "payload_too_large", "The request body exceeded the maximum accepted size.");
+  const maxCompressedBytes = options.maxCompressedBytes ?? DEFAULT_MAX_COMPRESSED_BYTES;
+  const maxDecompressedBytes = options.maxDecompressedBytes ?? DEFAULT_MAX_DECOMPRESSED_BYTES;
+  const contentLength = Number(request.headers.get("content-length"));
+  if (Number.isFinite(contentLength) && contentLength > maxCompressedBytes) {
+    return failure(413, "payload_too_large", "This request is too large.");
+  }
+  let compressed: Buffer;
+  try {
+    compressed = await readDeviceRequestBody(request, maxCompressedBytes);
+  } catch (error) {
+    if (error instanceof PayloadTooLargeError) {
+      return failure(413, "payload_too_large", "This request is too large.");
+    }
+    return failure(400, "invalid_payload", "This request could not be processed.");
   }
   const signed = Buffer.concat([Buffer.from(`${timestamp}.`), compressed]);
   let valid = false;
@@ -71,15 +114,26 @@ export async function readSignedDeviceRequest(
     valid = false;
   }
   if (!valid) {
-    return failure(401, "invalid_signature", "The request signature could not be verified.");
+    return failure(401, "invalid_signature", "Reconnect this device and try again.");
+  }
+  let body: Buffer;
+  try {
+    body = request.headers.get("content-encoding") === "gzip"
+      ? await decompressDeviceRequestBody(compressed, maxDecompressedBytes)
+      : compressed;
+  } catch (error) {
+    if (error instanceof PayloadTooLargeError) {
+      return failure(413, "payload_too_large", "This request is too large.");
+    }
+    return failure(400, "invalid_payload", "This request could not be processed.");
+  }
+  if (body.byteLength > maxDecompressedBytes) {
+    return failure(413, "payload_too_large", "This request is too large.");
   }
   try {
-    const body = request.headers.get("content-encoding") === "gzip"
-      ? gunzipSync(compressed)
-      : compressed;
     return { device, payload: JSON.parse(body.toString("utf8")), response: null };
   } catch {
-    return failure(400, "invalid_payload", "The compressed JSON payload could not be decoded.");
+    return failure(400, "invalid_payload", "This request could not be processed.");
   }
 }
 
@@ -105,7 +159,7 @@ export function contractFailure(issues: Array<{ path: PropertyKey[]; message: st
   return NextResponse.json(
     {
       error: "invalid_request",
-      message: "The request did not match the expected contract.",
+      message: "This request could not be accepted.",
       issues: issues.slice(0, 20).map((issue) => ({
         path: issue.path.map(String).join("."),
         message: issue.message

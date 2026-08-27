@@ -23,6 +23,10 @@ const databaseUrl =
 
 export const pool = new Pool({ connectionString: databaseUrl, max: 10 });
 
+function profileAvatarLockName(userId: string) {
+  return `profile-avatar:${userId}`;
+}
+
 export function hashSecret(value: string) {
   return createHash("sha256").update(value).digest("hex");
 }
@@ -565,22 +569,45 @@ export async function updateProfile(userId: string, patch: ProfilePatch) {
 }
 
 export async function updateProfileAvatar(userId: string, contentType: string, objectKey: string) {
-  const result = await pool.query<{ updated_at: Date }>(
-    `INSERT INTO profile_avatars (user_id, content_type, object_key)
-     VALUES ($1, $2, $3)
-     ON CONFLICT (user_id) DO UPDATE
-     SET content_type = EXCLUDED.content_type,
-         object_key = EXCLUDED.object_key,
-         image_data = NULL,
-         updated_at = now()
-     RETURNING updated_at`,
-    [userId, contentType, objectKey]
-  );
-  return result.rows[0].updated_at;
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [profileAvatarLockName(userId)]);
+    const previous = await one<{ object_key: string | null }>(
+      "SELECT object_key FROM profile_avatars WHERE user_id = $1 FOR UPDATE",
+      [userId],
+      client
+    );
+    const result = await client.query<{ updated_at: Date }>(
+      `INSERT INTO profile_avatars (user_id, content_type, object_key)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (user_id) DO UPDATE
+       SET content_type = EXCLUDED.content_type,
+           object_key = EXCLUDED.object_key,
+           image_data = NULL,
+           updated_at = now()
+       RETURNING updated_at`,
+      [userId, contentType, objectKey]
+    );
+    await client.query("COMMIT");
+    return {
+      updatedAt: result.rows[0].updated_at,
+      previousObjectKey: previous?.object_key ?? null
+    };
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
-export async function deleteProfileAvatar(userId: string) {
-  const result = await pool.query("DELETE FROM profile_avatars WHERE user_id = $1", [userId]);
+export async function deleteProfileAvatar(userId: string, expectedObjectKey: string | null) {
+  const result = await pool.query(
+    `DELETE FROM profile_avatars
+     WHERE user_id = $1 AND object_key IS NOT DISTINCT FROM $2`,
+    [userId, expectedObjectKey]
+  );
   return result.rowCount === 1;
 }
 
@@ -591,13 +618,49 @@ export async function getProfileAvatarForUser(userId: string) {
   );
 }
 
-export async function getProfileAvatar(handle: string) {
-  return one<{ content_type: string; object_key: string | null; image_data: Buffer | null; updated_at: Date }>(
-    `SELECT a.content_type, a.object_key, a.image_data, a.updated_at
+export async function listLegacyProfileAvatars() {
+  const result = await pool.query<{
+    user_id: string;
+    content_type: string;
+    object_key: string;
+  }>(
+    `SELECT user_id, content_type, object_key
+     FROM profile_avatars
+     WHERE object_key IS NOT NULL
+       AND object_key NOT LIKE 'profile-avatars/%'
+     ORDER BY updated_at`
+  );
+  return result.rows;
+}
+
+export async function replaceProfileAvatarObjectKey(
+  userId: string,
+  expectedKey: string,
+  replacementKey: string
+) {
+  const result = await pool.query(
+    `UPDATE profile_avatars
+     SET object_key = $3, updated_at = now()
+     WHERE user_id = $1 AND object_key = $2`,
+    [userId, expectedKey, replacementKey]
+  );
+  return result.rowCount === 1;
+}
+
+export async function getProfileAvatar(handle: string, viewerId?: string) {
+  return one<{
+    content_type: string;
+    object_key: string | null;
+    image_data: Buffer | null;
+    updated_at: Date;
+    is_public: boolean;
+  }>(
+    `SELECT a.content_type, a.object_key, a.image_data, a.updated_at, p.is_public
      FROM profile_avatars a
      JOIN profiles p ON p.user_id = a.user_id
-     WHERE p.handle = $1 AND p.onboarding_complete = true`,
-    [handle]
+     WHERE p.handle = $1 AND p.onboarding_complete = true
+       AND (p.is_public OR p.user_id = $2)`,
+    [handle, viewerId ?? null]
   );
 }
 
@@ -1040,8 +1103,24 @@ export async function getProfile(handle: string, viewerId?: string) {
     mostUsedHarness:
       Object.entries(harnesses).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null
   };
+  // Keep account-only fields out of every profile response. This explicit DTO
+  // is intentionally allowlisted so future Viewer fields do not become public
+  // just because they were added to the internal query above.
+  const publicProfile = {
+    handle: profile.handle,
+    display_name: profile.display_name,
+    bio: profile.bio,
+    timezone: profile.timezone,
+    is_public: profile.is_public,
+    show_tokens: profile.show_tokens,
+    show_harnesses: profile.show_harnesses,
+    show_models: profile.show_models,
+    show_streaks: profile.show_streaks,
+    avatar_updated_at: profile.avatar_updated_at,
+    created_at: profile.created_at
+  };
   const result = {
-    profile,
+    profile: publicProfile,
     activity,
     harnesses,
     models,
@@ -1177,7 +1256,24 @@ export async function usageExport(userId: string) {
 }
 
 export async function deleteAccount(userId: string) {
-  await pool.query("DELETE FROM users WHERE id = $1", [userId]);
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [profileAvatarLockName(userId)]);
+    const avatar = await one<{ object_key: string | null }>(
+      "SELECT object_key FROM profile_avatars WHERE user_id = $1 FOR UPDATE",
+      [userId],
+      client
+    );
+    await client.query("DELETE FROM users WHERE id = $1", [userId]);
+    await client.query("COMMIT");
+    return avatar?.object_key ?? null;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 /* Session sharing. */
@@ -1225,6 +1321,90 @@ function shareSlug() {
  * harness session after more work replaces the transcript in place and keeps
  * the existing URL, so a link someone already sent stays correct.
  */
+async function persistShare(
+  client: PoolClient,
+  input: { userId: string; deviceId?: string | null },
+  share: SessionShare
+) {
+  const existing = await one<{ id: string; slug: string }>(
+    "SELECT id, slug FROM shared_sessions WHERE user_id = $1 AND session_fingerprint = $2 FOR UPDATE",
+    [input.userId, share.session_fingerprint],
+    client
+  );
+  const values = [
+    input.userId,
+    input.deviceId ?? null,
+    share.harness_id,
+    share.harness_version ?? null,
+    share.title,
+    share.summary ?? "",
+    share.visibility,
+    share.redaction_level,
+    JSON.stringify(share.redaction),
+    share.turns.length,
+    share.totals.input_tokens,
+    share.totals.output_tokens,
+    share.totals.total_tokens,
+    share.model_ids,
+    share.started_at,
+    share.ended_at,
+    share.expires_at ?? null
+  ];
+  let row: { id: string; slug: string } | null;
+  if (existing) {
+    row = await one<{ id: string; slug: string }>(
+      `UPDATE shared_sessions SET
+         device_id = $2, harness_id = $3, harness_version = $4, title = $5,
+         summary = $6, visibility = $7, redaction_level = $8,
+         redaction_stats = $9::jsonb, turn_count = $10, input_tokens = $11,
+         output_tokens = $12, total_tokens = $13, model_ids = $14,
+         started_at = $15, ended_at = $16, expires_at = $17, updated_at = now()
+       WHERE user_id = $1 AND session_fingerprint = $18
+       RETURNING id, slug`,
+      [...values, share.session_fingerprint],
+      client
+    );
+    await client.query("DELETE FROM shared_session_turns WHERE share_id = $1", [existing.id]);
+  } else {
+    row = await one<{ id: string; slug: string }>(
+      `INSERT INTO shared_sessions (
+         user_id, device_id, harness_id, harness_version, title, summary,
+         visibility, redaction_level, redaction_stats, turn_count,
+         input_tokens, output_tokens, total_tokens, model_ids,
+         started_at, ended_at, expires_at,
+         session_fingerprint, slug
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11, $12,
+                 $13, $14, $15, $16, $17, $18, $19)
+       RETURNING id, slug`,
+      [...values, share.session_fingerprint, shareSlug()],
+      client
+    );
+  }
+  if (!row) throw new Error("share was not persisted");
+  await client.query(
+    `INSERT INTO shared_session_turns (share_id, index, role, occurred_at, model_id, blocks)
+     SELECT $1, turn_index, role, occurred_at, model_id, blocks
+     FROM jsonb_to_recordset($2::jsonb) AS turns(
+       turn_index integer,
+       role text,
+       occurred_at timestamptz,
+       model_id text,
+       blocks jsonb
+     )`,
+    [
+      row.id,
+      JSON.stringify(share.turns.map((turn) => ({
+        turn_index: turn.index,
+        role: turn.role,
+        occurred_at: turn.at ?? null,
+        model_id: turn.model_id ?? null,
+        blocks: turn.blocks
+      })))
+    ]
+  );
+  return { id: row.id, slug: row.slug, replaced: Boolean(existing) };
+}
+
 export async function publishShare(
   input: { userId: string; deviceId?: string | null },
   share: SessionShare
@@ -1232,70 +1412,9 @@ export async function publishShare(
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    const existing = await one<{ id: string; slug: string }>(
-      "SELECT id, slug FROM shared_sessions WHERE user_id = $1 AND session_fingerprint = $2 FOR UPDATE",
-      [input.userId, share.session_fingerprint],
-      client
-    );
-    const values = [
-      input.userId,
-      input.deviceId ?? null,
-      share.harness_id,
-      share.harness_version ?? null,
-      share.title,
-      share.summary ?? "",
-      share.visibility,
-      share.redaction_level,
-      JSON.stringify(share.redaction),
-      share.turns.length,
-      share.totals.input_tokens,
-      share.totals.output_tokens,
-      share.totals.total_tokens,
-      share.model_ids,
-      share.started_at,
-      share.ended_at,
-      share.expires_at ?? null
-    ];
-    let row: { id: string; slug: string } | null;
-    if (existing) {
-      row = await one<{ id: string; slug: string }>(
-        `UPDATE shared_sessions SET
-           device_id = $2, harness_id = $3, harness_version = $4, title = $5,
-           summary = $6, visibility = $7, redaction_level = $8,
-           redaction_stats = $9::jsonb, turn_count = $10, input_tokens = $11,
-           output_tokens = $12, total_tokens = $13, model_ids = $14,
-           started_at = $15, ended_at = $16, expires_at = $17, updated_at = now()
-         WHERE user_id = $1 AND session_fingerprint = $18
-         RETURNING id, slug`,
-        [...values, share.session_fingerprint],
-        client
-      );
-      await client.query("DELETE FROM shared_session_turns WHERE share_id = $1", [existing.id]);
-    } else {
-      row = await one<{ id: string; slug: string }>(
-        `INSERT INTO shared_sessions (
-           user_id, device_id, harness_id, harness_version, title, summary,
-           visibility, redaction_level, redaction_stats, turn_count,
-           input_tokens, output_tokens, total_tokens, model_ids,
-           started_at, ended_at, expires_at,
-           session_fingerprint, slug
-         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11, $12,
-                   $13, $14, $15, $16, $17, $18, $19)
-         RETURNING id, slug`,
-        [...values, share.session_fingerprint, shareSlug()],
-        client
-      );
-    }
-    if (!row) throw new Error("share was not persisted");
-    for (const turn of share.turns) {
-      await client.query(
-        `INSERT INTO shared_session_turns (share_id, index, role, occurred_at, model_id, blocks)
-         VALUES ($1, $2, $3, $4, $5, $6::jsonb)`,
-        [row.id, turn.index, turn.role, turn.at ?? null, turn.model_id ?? null, JSON.stringify(turn.blocks)]
-      );
-    }
+    const result = await persistShare(client, input, share);
     await client.query("COMMIT");
-    return { id: row.id, slug: row.slug, replaced: Boolean(existing) };
+    return result;
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;
@@ -1304,10 +1423,248 @@ export async function publishShare(
   }
 }
 
+export type SessionShareUpload = {
+  id: string;
+  user_id: string;
+  device_id: string;
+  object_key: string;
+  content_length: number;
+  content_sha256: string;
+  display_title: string;
+  harness_id: string;
+  status: "created" | "queued" | "processing" | "published" | "failed";
+  trigger_run_id: string | null;
+  share_id: string | null;
+  failure_code: string | null;
+  created_at: Date;
+  updated_at: Date;
+  expires_at: Date;
+};
+
+const shareUploadColumns = [
+  "id", "user_id", "device_id", "object_key", "content_length", "content_sha256",
+  "display_title", "harness_id", "status", "trigger_run_id", "share_id", "failure_code",
+  "created_at", "updated_at", "expires_at"
+].join(", ");
+
+const MAX_SHARE_UPLOAD_BYTES_PER_HOUR = 256 * 1024 * 1024;
+
+/*
+ * Reserve upload capacity before issuing a presigned URL. The advisory lock
+ * makes the per-user byte budget safe under concurrent requests; otherwise a
+ * burst could race every request past the same SUM check.
+ */
+export async function createSessionShareUpload(input: {
+  userId: string;
+  deviceId: string;
+  contentLength: number;
+  contentSha256: string;
+  displayTitle?: string;
+  harnessId?: string;
+}) {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [`share-upload:${input.userId}`]);
+    const usage = await one<{ bytes: string }>(
+      `SELECT COALESCE(SUM(content_length), 0)::text AS bytes
+       FROM session_share_uploads
+       WHERE user_id = $1 AND created_at > now() - interval '1 hour'`,
+      [input.userId],
+      client
+    );
+    if (Number(usage?.bytes ?? 0) + input.contentLength > MAX_SHARE_UPLOAD_BYTES_PER_HOUR) {
+      await client.query("ROLLBACK");
+      return null;
+    }
+    const id = randomUUID();
+    const objectKey = `session-uploads/${input.userId}/${id}.json.gz`;
+    const upload = await one<SessionShareUpload>(
+      `INSERT INTO session_share_uploads (
+         id, user_id, device_id, object_key, content_length, content_sha256,
+         display_title, harness_id
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       RETURNING ${shareUploadColumns}`,
+      [
+        id,
+        input.userId,
+        input.deviceId,
+        objectKey,
+        input.contentLength,
+        input.contentSha256,
+        input.displayTitle ?? "Session upload",
+        input.harnessId ?? "unknown"
+      ],
+      client
+    );
+    await client.query("COMMIT");
+    return upload;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function getSessionShareUploadForOwner(uploadId: string, userId: string) {
+  return one<SessionShareUpload>(
+    `SELECT ${shareUploadColumns} FROM session_share_uploads
+     WHERE id = $1 AND user_id = $2`,
+    [uploadId, userId]
+  );
+}
+
+export async function markSessionShareUploadQueued(uploadId: string, triggerRunId: string) {
+  await pool.query(
+    `UPDATE session_share_uploads
+     SET status = CASE WHEN status = 'created' THEN 'queued' ELSE status END,
+         trigger_run_id = COALESCE(trigger_run_id, $2),
+         expires_at = CASE
+           WHEN status IN ('created', 'queued')
+             THEN GREATEST(expires_at, now() + interval '24 hours')
+           ELSE expires_at
+         END,
+         updated_at = now()
+     WHERE id = $1 AND status IN ('created', 'queued', 'processing', 'published')`,
+    [uploadId, triggerRunId]
+  );
+}
+
+export async function getSessionShareUploadStatusForOwner(uploadId: string, userId: string) {
+  return one<SessionShareUpload & { share_slug: string | null }>(
+    `SELECT ${shareUploadColumns.split(", ").map((column) => `u.${column}`).join(", ")},
+            s.slug AS share_slug
+     FROM session_share_uploads u
+     LEFT JOIN shared_sessions s ON s.id = u.share_id
+     WHERE u.id = $1 AND u.user_id = $2`,
+    [uploadId, userId]
+  );
+}
+
+export async function beginSessionShareUploadProcessing(uploadId: string) {
+  return one<SessionShareUpload>(
+    `UPDATE session_share_uploads
+     SET status = 'processing', updated_at = now()
+     WHERE id = $1 AND status IN ('created', 'queued', 'processing')
+       AND expires_at > now()
+     RETURNING ${shareUploadColumns}`,
+    [uploadId]
+  );
+}
+
+export async function getSessionShareUpload(uploadId: string) {
+  return one<SessionShareUpload>(
+    `SELECT ${shareUploadColumns} FROM session_share_uploads WHERE id = $1`,
+    [uploadId]
+  );
+}
+
+export async function publishSessionShareUpload(uploadId: string, share: SessionShare) {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const upload = await one<SessionShareUpload>(
+      `SELECT ${shareUploadColumns} FROM session_share_uploads
+       WHERE id = $1 FOR UPDATE`,
+      [uploadId],
+      client
+    );
+    if (!upload) throw new Error("upload_not_found");
+    if (upload.status === "failed") throw new Error(upload.failure_code ?? "upload_failed");
+    if (upload.status === "published") {
+      const existing = await one<{ id: string; slug: string }>(
+        "SELECT id, slug FROM shared_sessions WHERE id = $1",
+        [upload.share_id],
+        client
+      );
+      if (!existing) throw new Error("published_share_not_found");
+      await client.query("COMMIT");
+      return { ...existing, replaced: true };
+    }
+    if (upload.status !== "processing") throw new Error("upload_not_processing");
+
+    const result = await persistShare(
+      client,
+      { userId: upload.user_id, deviceId: upload.device_id },
+      share
+    );
+    await client.query(
+      `UPDATE session_share_uploads
+       SET status = 'published', share_id = $2, failure_code = NULL,
+           processed_at = now(), updated_at = now()
+       WHERE id = $1`,
+      [uploadId, result.id]
+    );
+    await client.query("COMMIT");
+    return result;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function failSessionShareUpload(uploadId: string, failureCode: string) {
+  await pool.query(
+    `UPDATE session_share_uploads
+     SET status = 'failed',
+         failure_code = CASE WHEN status = 'failed' THEN failure_code ELSE $2 END,
+         processed_at = now(), updated_at = now()
+     WHERE id = $1 AND status <> 'published'`,
+    [uploadId, failureCode]
+  );
+}
+
+export async function deleteStaleSessionShareUploads() {
+  const result = await pool.query(
+    `DELETE FROM session_share_uploads
+     WHERE (
+       status IN ('published', 'failed')
+       AND COALESCE(processed_at, updated_at) < now() - interval '7 days'
+     ) OR (
+       status IN ('created', 'queued', 'processing')
+       AND expires_at < now() - interval '7 days'
+     )`
+  );
+  return result.rowCount;
+}
+
 export async function listShares(userId: string) {
   const result = await pool.query<ShareSummary>(
     `SELECT ${shareColumns} FROM shared_sessions
      WHERE user_id = $1 ORDER BY published_at DESC`,
+    [userId]
+  );
+  return result.rows;
+}
+
+export type SessionShareAttempt = Pick<
+  SessionShareUpload,
+  "id" | "display_title" | "harness_id" | "status" | "failure_code" | "created_at" | "updated_at"
+>;
+
+export async function listSessionShareAttempts(userId: string) {
+  const result = await pool.query<SessionShareAttempt>(
+    `SELECT id, display_title, harness_id,
+            CASE
+              WHEN status IN ('created', 'queued', 'processing') AND expires_at <= now()
+                THEN 'failed'
+              ELSE status
+            END AS status,
+            CASE
+              WHEN status IN ('created', 'queued', 'processing') AND expires_at <= now()
+                THEN 'upload_expired'
+              ELSE failure_code
+            END AS failure_code,
+            created_at, updated_at
+     FROM session_share_uploads
+     WHERE user_id = $1
+       AND status <> 'published'
+       AND created_at > now() - interval '7 days'
+     ORDER BY created_at DESC
+     LIMIT 50`,
     [userId]
   );
   return result.rows;

@@ -1,6 +1,7 @@
 package sync
 
 import (
+	"bytes"
 	"compress/gzip"
 	"context"
 	"crypto/ed25519"
@@ -161,6 +162,130 @@ func TestSyncCompressesSignsAndAcknowledges(t *testing.T) {
 	count, _ := local.PendingCount()
 	if count != 0 {
 		t.Fatalf("expected acknowledged queue, got %d", count)
+	}
+}
+
+func TestPublishShareUploadsContentDirectlyAndQueuesIt(t *testing.T) {
+	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var uploaded []byte
+	uploadServer := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		if request.Method != http.MethodPost {
+			t.Errorf("upload method = %s, want POST", request.Method)
+		}
+		if err := request.ParseMultipartForm(16 * 1024 * 1024); err != nil {
+			t.Fatal(err)
+		}
+		if request.FormValue("Content-Encoding") != "gzip" {
+			t.Errorf("expected gzip form field")
+		}
+		file, _, err := request.FormFile("file")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer file.Close()
+		uploaded, err = io.ReadAll(file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		response.WriteHeader(http.StatusNoContent)
+	}))
+	defer uploadServer.Close()
+
+	verifySigned := func(request *http.Request, body []byte) {
+		t.Helper()
+		timestamp := request.Header.Get("X-Agentprint-Timestamp")
+		signature, decodeErr := base64.StdEncoding.DecodeString(request.Header.Get("X-Agentprint-Signature"))
+		if decodeErr != nil {
+			t.Fatal(decodeErr)
+		}
+		if !ed25519.Verify(publicKey, append([]byte(timestamp+"."), body...), signature) {
+			t.Error("control request signature did not verify")
+		}
+	}
+
+	apiServer := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		body, readErr := io.ReadAll(request.Body)
+		if readErr != nil {
+			t.Fatal(readErr)
+		}
+		verifySigned(request, body)
+		response.Header().Set("Content-Type", "application/json")
+		switch request.URL.Path {
+		case "/v1/me/shares/uploads":
+			var reservation map[string]any
+			if err := json.Unmarshal(body, &reservation); err != nil {
+				t.Fatal(err)
+			}
+			if reservation["title"] != "Private transcript" || reservation["harness_id"] != "codex" {
+				t.Errorf("reservation display metadata = %#v", reservation)
+			}
+			if _, included := reservation["turns"]; included {
+				t.Error("reservation request contained transcript turns")
+			}
+			fmt.Fprintf(response,
+				`{"upload_id":"upload-123","upload_url":%q,"fields":{"key":"session-uploads/upload-123.json.gz","Content-Type":"application/json","Content-Encoding":"gzip"}}`,
+				uploadServer.URL)
+		case "/v1/me/shares/uploads/upload-123/finalize":
+			if string(body) != "{}" {
+				t.Errorf("finalize body = %q, want {}", body)
+			}
+			response.WriteHeader(http.StatusAccepted)
+			_, _ = io.WriteString(response, `{"upload_id":"upload-123","status":"queued","run_id":"run-123"}`)
+		default:
+			http.NotFound(response, request)
+		}
+	}))
+	defer apiServer.Close()
+
+	client := NewClient(apiServer.URL)
+	receipt, err := client.PublishShare(
+		context.Background(), "access-token", base64.StdEncoding.EncodeToString(privateKey),
+		map[string]string{"title": "Private transcript", "harness_id": "codex"},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if receipt.UploadID != "upload-123" || receipt.Status != "queued" {
+		t.Fatalf("unexpected receipt: %+v", receipt)
+	}
+	reader, err := gzip.NewReader(bytesReader(uploaded))
+	if err != nil {
+		t.Fatal(err)
+	}
+	decoded, err := io.ReadAll(reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(decoded, []byte("Private transcript")) {
+		t.Fatalf("uploaded payload was not the transcript: %s", decoded)
+	}
+}
+
+func TestGetShareUploadStatusUsesDeviceBearer(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		if request.URL.Path != "/v1/me/shares/uploads/upload-123" {
+			http.NotFound(response, request)
+			return
+		}
+		if request.Header.Get("Authorization") != "Bearer access-token" {
+			t.Errorf("authorization = %q", request.Header.Get("Authorization"))
+		}
+		response.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(response, `{"upload_id":"upload-123","status":"failed","failure_code":"credentials_detected"}`)
+	}))
+	defer server.Close()
+
+	status, err := NewClient(server.URL).GetShareUploadStatus(
+		context.Background(), "access-token", "upload-123",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status.UploadID != "upload-123" || status.Status != "failed" || status.FailureCode != "credentials_detected" {
+		t.Fatalf("unexpected status: %+v", status)
 	}
 }
 

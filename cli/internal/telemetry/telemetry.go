@@ -33,14 +33,15 @@ func (silentLogger) Errorf(string, ...interface{}) {}
 var spawnHook func(string)
 
 var trackedCommands = map[string]struct{}{
-	"status":   {},
-	"sources":  {},
-	"sessions": {},
-	"shares":   {},
-	"unshare":  {},
-	"doctor":   {},
-	"pause":    {},
-	"resume":   {},
+	"status":       {},
+	"sources":      {},
+	"sessions":     {},
+	"shares":       {},
+	"share-status": {},
+	"unshare":      {},
+	"doctor":       {},
+	"pause":        {},
+	"resume":       {},
 }
 
 // TrackCommand starts a detached sender and returns without waiting for PostHog.
