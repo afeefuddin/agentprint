@@ -137,13 +137,25 @@ test("landing keeps its live heatmap and ends with the session-to-heatmap card",
   const install = page.getByRole("region", { name: "Install Agentprint" });
   await expect(install).toContainText("curl -fsSL https://agentprint.tech/install.sh | sh");
   await expect(install.getByRole("tab", { name: "macOS" })).toHaveAttribute("aria-selected", "true");
+  const tabIndicator = install.getByTestId("install-tab-indicator");
+  const initialIndicatorTransform = await tabIndicator.evaluate((element) => (element as HTMLElement).style.transform);
   await install.getByRole("tab", { name: "Linux" }).click();
   await expect(install.getByRole("tabpanel", { name: "Linux install command" })).toContainText(
     "curl -fsSL https://agentprint.tech/install.sh | sh"
   );
+  await expect.poll(
+    () => tabIndicator.evaluate((element) => (element as HTMLElement).style.transform)
+  ).not.toBe(initialIndicatorTransform);
   await install.getByRole("tab", { name: "Windows" }).click();
+  await expect(install.locator(".install-cascade-character").first()).toHaveCSS(
+    "animation-name",
+    "install-cascade-in"
+  );
   await expect(install.getByRole("tabpanel", { name: "Windows install command" })).toContainText(
     "irm https://agentprint.tech/install.ps1 | iex"
+  );
+  await expect(install.locator(".install-cascade-character")).toHaveCount(
+    "$ irm https://agentprint.tech/install.ps1 | iex".length
   );
   await expect(install.getByRole("button", { name: "Copy Windows install command" })).toBeVisible();
 

@@ -18,6 +18,18 @@ export type TranscriptTurnView = {
   blocks: TranscriptBlock[];
 };
 
+export function isTranscriptTurnVisible(turn: TranscriptTurnView) {
+  const hasText = turn.blocks.some((block) => block.kind === "text" && block.text.trim());
+  const hasExecution = turn.blocks.some((block) => block.kind === "tool_use" || block.kind === "thinking");
+  return turn.role === "system" || (turn.role === "user" && hasText) || (turn.role === "assistant" && (hasText || hasExecution));
+}
+
+export function finalAssistantTurnIndex(turns: TranscriptTurnView[]) {
+  return [...turns].reverse().find((turn) =>
+    turn.role === "assistant" && turn.blocks.some((block) => block.kind === "text" && block.text.trim())
+  )?.index;
+}
+
 type ToolUseBlock = Extract<TranscriptBlock, { kind: "tool_use" }>;
 type ToolResultBlock = Extract<TranscriptBlock, { kind: "tool_result" }>;
 type ThinkingBlock = Extract<TranscriptBlock, { kind: "thinking" }>;
@@ -143,9 +155,7 @@ export function TranscriptView({ turns }: { turns: TranscriptTurnView[] }) {
     }
   }
 
-  const lastAssistantText = [...turns].reverse().find((turn) =>
-    turn.role === "assistant" && turn.blocks.some((block) => block.kind === "text" && block.text.trim())
-  )?.index;
+  const lastAssistantText = finalAssistantTurnIndex(turns);
 
   return (
     <section className="mt-8 w-full" aria-label="Session transcript">
@@ -160,7 +170,7 @@ export function TranscriptView({ turns }: { turns: TranscriptTurnView[] }) {
           const isAssistant = turn.role === "assistant" && (textBlocks.length > 0 || executionBlocks.length > 0);
           const isFinal = isAssistant && turn.index === lastAssistantText;
 
-          if (!isPrompt && !isAssistant && turn.role !== "system") return null;
+          if (!isTranscriptTurnVisible(turn)) return null;
 
           return (
             <li className={cx(

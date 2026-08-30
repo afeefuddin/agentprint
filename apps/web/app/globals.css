@@ -324,6 +324,49 @@
   to { transform: rotate(360deg); }
 }
 
+@keyframes install-cascade-in {
+  from {
+    opacity: 0;
+    filter: blur(3px);
+    transform: translateY(105%);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0);
+  }
+}
+
+@keyframes install-copy-icon-in {
+  from {
+    opacity: 0;
+    filter: blur(3px);
+    transform: translateY(90%);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0);
+  }
+}
+
+.install-tab-indicator {
+  transition:
+    width 420ms cubic-bezier(.34, 1.56, .64, 1),
+    transform 420ms cubic-bezier(.34, 1.56, .64, 1),
+    opacity 120ms ease;
+}
+
+.install-cascade-character {
+  animation: install-cascade-in 240ms cubic-bezier(.16, 1, .3, 1) both;
+  will-change: opacity, filter, transform;
+}
+
+.install-copy-icon {
+  animation: install-copy-icon-in 260ms cubic-bezier(.16, 1, .3, 1) both;
+  will-change: opacity, filter, transform;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

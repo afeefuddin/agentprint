@@ -19,7 +19,12 @@ import { viewer } from "@/lib/auth";
 import { harnessBrand, harnessLabels } from "@/lib/brands";
 import { SiteHeader } from "@/components/site-header";
 import { ShareButton } from "@/components/share-button";
-import { TranscriptView } from "@/components/transcript-view";
+import {
+  TranscriptView,
+  finalAssistantTurnIndex,
+  isTranscriptTurnVisible
+} from "@/components/transcript-view";
+import { ProximitySidebar, type ProximitySection } from "@/components/ui/proximity-sidebar";
 import { appMainClass } from "@/lib/ui";
 import { absoluteUrl } from "@/lib/site";
 
@@ -89,6 +94,17 @@ export default async function SharedSessionPage({
 
   const brand = harnessBrand(share.harness_id);
   const hasMore = share.turns.length < share.turn_count;
+  const visibleTurns = share.turns.filter(isTranscriptTurnVisible);
+  const finalTurnIndex = finalAssistantTurnIndex(visibleTurns);
+  const transcriptSections = visibleTurns.map((turn, index) => ({
+    id: `turn-${turn.index}`,
+    label: turn.index === finalTurnIndex
+      ? "final answer"
+      : `turn ${index + 1}, ${turn.role === "user" ? "prompt" : turn.role === "system" ? "system" : "agent"}`,
+    kind: turn.index === finalTurnIndex
+      ? "title"
+      : turn.role === "user" ? "subtitle" : turn.role === "system" ? "section" : "body"
+  })) satisfies ProximitySection[];
   return (
     <>
       <SiteHeader current={current} variant="marketing" search />
@@ -174,6 +190,9 @@ export default async function SharedSessionPage({
           </details>
 
           <TranscriptView turns={share.turns} />
+          <aside className="fixed left-[max(16px,calc(50vw_-_632px))] top-[calc(var(--header-h)+32px)] z-10 hidden h-[calc(100vh-var(--header-h)-64px)] min-[1280px]:block">
+            <ProximitySidebar sections={transcriptSections} side="left" />
+          </aside>
 
           {hasMore ? (
             <p className="mt-5 text-center text-xs text-faint">Showing the first {share.turns.length} of {share.turn_count} turns.</p>

@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, Copy } from "lucide-react";
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { AGENTPRINT_CLOUD_ORIGIN, installCommandsFor } from "@/lib/install-commands";
 
 const installCommands = installCommandsFor(AGENTPRINT_CLOUD_ORIGIN).install;
@@ -9,10 +9,80 @@ type Platform = keyof typeof installCommands;
 
 const platforms: Platform[] = ["macOS", "Linux", "Windows"];
 
+function commandParts(command: string) {
+  const leadEnd = command.indexOf(" ");
+  const pathStart = command.indexOf(" https://");
+  const script = command.includes("install.ps1") ? "install.ps1" : "install.sh";
+  const scriptStart = command.indexOf(script);
+  return {
+    lead: command.slice(0, leadEnd),
+    flag: command.slice(leadEnd, pathStart),
+    path: command.slice(pathStart, scriptStart),
+    script,
+    tail: command.slice(scriptStart + script.length)
+  };
+}
+
+type CommandParts = ReturnType<typeof commandParts>;
+
+function CascadeCommand({ parts }: { parts: CommandParts }) {
+  const tokens = [
+    { text: "$ ", className: "select-none text-white/40" },
+    { text: parts.lead, className: "text-[#ffa657]" },
+    { text: parts.flag, className: "text-[#d2a8ff]" },
+    { text: parts.path, className: "text-white/60" },
+    { text: parts.script, className: "font-medium text-[#a5d6ff]" },
+    { text: parts.tail, className: "text-white/90" }
+  ];
+  let characterIndex = 0;
+
+  return (
+    <>
+      {tokens.map((token, tokenIndex) => (
+        <span key={tokenIndex} className={token.className}>
+          {token.text.split("").map((character) => {
+            const index = characterIndex++;
+            return (
+              <span
+                key={`${index}-${character}`}
+                className="install-cascade-character inline-block whitespace-pre"
+                style={{ animationDelay: `${index * 5}ms` }}
+              >
+                {character}
+              </span>
+            );
+          })}
+        </span>
+      ))}
+    </>
+  );
+}
+
 export function LandingInstallCommand() {
   const [platform, setPlatform] = useState<Platform>("macOS");
   const [copied, setCopied] = useState(false);
+  const tabsRef = useRef<HTMLDivElement>(null);
+  const tabRefs = useRef(new Map<Platform, HTMLButtonElement>());
+  const [indicator, setIndicator] = useState({ left: 0, width: 0 });
   const command = installCommands[platform];
+  const parts = commandParts(command);
+
+  useLayoutEffect(() => {
+    const tabs = tabsRef.current;
+    const tab = tabRefs.current.get(platform);
+    if (!tabs || !tab) return;
+
+    const measure = () => {
+      const tabsBox = tabs.getBoundingClientRect();
+      const tabBox = tab.getBoundingClientRect();
+      setIndicator({ left: tabBox.left - tabsBox.left, width: tabBox.width });
+    };
+
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(tabs);
+    return () => observer.disconnect();
+  }, [platform]);
 
   async function copyCommand() {
     await navigator.clipboard.writeText(command);
@@ -22,23 +92,26 @@ export function LandingInstallCommand() {
 
   return (
     <div className="relative mx-auto max-w-[820px] text-center">
-      <p className="m-0 text-xs font-semibold text-signal">Agentprint CLI</p>
-      <h2
-        id="install-agentprint-title"
-        className="mx-auto mt-3 max-w-[620px] text-5xl font-bold leading-[1.04] tracking-[-.045em] text-white max-tablet:text-3xl"
-      >
-        Start tracking in one command.
-      </h2>
-      <p className="mx-auto mt-4 max-w-[550px] text-sm leading-6 text-white/55 max-tablet:px-3">
-        Install Agentprint, sign in, and it finds your supported coding tools automatically.
-      </p>
-
-      <div className="mx-auto mt-8 max-w-[760px] overflow-hidden rounded-md border border-white/[.13] bg-[#1b1e1a] text-left shadow-[0_24px_70px_rgb(0_0_0_/_0.28),inset_0_1px_rgb(255_255_255_/_0.04)] max-tablet:mt-7">
-        <div className="flex items-center border-b border-white/10 px-2 py-2">
-          <div className="flex items-center gap-1" role="tablist" aria-label="Operating system">
+      <div className="mx-auto max-w-[672px] overflow-hidden rounded-sm border border-white/[.12] bg-[#1b1d1a] text-left shadow-[0_24px_70px_rgb(0_0_0_/_0.28),inset_0_1px_rgb(255_255_255_/_0.04)]">
+        <div className="flex items-center gap-2 border-b border-white/[.09] px-3 py-1.5">
+          <div ref={tabsRef} className="relative flex items-center gap-0.5" role="tablist" aria-label="Operating system">
+            <span
+              data-testid="install-tab-indicator"
+              className="install-tab-indicator pointer-events-none absolute inset-y-0 rounded-xs border border-white/[.09] bg-white/[.07]"
+              style={{
+                opacity: indicator.width ? 1 : 0,
+                transform: `translateX(${indicator.left}px)`,
+                width: indicator.width
+              }}
+              aria-hidden="true"
+            />
             {platforms.map((option) => (
               <button
                 key={option}
+                ref={(node) => {
+                  if (node) tabRefs.current.set(option, node);
+                  else tabRefs.current.delete(option);
+                }}
                 type="button"
                 role="tab"
                 aria-selected={platform === option}
@@ -46,31 +119,30 @@ export function LandingInstallCommand() {
                   setPlatform(option);
                   setCopied(false);
                 }}
-                className="rounded-sm px-4 py-2 text-xs font-semibold text-white/45 transition-[background-color,color,transform] duration-150 hover:text-white/75 active:scale-[.97] aria-selected:bg-white/[.09] aria-selected:text-white max-tablet:px-3"
+                className="relative z-[1] inline-flex h-7 items-center rounded-xs px-2.5 text-xs font-medium text-white/45 transition-[color,transform] duration-150 hover:text-white/75 active:scale-[.97] aria-selected:text-white max-tablet:px-2"
               >
                 {option}
               </button>
             ))}
           </div>
-        </div>
-        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-stretch" role="tabpanel" aria-label={`${platform} install command`}>
-          <code className="flex min-h-[62px] min-w-0 items-center overflow-x-auto whitespace-nowrap px-5 font-mono text-xs text-[#f0f2ec] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden max-tablet:min-h-[58px] max-tablet:px-4">
-            <span className="mr-3 select-none text-signal" aria-hidden="true">$</span>
-            {command}
-          </code>
           <button
             type="button"
             onClick={copyCommand}
-            className="inline-flex min-w-[92px] items-center justify-center gap-2 border-l border-white/10 px-4 text-xs font-semibold text-white/65 transition-[background-color,color,transform] duration-150 hover:bg-white/[.06] hover:text-white active:scale-[.97] focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-signal max-tablet:min-w-12 max-tablet:px-3"
+            className="ml-auto grid size-7 shrink-0 place-items-center rounded-full border border-white/[.09] bg-white/[.035] text-white/45 transition-[background-color,color,transform] duration-150 hover:bg-white/[.07] hover:text-white active:scale-[.85] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal"
             aria-label={copied ? `${platform} install command copied` : `Copy ${platform} install command`}
           >
-            {copied ? <Check size={15} aria-hidden="true" /> : <Copy size={15} aria-hidden="true" />}
-            <span className="max-tablet:hidden">{copied ? "Copied" : "Copy"}</span>
+            <span key={copied ? "check" : "copy"} className="install-copy-icon inline-grid place-items-center">
+              {copied ? <Check size={14} className="text-signal" aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}
+            </span>
           </button>
+        </div>
+        <div className="overflow-x-auto" role="tabpanel" aria-label={`${platform} install command`}>
+          <code key={platform} className="block min-w-max whitespace-nowrap px-5 py-4 font-mono text-xs text-white/90">
+            <CascadeCommand parts={parts} />
+          </code>
         </div>
       </div>
 
-      <p className="mt-4 text-xs text-white/38">One install keeps your activity up to date.</p>
       <span className="sr-only" role="status" aria-live="polite">{copied ? "Install command copied" : ""}</span>
     </div>
   );
