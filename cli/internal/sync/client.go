@@ -59,6 +59,15 @@ type Receipt struct {
 	Replay         bool   `json:"replay"`
 }
 
+// BatchSize is the maximum number of activity records sent in one request.
+const BatchSize = 100
+
+// Progress reports a successfully acknowledged batch while SyncAll drains the queue.
+type Progress struct {
+	Uploaded int
+	Total    int
+}
+
 type apiError struct {
 	Error   string `json:"error"`
 	Message string `json:"message"`
@@ -163,7 +172,7 @@ func (client *Client) RegisterDevice(ctx context.Context, registrationToken, nam
 }
 
 func (client *Client) Sync(ctx context.Context, localStore *store.Store, credential, signingPrivateKey, timezone string) (Receipt, error) {
-	pending, err := localStore.Pending(ctx, 2_000)
+	pending, err := localStore.Pending(ctx, BatchSize)
 	if err != nil {
 		return Receipt{}, err
 	}
@@ -241,12 +250,22 @@ func (client *Client) Sync(ctx context.Context, localStore *store.Store, credent
 }
 
 func (client *Client) SyncAll(ctx context.Context, localStore *store.Store, credential, signingPrivateKey, timezone string) (Receipt, error) {
+	return client.SyncAllWithProgress(ctx, localStore, credential, signingPrivateKey, timezone, nil)
+}
+
+func (client *Client) SyncAllWithProgress(
+	ctx context.Context,
+	localStore *store.Store,
+	credential, signingPrivateKey, timezone string,
+	progress func(Progress),
+) (Receipt, error) {
 	var total Receipt
+	pending, err := localStore.PendingCount()
+	if err != nil {
+		return total, err
+	}
+	totalRecords := pending
 	for {
-		pending, err := localStore.PendingCount()
-		if err != nil {
-			return total, err
-		}
 		if pending == 0 {
 			return total, nil
 		}
@@ -274,6 +293,16 @@ func (client *Client) SyncAll(ctx context.Context, localStore *store.Store, cred
 		total.Duplicate += receipt.Duplicate
 		total.Rejected += receipt.Rejected
 		total.Replay = total.Replay || receipt.Replay
+		pending, err = localStore.PendingCount()
+		if err != nil {
+			return total, err
+		}
+		if progress != nil {
+			progress(Progress{
+				Uploaded: totalRecords - pending,
+				Total:    totalRecords,
+			})
+		}
 	}
 }
 

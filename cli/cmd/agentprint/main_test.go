@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/agentprint/agentprint/cli/internal/config"
+	syncclient "github.com/agentprint/agentprint/cli/internal/sync"
 )
 
 func TestOpenBrowserReturnsLauncherFailure(t *testing.T) {
@@ -79,5 +80,14 @@ func TestUpdatePromptsOnlyForInteractiveCommands(t *testing.T) {
 		if shouldOfferUpdate(command) {
 			t.Fatalf("did not expect %s to offer updates", command)
 		}
+	}
+}
+
+func TestWriteSyncProgress(t *testing.T) {
+	var output bytes.Buffer
+	writeSyncProgress(&output, syncclient.Progress{Uploaded: 200, Total: 251})
+	want := "  Uploaded 200 of 251 activities.\n"
+	if output.String() != want {
+		t.Fatalf("progress output = %q, want %q", output.String(), want)
 	}
 }

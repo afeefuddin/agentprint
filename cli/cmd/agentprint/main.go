@@ -28,7 +28,7 @@ import (
 	"github.com/agentprint/agentprint/cli/internal/updater"
 )
 
-const version = "0.4.2"
+const version = "0.4.3"
 
 type app struct {
 	configManager *config.Manager
@@ -316,6 +316,7 @@ func login(ctx context.Context, manager *config.Manager, configuration config.Co
 	if err != nil {
 		return fmt.Errorf("generate device signing key: %w", err)
 	}
+	fmt.Println("\nConnecting this device...")
 	device, err := client.RegisterDevice(
 		ctx, registrationToken, hostname, runtime.GOOS+"/"+runtime.GOARCH, version,
 		base64.StdEncoding.EncodeToString(publicKey), sources,
@@ -334,13 +335,23 @@ func login(ctx context.Context, manager *config.Manager, configuration config.Co
 	}); err != nil {
 		return fmt.Errorf("store credential in OS keychain: %w", err)
 	}
-	_, err = localCollector.Collect(ctx)
+	fmt.Println("\nScanning local activity...")
+	queued, err := localCollector.Collect(ctx)
 	if err != nil {
 		return err
 	}
-	receipt, err := client.SyncAll(
+	pending, err := tempStore.PendingCount()
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Found %d new activities. %d ready to upload.\n", queued, pending)
+	if pending > 0 {
+		fmt.Println("Uploading your activity...")
+	}
+	receipt, err := client.SyncAllWithProgress(
 		ctx, tempStore, device.AccessToken,
 		base64.StdEncoding.EncodeToString(privateKey), configuration.Timezone,
+		func(progress syncclient.Progress) { writeSyncProgress(os.Stdout, progress) },
 	)
 	if err != nil {
 		return fmt.Errorf("initial sync: %w", err)
@@ -375,6 +386,9 @@ func (application *app) sync(ctx context.Context, verbose bool) error {
 	if err != nil {
 		return fmt.Errorf("read device credential from OS keychain: %w", err)
 	}
+	if verbose {
+		fmt.Println("Scanning local activity...")
+	}
 	queued, err := application.collector.Collect(ctx)
 	if err != nil {
 		return err
@@ -389,9 +403,16 @@ func (application *app) sync(ctx context.Context, verbose bool) error {
 		}
 		return nil
 	}
-	receipt, err := application.client.SyncAll(
+	var progress func(syncclient.Progress)
+	if verbose {
+		fmt.Printf("Found %d new activities. %d ready to upload.\n", queued, pending)
+		fmt.Println("Uploading your activity...")
+		progress = func(update syncclient.Progress) { writeSyncProgress(os.Stdout, update) }
+	}
+	receipt, err := application.client.SyncAllWithProgress(
 		ctx, application.store, credential.AccessToken,
 		credential.SigningPrivateKey, application.config.Timezone,
+		progress,
 	)
 	if err != nil {
 		return err
@@ -400,6 +421,15 @@ func (application *app) sync(ctx context.Context, verbose bool) error {
 		fmt.Printf("Activity updated: %d new, %d already added, %d could not be added.\n", receipt.Accepted, receipt.Duplicate, receipt.Rejected)
 	}
 	return nil
+}
+
+func writeSyncProgress(output io.Writer, progress syncclient.Progress) {
+	fmt.Fprintf(
+		output,
+		"  Uploaded %d of %d activities.\n",
+		progress.Uploaded,
+		progress.Total,
+	)
 }
 
 func (application *app) status(ctx context.Context, args []string) error {

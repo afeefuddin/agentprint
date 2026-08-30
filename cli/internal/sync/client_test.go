@@ -55,7 +55,7 @@ func TestSyncAllDrainsMoreThanOneBatch(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer local.Close()
-	records := make([]adapters.UsageRecord, 4_501)
+	records := make([]adapters.UsageRecord, 251)
 	for index := range records {
 		records[index] = adapters.UsageRecord{
 			EventID: fmt.Sprintf("event-%d", index), SchemaVersion: 1,
@@ -69,9 +69,11 @@ func TestSyncAllDrainsMoreThanOneBatch(t *testing.T) {
 	}
 
 	client := NewClient(server.URL)
-	receipt, err := client.SyncAll(
+	var progress []Progress
+	receipt, err := client.SyncAllWithProgress(
 		context.Background(), local, "access-token",
 		base64.StdEncoding.EncodeToString(privateKey), "UTC",
+		func(update Progress) { progress = append(progress, update) },
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -79,9 +81,17 @@ func TestSyncAllDrainsMoreThanOneBatch(t *testing.T) {
 	if receipt.Accepted != len(records) {
 		t.Fatalf("accepted = %d, want %d", receipt.Accepted, len(records))
 	}
-	wantBatchSizes := []int{2_000, 2_000, 501}
+	wantBatchSizes := []int{100, 100, 51}
 	if fmt.Sprint(batchSizes) != fmt.Sprint(wantBatchSizes) {
 		t.Fatalf("batch sizes = %v, want %v", batchSizes, wantBatchSizes)
+	}
+	wantProgress := []Progress{
+		{Uploaded: 100, Total: 251},
+		{Uploaded: 200, Total: 251},
+		{Uploaded: 251, Total: 251},
+	}
+	if fmt.Sprint(progress) != fmt.Sprint(wantProgress) {
+		t.Fatalf("progress = %v, want %v", progress, wantProgress)
 	}
 	pending, err := local.PendingCount()
 	if err != nil {
