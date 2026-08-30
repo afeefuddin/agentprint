@@ -92,6 +92,7 @@ jobs:
         run: |
           gh release create "$GITHUB_REF_NAME" \
             "$RUNNER_TEMP"/agentprint-release/* \
+            --repo "$GITHUB_REPOSITORY" \
             --verify-tag \
             --notes "Agentprint CLI binaries for macOS, Linux, and Windows." \
             --title "Agentprint ${GITHUB_REF_NAME#v}"
