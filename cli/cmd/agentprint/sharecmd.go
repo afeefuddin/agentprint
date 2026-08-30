@@ -224,11 +224,15 @@ func (application *app) sessions(ctx context.Context, args []string) error {
 }
 
 func sessionPage(sessions []adapters.SessionSummary, page, limit int) ([]adapters.SessionSummary, bool) {
-	start := (page - 1) * limit
-	if start >= len(sessions) {
+	if page < 1 || limit < 1 || len(sessions) == 0 {
 		return nil, false
 	}
-	end := min(start+limit, len(sessions))
+	lastPage := (len(sessions)-1)/limit + 1
+	if page > lastPage {
+		return nil, false
+	}
+	start := (page - 1) * limit
+	end := start + min(limit, len(sessions)-start)
 	return sessions[start:end], end < len(sessions)
 }
 
