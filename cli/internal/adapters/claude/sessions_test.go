@@ -46,6 +46,9 @@ func TestListSessionsSummarisesWithoutContent(t *testing.T) {
 	if session.Project != "api" {
 		t.Errorf("expected the project name, got %q", session.Project)
 	}
+	if session.WorkingDirectory != "/Users/dana/work/api" {
+		t.Errorf("expected local project context, got %q", session.WorkingDirectory)
+	}
 	if session.Tokens != 170 {
 		t.Errorf("expected 170 tokens, got %d", session.Tokens)
 	}

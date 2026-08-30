@@ -43,42 +43,197 @@ func (application *app) listSessions(ctx context.Context, since time.Time) []ada
 		}
 		all = append(all, summaries...)
 	}
-	sort.Slice(all, func(first, second int) bool {
-		return all[first].EndedAt.After(all[second].EndedAt)
+	workingDirectory, err := os.Getwd()
+	if err != nil {
+		sort.Slice(all, func(first, second int) bool {
+			return all[first].EndedAt.After(all[second].EndedAt)
+		})
+		return all
+	}
+	home, _ := os.UserHomeDir()
+	return rankSessionsForDirectory(all, workingDirectory, home)
+}
+
+// rankSessionsForDirectory keeps every session available while making the
+// common case effortless: sessions from the project containing the current
+// directory come first, followed by project-agnostic sessions, then other
+// projects. A missing working directory stays agnostic rather than being
+// guessed from a title or timestamp.
+func rankSessionsForDirectory(
+	sessions []adapters.SessionSummary,
+	workingDirectory, home string,
+) []adapters.SessionSummary {
+	currentRoot := projectRoot(workingDirectory, home)
+	type rankedSession struct {
+		summary adapters.SessionSummary
+		rank    int
+	}
+	ranked := make([]rankedSession, 0, len(sessions))
+	for _, session := range sessions {
+		root := projectRoot(session.WorkingDirectory, home)
+		session.ProjectRoot = root
+		ranked = append(ranked, rankedSession{
+			summary: session,
+			rank:    sessionProjectRank(session, root, currentRoot),
+		})
+	}
+	sort.SliceStable(ranked, func(first, second int) bool {
+		if ranked[first].rank != ranked[second].rank {
+			return ranked[first].rank < ranked[second].rank
+		}
+		return ranked[first].summary.EndedAt.After(ranked[second].summary.EndedAt)
 	})
-	return all
+	result := make([]adapters.SessionSummary, len(ranked))
+	for index, session := range ranked {
+		result[index] = session.summary
+	}
+	return result
+}
+
+func sessionProjectRank(
+	session adapters.SessionSummary,
+	root, currentRoot string,
+) int {
+	projectAgnostic := root == "" && (session.WorkingDirectory != "" || session.Project == "")
+	if currentRoot == "" {
+		if projectAgnostic {
+			return 0
+		}
+		return 1
+	}
+	if root == currentRoot {
+		return 0
+	}
+	if projectAgnostic {
+		return 1
+	}
+	// Some harnesses expose only a project label. It is safe to use that as a
+	// ranking hint because selection still requires consent.
+	if root == "" && session.Project == projectName(currentRoot) {
+		return 2
+	}
+	return 3
+}
+
+// projectRoot resolves Git worktrees and ordinary project directories without
+// invoking Git or changing repository state. Running from the home directory
+// is project-agnostic, which matches how coding agents behave when launched
+// without a project.
+func projectRoot(path, home string) string {
+	absolute := canonicalPath(path)
+	if absolute == "" {
+		return ""
+	}
+	if cleanHome := canonicalPath(home); cleanHome != "" && absolute == cleanHome {
+		return ""
+	}
+	for directory := absolute; ; directory = filepath.Dir(directory) {
+		if _, err := os.Stat(filepath.Join(directory, ".git")); err == nil {
+			return directory
+		}
+		parent := filepath.Dir(directory)
+		if parent == directory {
+			break
+		}
+	}
+	if absolute == filepath.VolumeName(absolute)+string(filepath.Separator) {
+		return ""
+	}
+	return absolute
+}
+
+func canonicalPath(path string) string {
+	if path == "" {
+		return ""
+	}
+	absolute, err := filepath.Abs(path)
+	if err != nil {
+		return ""
+	}
+	absolute = filepath.Clean(absolute)
+	if resolved, err := filepath.EvalSymlinks(absolute); err == nil {
+		return resolved
+	}
+	return absolute
+}
+
+func projectName(root string) string {
+	if root == "" {
+		return ""
+	}
+	return filepath.Base(root)
+}
+
+func projectLabel(session adapters.SessionSummary) string {
+	project := session.Project
+	if session.WorkingDirectory != "" {
+		project = projectName(session.ProjectRoot)
+	}
+	if project == "" {
+		return "No project"
+	}
+	return project
 }
 
 func (application *app) sessions(ctx context.Context, args []string) error {
 	flags := flag.NewFlagSet("sessions", flag.ContinueOnError)
 	jsonOutput := flags.Bool("json", false, "print machine-readable JSON")
 	days := flags.Int("days", 30, "only list sessions touched in the last N days")
-	limit := flags.Int("limit", 25, "maximum sessions to list")
+	limit := flags.Int("limit", 25, "sessions per page")
+	page := flags.Int("page", 1, "page number to list")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
-	sessions := application.listSessions(ctx, sinceDays(*days))
-	if len(sessions) > *limit {
-		sessions = sessions[:*limit]
+	if *page < 1 {
+		return errors.New("page must be 1 or greater")
 	}
+	if *limit < 1 {
+		return errors.New("limit must be 1 or greater")
+	}
+	sessions := application.listSessions(ctx, sinceDays(*days))
+	sessions, hasMore := sessionPage(sessions, *page, *limit)
 	if *jsonOutput {
 		encoded, _ := json.MarshalIndent(sessions, "", "  ")
 		fmt.Println(string(encoded))
 		return nil
 	}
 	if len(sessions) == 0 {
+		if *page > 1 {
+			fmt.Printf("No sessions on page %d. Try an earlier page.\n", *page)
+			return nil
+		}
 		fmt.Printf("No shareable sessions from the last %d days were found.\n", *days)
 		return nil
 	}
-	fmt.Printf("Recent sessions (last %d days). Nothing here has been uploaded.\n\n", *days)
+	fmt.Printf("Recent sessions (last %d days, page %d). Nothing here has been uploaded.\n\n", *days, *page)
 	for index, session := range sessions {
-		fmt.Printf("  %2d  %-12s %s\n", index+1, session.HarnessID, truncateTitle(session.Title, 58))
-		fmt.Printf("      %s · %d turns · %s tokens · id %s\n\n",
-			session.EndedAt.Local().Format("2 Jan 15:04"), session.Turns,
+		number := (*page-1)*(*limit) + index + 1
+		fmt.Printf("  %2d  %-12s %s\n", number, session.HarnessID, truncateTitle(session.Title, 58))
+		fmt.Printf("      %s · %s · %d turns · %s tokens · id %s\n\n",
+			projectLabel(session), session.EndedAt.Local().Format("2 Jan 15:04"), session.Turns,
 			formatCount(session.Tokens), session.Key)
 	}
 	fmt.Println("Preview one with:  agentprint share <number|id> --dry-run")
+	if *page > 1 {
+		fmt.Printf("Previous page:     agentprint sessions --page %d --limit %d --days %d\n", *page-1, *limit, *days)
+	}
+	if hasMore {
+		fmt.Printf("Next page:         agentprint sessions --page %d --limit %d --days %d\n", *page+1, *limit, *days)
+	}
 	return nil
+}
+
+func sessionPage(sessions []adapters.SessionSummary, page, limit int) ([]adapters.SessionSummary, bool) {
+	if page < 1 || limit < 1 || len(sessions) == 0 {
+		return nil, false
+	}
+	lastPage := (len(sessions)-1)/limit + 1
+	if page > lastPage {
+		return nil, false
+	}
+	start := (page - 1) * limit
+	end := start + min(limit, len(sessions)-start)
+	return sessions[start:end], end < len(sessions)
 }
 
 func (application *app) share(ctx context.Context, args []string) error {
@@ -91,6 +246,7 @@ func (application *app) share(ctx context.Context, args []string) error {
 	expires := flags.String("expires", "never", "never, 7d, or 30d")
 	dryRun := flags.Bool("dry-run", false, "render the payload locally and upload nothing")
 	yes := flags.Bool("yes", false, "publish without the confirmation prompt")
+	latest := flags.Bool("latest", false, "select the latest session for the current project")
 	days := flags.Int("days", 30, "how far back to look when selecting a session")
 	// The session selector is positional, and flag.Parse stops at the first
 	// non-flag argument. Lift it out first so `share <id> --dry-run` behaves
@@ -101,6 +257,9 @@ func (application *app) share(ctx context.Context, args []string) error {
 	}
 	if selector == "" {
 		selector = firstArgument(flags.Args())
+	}
+	if *latest && selector != "" {
+		return errors.New("use either --latest or a session number or id, not both")
 	}
 	if !redact.ValidLevel(*level) {
 		return fmt.Errorf("unknown redaction level %q; use strict, balanced, or full", *level)
@@ -133,7 +292,17 @@ func (application *app) share(ctx context.Context, args []string) error {
 		return errors.New("no shareable sessions were found; try a longer --days window")
 	}
 
-	selected, err := application.selectSession(sessions, selector)
+	var selected adapters.SessionSummary
+	if *latest {
+		workingDirectory, err := os.Getwd()
+		if err != nil {
+			return fmt.Errorf("find the current directory: %w", err)
+		}
+		home, _ := os.UserHomeDir()
+		selected, err = latestSessionForDirectory(sessions, workingDirectory, home)
+	} else {
+		selected, err = application.selectSession(sessions, selector)
+	}
 	if err != nil {
 		return err
 	}
@@ -182,6 +351,9 @@ func (application *app) share(ctx context.Context, args []string) error {
 		return err
 	}
 
+	if *latest {
+		fmt.Printf("\nSelected latest session from %s.\n", projectLabel(selected))
+	}
 	fmt.Printf("\n%s\n", redacted.Title)
 	fmt.Printf("  %s · %d turns · %s tokens\n", selected.HarnessID, len(redacted.Turns), formatCount(redacted.Totals.TotalTokens))
 	fmt.Printf("  redaction   %s — %d credentials removed, %d paths rewritten, %d blocks truncated, %d turns excluded\n",
@@ -235,6 +407,37 @@ func (application *app) share(ctx context.Context, args []string) error {
 	return nil
 }
 
+// latestSessionForDirectory chooses the newest exact project match when run
+// inside a project. Without a project, it chooses the newest session globally.
+func latestSessionForDirectory(
+	sessions []adapters.SessionSummary,
+	workingDirectory, home string,
+) (adapters.SessionSummary, error) {
+	currentRoot := projectRoot(workingDirectory, home)
+	var latest adapters.SessionSummary
+	found := false
+	for _, session := range sessions {
+		root := session.ProjectRoot
+		if root == "" {
+			root = projectRoot(session.WorkingDirectory, home)
+			session.ProjectRoot = root
+		}
+		if currentRoot != "" && root != currentRoot {
+			continue
+		}
+		if !found || session.EndedAt.After(latest.EndedAt) {
+			latest = session
+			found = true
+		}
+	}
+	if found {
+		return latest, nil
+	}
+	return adapters.SessionSummary{}, errors.New(
+		"no sessions from the current project were found; run agentprint sessions to choose another session",
+	)
+}
+
 // splitSelector removes a leading positional argument from the flag list.
 func splitSelector(args []string) (string, []string) {
 	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
@@ -268,8 +471,9 @@ func (application *app) selectSession(sessions []adapters.SessionSummary, wanted
 	shown := min(10, len(sessions))
 	fmt.Println("Recent sessions:")
 	for index := 0; index < shown; index++ {
-		fmt.Printf("  %2d  %-12s %s  (%s)\n", index+1, sessions[index].HarnessID,
-			truncateTitle(sessions[index].Title, 52),
+		fmt.Printf("  %2d  %-12s %-18s %s  (%s)\n", index+1, sessions[index].HarnessID,
+			truncateTitle(projectLabel(sessions[index]), 18),
+			truncateTitle(sessions[index].Title, 40),
 			sessions[index].EndedAt.Local().Format("2 Jan 15:04"))
 	}
 	fmt.Print("\nShare which session? [1] ")
