@@ -41,7 +41,7 @@ export default function ShareClaudeSessionGuide() {
     related={[
       { href: "/integrations/claude-code", label: "Claude Code usage tracking", detail: "See what Agentprint tracks automatically." },
       { href: "/guides/share-codex-session", label: "Share a Codex session", detail: "Use the same deliberate workflow with Codex." },
-      { href: "/docs/getting-started", label: "Install Agentprint", detail: "Connect your first machine in a few commands." }
+      { href: "/product/session-sharing", label: "Session sharing", detail: "See how selected sessions become controlled links." }
     ]}
   />;
 }

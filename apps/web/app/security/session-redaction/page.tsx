@@ -16,7 +16,7 @@ export default function SessionRedactionPage() {
     qualifier="Automated detection is defense in depth. You remain responsible for reading the local preview before publishing a session."
     agent="agentprint"
     mode="sharing"
-    parent={{ href: "/guides", label: "Guides" }}
+    parent={{ href: "/product/session-sharing", label: "Session sharing" }}
     proof={[
       { value: "Local first", label: "Redaction happens before upload" },
       { value: "2 checks", label: "CLI preparation and server rejection" },
@@ -42,7 +42,7 @@ export default function SessionRedactionPage() {
       { question: "Can I inspect without uploading?", answer: "Yes. The dry-run command prepares and opens the local preview, then exits without publishing." }
     ]}
     related={[
-      { href: "/guides", label: "Session sharing guides", detail: "Follow a tool-specific walkthrough." },
+      { href: "/guides/share-claude-code-session", label: "Share a Claude Code session", detail: "Follow a complete tool-specific walkthrough." },
       { href: "/privacy/what-agentprint-collects", label: "What Agentprint collects", detail: "Separate background activity from explicit sharing." },
       { href: "/privacy", label: "Privacy policy", detail: "Read the complete product privacy explanation." }
     ]}

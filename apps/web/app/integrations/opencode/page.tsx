@@ -42,7 +42,7 @@ export default function OpenCodeIntegrationPage() {
     related={[
       { href: "/integrations/kimi-code", label: "Kimi Code guide", detail: "See another local-first integration." },
       { href: "/integrations/claude-code", label: "Claude Code guide", detail: "Track and deliberately share supported sessions." },
-      { href: "/docs/getting-started", label: "Getting started", detail: "Connect your machine and confirm that Agentprint found your coding tools." }
+      { href: "/product/profile", label: "Agentprint profile", detail: "See where your cross-agent activity lives." }
     ]}
   />;
 }

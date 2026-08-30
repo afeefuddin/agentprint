@@ -44,7 +44,7 @@ export default function WhatAgentprintCollectsPage() {
     related={[
       { href: "/methodology/activity", label: "Activity methodology", detail: "See how accepted numeric records become a daily history." },
       { href: "/security/session-redaction", label: "Session redaction", detail: "Understand the separate content-sharing workflow." },
-      { href: "/integrations", label: "Supported coding agents", detail: "Inspect source-specific capabilities and limitations." }
+      { href: "/integrations/claude-code", label: "Supported coding agents", detail: "Inspect source-specific capabilities and limitations." }
     ]}
   />;
 }

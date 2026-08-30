@@ -42,7 +42,7 @@ export default function CodexIntegrationPage() {
     related={[
       { href: "/guides/share-codex-session", label: "Share a Codex session", detail: "Create a redacted, revocable link." },
       { href: "/integrations/claude-code", label: "Claude Code integration", detail: "Add another supported local activity source." },
-      { href: "/docs/getting-started", label: "Getting started", detail: "Install Agentprint and create your profile." }
+      { href: "/product/profile", label: "Agentprint profile", detail: "See where your cross-agent activity lives." }
     ]}
   />;
 }

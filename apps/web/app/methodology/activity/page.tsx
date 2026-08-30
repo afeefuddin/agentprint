@@ -16,7 +16,7 @@ export default function ActivityMethodologyPage() {
     qualifier="Agentprint measures activity volume and continuity. Token totals are not a score for code quality, output, or developer productivity."
     agent="agentprint"
     mode="tracking"
-    parent={{ href: "/docs", label: "Docs" }}
+    parent={{ href: "/product/profile", label: "Profile" }}
     proof={[
       { value: "4 agents", label: "Supported activity sources" },
       { value: "Idempotent", label: "Repeated syncs do not inflate totals" },
@@ -43,7 +43,7 @@ export default function ActivityMethodologyPage() {
     ]}
     related={[
       { href: "/privacy/what-agentprint-collects", label: "Collection boundary", detail: "See the accepted and excluded fields." },
-      { href: "/integrations", label: "Supported integrations", detail: "Inspect each source-specific workflow." },
+      { href: "/integrations/claude-code", label: "Supported integrations", detail: "Inspect each source-specific workflow." },
       { href: "/use-cases/ai-coding-activity-tracker", label: "AI coding activity tracker", detail: "See what the normalized history is useful for." }
     ]}
   />;

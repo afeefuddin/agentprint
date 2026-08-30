@@ -36,7 +36,12 @@ export type ContentPageProps = {
   qualifier?: string;
   agent: Agent;
   mode: PageMode;
-  parent?: { href: string; label: string };
+  parent?: { href: string; label: string } | null;
+  secondaryCtaLabel?: string;
+  sectionEyebrow?: string;
+  principlesEyebrow?: string;
+  principlesTitle?: string;
+  heroVariant?: "default" | "product";
   proof?: SeoPageProof[];
   outcomeTitle: string;
   outcomeBody: string;
@@ -260,9 +265,9 @@ function ProductArtifact({ agent, mode }: Pick<ContentPageProps, "agent" | "mode
 }
 
 function parentFor(mode: PageMode) {
-  if (mode === "sharing") return { href: "/guides", label: "Guides" };
+  if (mode === "sharing") return { href: "/product/session-sharing", label: "Session sharing" };
   if (mode === "tracking") return { href: "/integrations", label: "Integrations" };
-  if (mode === "setup") return { href: "/docs", label: "Docs" };
+  if (mode === "setup") return { href: "/product", label: "Product" };
   if (mode === "profile") return { href: "/use-cases/ai-coding-activity-tracker", label: "Use cases" };
   return { href: "/privacy", label: "Privacy" };
 }
@@ -270,22 +275,30 @@ function parentFor(mode: PageMode) {
 export async function ContentPage(props: ContentPageProps) {
   const current = await viewer();
   const ctaHref = current?.onboarding_complete ? `/${current.handle}` : current ? "/onboarding" : "/login";
-  const parent = props.parent ?? parentFor(props.mode);
+  const parent = props.parent === undefined ? parentFor(props.mode) : props.parent;
+  const isIntegrationPage = props.mode === "tracking" && props.agent !== "agentprint";
   const proof = props.proof ?? [
     { value: "Local first", label: "Activity is read on your machine" },
     { value: "Private", label: "Profiles begin hidden" },
     { value: "Explicit", label: "Session sharing is separate" }
   ];
+  const productHero = props.heroVariant === "product";
+  const breadcrumbItems = isIntegrationPage || !parent
+    ? [
+        { "@type": "ListItem", position: 1, name: "Agentprint", item: "https://www.agentprint.tech/" },
+        { "@type": "ListItem", position: 2, name: props.eyebrow }
+      ]
+    : [
+        { "@type": "ListItem", position: 1, name: "Agentprint", item: "https://www.agentprint.tech/" },
+        { "@type": "ListItem", position: 2, name: parent.label, item: `https://www.agentprint.tech${parent.href}` },
+        { "@type": "ListItem", position: 3, name: props.eyebrow }
+      ];
   const structuredData = {
     "@context": "https://schema.org",
     "@graph": [
       {
         "@type": "BreadcrumbList",
-        itemListElement: [
-          { "@type": "ListItem", position: 1, name: "Agentprint", item: "https://www.agentprint.tech/" },
-          { "@type": "ListItem", position: 2, name: parent.label, item: `https://www.agentprint.tech${parent.href}` },
-          { "@type": "ListItem", position: 3, name: props.eyebrow }
-        ]
+        itemListElement: breadcrumbItems
       },
       {
         "@type": "FAQPage",
@@ -302,29 +315,49 @@ export async function ContentPage(props: ContentPageProps) {
     <>
       <SiteHeader current={current} variant="marketing" />
       <main id="main" className="overflow-hidden bg-canvas">
-        <section className="relative border-b border-[#bfd0e3] bg-[#dcecff] py-[clamp(68px,8vw,112px)]">
-          <div className="pointer-events-none absolute inset-0 opacity-35 [background-image:linear-gradient(rgb(255_255_255_/_0.45)_1px,transparent_1px),linear-gradient(90deg,rgb(255_255_255_/_0.45)_1px,transparent_1px)] [background-size:42px_42px]" aria-hidden="true" />
-          <div className="shell relative grid grid-cols-[minmax(0,.92fr)_minmax(460px,1.08fr)] items-center gap-[clamp(48px,7vw,96px)] max-desktop:grid-cols-1">
-            <div className="max-w-[650px]">
-              <nav aria-label="Breadcrumb" className="mb-8 flex items-center gap-2.5 text-sm font-semibold text-[#526f91]">
-                <Link className="hover:text-accent-strong" href="/">Agentprint</Link>
-                <span aria-hidden="true">/</span>
-                <Link className="hover:text-accent-strong" href={parent.href}>{parent.label}</Link>
-              </nav>
+        <section className={cx(
+          "relative border-b py-[clamp(68px,8vw,112px)]",
+          productHero
+            ? "overflow-hidden border-line bg-[radial-gradient(circle_at_50%_12%,rgb(220_236_255_/_0.82),transparent_42%),var(--color-canvas)]"
+            : "border-[#bfd0e3] bg-[#dcecff]"
+        )}>
+          {productHero ? (
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-accent/40 to-transparent" aria-hidden="true" />
+          ) : (
+            <div className="pointer-events-none absolute inset-0 opacity-35 [background-image:linear-gradient(rgb(255_255_255_/_0.45)_1px,transparent_1px),linear-gradient(90deg,rgb(255_255_255_/_0.45)_1px,transparent_1px)] [background-size:42px_42px]" aria-hidden="true" />
+          )}
+          <div className={cx(
+            "shell relative",
+            productHero
+              ? "grid justify-items-center"
+              : "grid grid-cols-[minmax(0,.92fr)_minmax(460px,1.08fr)] items-center gap-[clamp(48px,7vw,96px)] max-desktop:grid-cols-1"
+          )}>
+            <div className={cx(productHero ? "max-w-[880px] text-center" : "max-w-[650px]")}>
               <p className="mb-4 text-sm font-semibold text-accent-strong">{props.eyebrow}</p>
-              <h1 className="m-0 text-6xl font-semibold leading-[.98] tracking-[-.052em] text-ink-strong text-balance max-tablet:text-5xl">{props.title}</h1>
-              <p className="mt-6 max-w-[610px] text-lg font-medium leading-[1.6] text-[#4f6278] max-tablet:text-base">{props.intro}</p>
+              <h1 className={cx(
+                "m-0 font-semibold leading-[.98] text-ink-strong text-balance",
+                productHero ? "text-7xl tracking-[-.06em] max-tablet:text-5xl" : "text-6xl tracking-[-.052em] max-tablet:text-5xl"
+              )}>{props.title}</h1>
+              <p className={cx(
+                "mt-6 text-lg font-medium leading-[1.6] text-[#4f6278] max-tablet:text-base",
+                productHero ? "mx-auto max-w-[720px]" : "max-w-[610px]"
+              )}>{props.intro}</p>
               {props.qualifier ? (
-                <p className="mt-6 flex max-w-[610px] items-start gap-3 rounded-sm border border-[#b9cde3] bg-white/65 px-4 py-3.5 text-sm leading-[1.55] text-[#51667d]">
+                <p className={cx(
+                  "mt-6 flex max-w-[610px] items-start gap-3 rounded-sm border border-[#b9cde3] bg-white/65 px-4 py-3.5 text-left text-sm leading-[1.55] text-[#51667d]",
+                  productHero && "mx-auto"
+                )}>
                   <ShieldCheck size={17} className="mt-0.5 shrink-0 text-accent" aria-hidden="true" /> {props.qualifier}
                 </p>
               ) : null}
-              <div className="mt-8 flex flex-wrap gap-3">
+              <div className={cx("mt-8 flex flex-wrap gap-3", productHero && "justify-center")}>
                 <Link className={cx(buttonClass({ variant: "signal" }), "min-h-12 px-5")} href={ctaHref}>Start with Agentprint <ArrowRight size={16} aria-hidden="true" /></Link>
-                <Link className={cx(buttonClass({ variant: "secondary" }), "min-h-12 border-[#9fb8d4] bg-white/30 px-5 hover:bg-white/60")} href="#how-it-works">See how it works</Link>
+                <Link className={cx(buttonClass({ variant: "secondary" }), "min-h-12 border-[#9fb8d4] bg-white/55 px-5 hover:bg-white/80")} href="#how-it-works">{props.secondaryCtaLabel ?? "See how it works"}</Link>
               </div>
             </div>
-            <ProductArtifact agent={props.agent} mode={props.mode} />
+            <div className={cx(productHero && "mt-14 w-full max-w-[860px] max-tablet:mt-10")}>
+              <ProductArtifact agent={props.agent} mode={props.mode} />
+            </div>
           </div>
         </section>
 
@@ -341,7 +374,7 @@ export async function ContentPage(props: ContentPageProps) {
 
         <section className="shell grid grid-cols-[.72fr_1.28fr] gap-[clamp(58px,8vw,120px)] py-[clamp(82px,10vw,132px)] max-desktop:grid-cols-1" id="how-it-works">
           <div className="max-w-[430px] self-start desktop:sticky desktop:top-[calc(var(--header-h)+44px)]">
-            <span className="text-sm font-semibold text-accent-strong">The useful outcome</span>
+            <span className="text-sm font-semibold text-accent-strong">{props.sectionEyebrow ?? "The useful outcome"}</span>
             <h2 className="mb-0 mt-4 text-5xl font-semibold leading-[1.03] tracking-[-.045em] text-ink-strong text-balance max-tablet:text-4xl">{props.outcomeTitle}</h2>
             <p className="mt-5 text-base font-medium leading-[1.7] text-muted">{props.outcomeBody}</p>
           </div>
@@ -362,8 +395,8 @@ export async function ContentPage(props: ContentPageProps) {
         <section className="border-y border-line bg-[#edefe9] py-[clamp(76px,9vw,112px)]">
           <div className="shell">
             <div className="max-w-[720px]">
-              <span className="text-sm font-semibold text-accent-strong">Built into the workflow</span>
-              <h2 className="mb-0 mt-4 text-5xl font-semibold leading-[1.04] tracking-[-.045em] text-ink-strong text-balance max-tablet:text-4xl">Useful by design, clear about the boundary.</h2>
+              <span className="text-sm font-semibold text-accent-strong">{props.principlesEyebrow ?? "Built into the workflow"}</span>
+              <h2 className="mb-0 mt-4 text-5xl font-semibold leading-[1.04] tracking-[-.045em] text-ink-strong text-balance max-tablet:text-4xl">{props.principlesTitle ?? "Useful by design, clear about the boundary."}</h2>
             </div>
             <div className="mt-12 grid grid-cols-3 gap-3 max-desktop:grid-cols-1">
               {props.principles.map((principle, index) => (
@@ -380,18 +413,20 @@ export async function ContentPage(props: ContentPageProps) {
         </section>
 
         <section className="shell py-[clamp(82px,10vw,128px)]">
-          <div className="grid grid-cols-[.72fr_1.28fr] gap-[clamp(58px,8vw,120px)] max-desktop:grid-cols-1">
-            <div>
-              <span className="text-sm font-semibold text-accent-strong">Questions, answered</span>
-              <h2 className="mb-0 mt-4 text-5xl font-semibold leading-[1.04] tracking-[-.045em] text-ink-strong text-balance max-tablet:text-4xl">Know what happens before you connect.</h2>
-            </div>
-            <div className="border-t border-line-strong">
-              {props.faqs.map((faq) => (
-                <details key={faq.question} className="group border-b border-line-strong">
-                  <summary className="flex min-h-[78px] cursor-pointer list-none items-center gap-5 py-5 text-base font-semibold text-ink-strong [&::-webkit-details-marker]:hidden">
-                    {faq.question}<ChevronDown className="ml-auto shrink-0 text-muted transition-transform group-open:rotate-180" size={18} aria-hidden="true" />
+          <div className="mx-auto max-w-[980px]">
+            <header>
+              <h2 className="m-0 text-4xl font-semibold leading-tight text-ink-strong text-balance max-tablet:text-3xl">Frequently asked questions</h2>
+            </header>
+            <div className="mt-8 grid gap-3">
+              {props.faqs.map((faq, index) => (
+                <details key={faq.question} open={index === 0} className="group overflow-hidden rounded-lg border border-line-strong bg-panel-raised px-8 shadow-[0_8px_24px_rgb(39_49_38_/_0.04)] transition-[border-color,box-shadow] open:border-[#b8c8da] open:shadow-[0_14px_34px_rgb(39_49_38_/_0.07)] max-tablet:px-5">
+                  <summary className="grid min-h-[88px] cursor-pointer list-none grid-cols-[1fr_auto] items-center gap-4 py-5 text-lg font-semibold leading-snug text-ink-strong [&::-webkit-details-marker]:hidden max-tablet:gap-3 max-tablet:text-base">
+                    <span>{faq.question}</span>
+                    <span className="grid size-8 place-items-center rounded-full border border-line bg-canvas text-muted transition-colors group-open:border-accent group-open:text-accent-strong">
+                      <ChevronDown className="transition-transform group-open:rotate-180" size={16} aria-hidden="true" />
+                    </span>
                   </summary>
-                  <p className="mt-0 max-w-[720px] pb-6 pr-10 text-base font-medium leading-[1.7] text-muted">{faq.answer}</p>
+                  <p className="mb-0 mt-0 max-w-[760px] pb-7 pr-12 text-base font-medium leading-[1.7] text-muted max-tablet:pr-2">{faq.answer}</p>
                 </details>
               ))}
             </div>

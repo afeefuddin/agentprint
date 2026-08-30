@@ -3,6 +3,7 @@ import type { Viewer } from "@agentprint/database";
 import { AppNav } from "./app-nav";
 import { Brand } from "./brand";
 import { GlobalProfileSearch } from "./global-profile-search";
+import { MarketingNav } from "./marketing-nav";
 import { buttonClass } from "@/lib/ui";
 
 type HeaderVariant = "marketing" | "app" | "minimal";
@@ -43,17 +44,7 @@ export function SiteHeader({
             ) : (
               <>
                 {variant === "marketing" ? (
-                  <div className="mr-2 flex items-center gap-1 max-tablet:hidden">
-                    <Link className="rounded-lg px-3 py-2 text-sm font-medium text-muted transition-colors hover:bg-panel hover:text-ink-strong" href="/integrations">
-                      Integrations
-                    </Link>
-                    <Link className="rounded-lg px-3 py-2 text-sm font-medium text-muted transition-colors hover:bg-panel hover:text-ink-strong" href="/guides">
-                      Guides
-                    </Link>
-                    <Link className="rounded-lg px-3 py-2 text-sm font-medium text-muted transition-colors hover:bg-panel hover:text-ink-strong" href="/docs">
-                      Docs
-                    </Link>
-                  </div>
+                  <MarketingNav />
                 ) : null}
                 <Link className={buttonClass({ variant: "signal", size: "small" })} href="/login">
                   Sign in

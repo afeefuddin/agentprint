@@ -44,7 +44,7 @@ export default function DeveloperAiProfilePage() {
     related={[
       { href: "/use-cases/ai-coding-activity-tracker", label: "AI coding activity tracker", detail: "Build the underlying cross-agent history." },
       { href: "/privacy/what-agentprint-collects", label: "What Agentprint collects", detail: "Inspect the automatic activity boundary." },
-      { href: "/guides", label: "Session sharing guides", detail: "Add a selected work story to the profile." }
+      { href: "/product/session-sharing", label: "Session sharing", detail: "Add a selected work story to the profile." }
     ]}
   />;
 }

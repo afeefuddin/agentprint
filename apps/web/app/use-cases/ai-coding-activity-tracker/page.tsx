@@ -42,7 +42,7 @@ export default function AiCodingActivityTrackerPage() {
       { question: "Can I keep the tracker private?", answer: "Yes. Profiles begin private and every activity group has its own public visibility setting." }
     ]}
     related={[
-      { href: "/integrations", label: "Browse integrations", detail: "See source-specific support and limitations." },
+      { href: "/integrations/claude-code", label: "Browse integrations", detail: "See source-specific support and limitations." },
       { href: "/methodology/activity", label: "How activity is measured", detail: "Inspect normalization and deduplication." },
       { href: "/use-cases/developer-ai-profile", label: "Developer AI profile", detail: "Turn the private history into public proof of work." }
     ]}
