@@ -46,8 +46,20 @@ jobs:
         working-directory: cli
         run: go vet ./...
 
+      - name: Validate release version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          tag_version="${GITHUB_REF_NAME#v}"
+          cli_version="$(cd cli && go run ./cmd/agentprint version | awk '{print $2}')"
+          if [ "$tag_version" != "$cli_version" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match CLI version $cli_version" >&2
+            exit 1
+          fi
+
       - name: Build release archives
         env:
+          POSTHOG_PROJECT_TOKEN: ${{ secrets.POSTHOG_PROJECT_TOKEN }}
+          POSTHOG_HOST: ${{ secrets.POSTHOG_HOST }}
           RELEASE_OUTPUT_DIR: ${{ runner.temp }}/agentprint-release
         run: sh scripts/build-local-releases.sh
 
@@ -68,30 +80,11 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v6
+      - name: Download release archives
+        uses: actions/download-artifact@v4
         with:
-          go-version-file: cli/go.mod
-          cache-dependency-path: cli/go.sum
-
-      - name: Validate release version
-        run: |
-          tag_version="${GITHUB_REF_NAME#v}"
-          cli_version="$(cd cli && go run ./cmd/agentprint version | awk '{print $2}')"
-          if [ "$tag_version" != "$cli_version" ]; then
-            echo "Tag $GITHUB_REF_NAME does not match CLI version $cli_version" >&2
-            exit 1
-          fi
-
-      - name: Build release archives
-        env:
-          POSTHOG_PROJECT_TOKEN: ${{ secrets.POSTHOG_PROJECT_TOKEN }}
-          POSTHOG_HOST: ${{ secrets.POSTHOG_HOST }}
-          RELEASE_OUTPUT_DIR: ${{ runner.temp }}/agentprint-release
-        run: sh scripts/build-local-releases.sh
+          name: agentprint-cli-${{ github.sha }}
+          path: ${{ runner.temp }}/agentprint-release
 
       - name: Publish release
         env:

@@ -75,20 +75,22 @@ bun run cli:build
 ./cli/agentprint login --server http://localhost:3000
 ```
 
-Build local release archives for macOS, Linux, and Windows:
+Optionally build local release archives for macOS, Linux, and Windows:
 
 ```sh
 bun run cli:release
 ```
 
-The onboarding installer then downloads them from
-`apps/web/public/releases/latest`.
+Tagged releases are published by GitHub Actions. The onboarding installer and
+existing CLI updaters keep using `agentprint.tech/releases/latest`, which
+redirects to the latest GitHub Release assets.
 
 GitHub Actions runs the CLI tests and builds the same six release archives on
 pull requests and pushes to `main`. Pushing a tag that matches the CLI version,
-such as `v0.4.1`, also publishes the archives and checksum manifest to a GitHub
-Release. Configure the optional `POSTHOG_PROJECT_TOKEN` and `POSTHOG_HOST`
-repository secrets to compile telemetry into tagged release binaries.
+such as `v0.4.2`, publishes those exact archives and checksum manifest to a
+GitHub Release. Configure the optional `POSTHOG_PROJECT_TOKEN` and
+`POSTHOG_HOST` repository secrets to compile telemetry into tagged release
+binaries.
 
 ## Session sharing
 

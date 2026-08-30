@@ -10,6 +10,13 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: ["lucide-react"]
   },
+  async redirects() {
+    return [{
+      source: "/releases/latest/:artifact*",
+      destination: "https://github.com/afeefuddin/agentprint/releases/latest/download/:artifact*",
+      permanent: false
+    }];
+  },
   async headers() {
     return [{
       source: "/(.*)",
