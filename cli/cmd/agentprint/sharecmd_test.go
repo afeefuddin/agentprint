@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -181,5 +182,33 @@ func TestLatestSessionForDirectoryRequiresCurrentProjectMatch(t *testing.T) {
 	}}, current, home)
 	if err == nil || !strings.Contains(err.Error(), "current project") {
 		t.Fatalf("expected current-project error, got %v", err)
+	}
+}
+
+func TestSessionPageReturnsRequestedSlice(t *testing.T) {
+	sessions := []adapters.SessionSummary{
+		{Key: "one"}, {Key: "two"}, {Key: "three"}, {Key: "four"}, {Key: "five"},
+	}
+
+	page, hasMore := sessionPage(sessions, 2, 2)
+	if len(page) != 2 || page[0].Key != "three" || page[1].Key != "four" {
+		t.Fatalf("unexpected second page: %+v", page)
+	}
+	if !hasMore {
+		t.Fatal("expected another page")
+	}
+
+	last, hasMore := sessionPage(sessions, 3, 2)
+	if len(last) != 1 || last[0].Key != "five" || hasMore {
+		t.Fatalf("unexpected last page: %+v, hasMore=%t", last, hasMore)
+	}
+}
+
+func TestSessionPageHandlesExtremePageWithoutOverflow(t *testing.T) {
+	sessions := []adapters.SessionSummary{{Key: "one"}, {Key: "two"}}
+
+	page, hasMore := sessionPage(sessions, math.MaxInt, 2)
+	if len(page) != 0 || hasMore {
+		t.Fatalf("expected empty extreme page, got %+v, hasMore=%t", page, hasMore)
 	}
 }

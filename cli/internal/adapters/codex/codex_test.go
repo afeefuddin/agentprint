@@ -2,12 +2,43 @@ package codex
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 )
+
+func TestResponseSummaryMatchesTranscriptVisibility(t *testing.T) {
+	payloads := []string{
+		`{"type":"message","role":"user","content":[{"type":"input_text","text":"fix the build"}]}`,
+		`{"type":"message","role":"user","content":[{"type":"input_text","text":"<environment_context>hidden</environment_context>"}]}`,
+		`{"type":"message","role":"assistant","content":[{"type":"output_text","text":"Done"}]}`,
+		`{"type":"function_call","name":"exec","arguments":"{}","call_id":"one"}`,
+		`{"type":"function_call_output","call_id":"one","output":"large output"}`,
+		`{"type":"reasoning","summary":[]}`,
+		`{"type":"reasoning","summary":[{"text":"Checked the result"}]}`,
+	}
+	for _, raw := range payloads {
+		var full sessionPayload
+		var summary sessionSummaryPayload
+		if err := json.Unmarshal([]byte(raw), &full); err != nil {
+			t.Fatal(err)
+		}
+		if err := json.Unmarshal([]byte(raw), &summary); err != nil {
+			t.Fatal(err)
+		}
+		role, blocks := responseBlocks(full)
+		prompt, visible := responseSummary(summary)
+		if visible != (len(blocks) > 0) {
+			t.Fatalf("summary visibility diverged for %s", raw)
+		}
+		if prompt != "" && (role != "user" || blocks[0].Text != prompt) {
+			t.Fatalf("summary prompt diverged for %s", raw)
+		}
+	}
+}
 
 func TestCollectsOnlyNumericTokenMetadata(t *testing.T) {
 	root := t.TempDir()
@@ -97,5 +128,19 @@ func TestListSessionsKeepsLocalProjectContext(t *testing.T) {
 	}
 	if sessions[0].Project != "api" || sessions[0].WorkingDirectory != "/Users/dana/work/api" {
 		t.Fatalf("unexpected project context: %+v", sessions[0])
+	}
+	transcript, err := (&Adapter{Root: root, Location: time.UTC}).readFile(context.Background(), path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	startedAt, _ := time.Parse(time.RFC3339, transcript.StartedAt)
+	endedAt, _ := time.Parse(time.RFC3339, transcript.EndedAt)
+	if sessions[0].Key != transcript.Key ||
+		sessions[0].Title != transcript.Title ||
+		sessions[0].Turns != len(transcript.Turns) ||
+		sessions[0].Tokens != transcript.Totals.TotalTokens ||
+		!sessions[0].StartedAt.Equal(startedAt) ||
+		!sessions[0].EndedAt.Equal(endedAt) {
+		t.Fatalf("summary diverged from transcript: summary=%+v transcript=%+v", sessions[0], transcript)
 	}
 }

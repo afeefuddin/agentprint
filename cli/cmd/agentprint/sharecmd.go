@@ -179,32 +179,61 @@ func (application *app) sessions(ctx context.Context, args []string) error {
 	flags := flag.NewFlagSet("sessions", flag.ContinueOnError)
 	jsonOutput := flags.Bool("json", false, "print machine-readable JSON")
 	days := flags.Int("days", 30, "only list sessions touched in the last N days")
-	limit := flags.Int("limit", 25, "maximum sessions to list")
+	limit := flags.Int("limit", 25, "sessions per page")
+	page := flags.Int("page", 1, "page number to list")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
-	sessions := application.listSessions(ctx, sinceDays(*days))
-	if len(sessions) > *limit {
-		sessions = sessions[:*limit]
+	if *page < 1 {
+		return errors.New("page must be 1 or greater")
 	}
+	if *limit < 1 {
+		return errors.New("limit must be 1 or greater")
+	}
+	sessions := application.listSessions(ctx, sinceDays(*days))
+	sessions, hasMore := sessionPage(sessions, *page, *limit)
 	if *jsonOutput {
 		encoded, _ := json.MarshalIndent(sessions, "", "  ")
 		fmt.Println(string(encoded))
 		return nil
 	}
 	if len(sessions) == 0 {
+		if *page > 1 {
+			fmt.Printf("No sessions on page %d. Try an earlier page.\n", *page)
+			return nil
+		}
 		fmt.Printf("No shareable sessions from the last %d days were found.\n", *days)
 		return nil
 	}
-	fmt.Printf("Recent sessions (last %d days). Nothing here has been uploaded.\n\n", *days)
+	fmt.Printf("Recent sessions (last %d days, page %d). Nothing here has been uploaded.\n\n", *days, *page)
 	for index, session := range sessions {
-		fmt.Printf("  %2d  %-12s %s\n", index+1, session.HarnessID, truncateTitle(session.Title, 58))
+		number := (*page-1)*(*limit) + index + 1
+		fmt.Printf("  %2d  %-12s %s\n", number, session.HarnessID, truncateTitle(session.Title, 58))
 		fmt.Printf("      %s · %s · %d turns · %s tokens · id %s\n\n",
 			projectLabel(session), session.EndedAt.Local().Format("2 Jan 15:04"), session.Turns,
 			formatCount(session.Tokens), session.Key)
 	}
 	fmt.Println("Preview one with:  agentprint share <number|id> --dry-run")
+	if *page > 1 {
+		fmt.Printf("Previous page:     agentprint sessions --page %d --limit %d --days %d\n", *page-1, *limit, *days)
+	}
+	if hasMore {
+		fmt.Printf("Next page:         agentprint sessions --page %d --limit %d --days %d\n", *page+1, *limit, *days)
+	}
 	return nil
+}
+
+func sessionPage(sessions []adapters.SessionSummary, page, limit int) ([]adapters.SessionSummary, bool) {
+	if page < 1 || limit < 1 || len(sessions) == 0 {
+		return nil, false
+	}
+	lastPage := (len(sessions)-1)/limit + 1
+	if page > lastPage {
+		return nil, false
+	}
+	start := (page - 1) * limit
+	end := start + min(limit, len(sessions)-start)
+	return sessions[start:end], end < len(sessions)
 }
 
 func (application *app) share(ctx context.Context, args []string) error {
